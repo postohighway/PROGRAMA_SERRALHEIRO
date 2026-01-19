@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Serralheria | Sistema</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- LOGIN -->
+    <main id="view-login" class="view">
+      <div class="card">
+        <h1>Sistema da Serralheria</h1>
+        <p class="muted">Acesso do sistema</p>
+
+        <form id="login-form" class="form">
+          <label>
+            E-mail
+            <input id="login-email" type="email" autocomplete="username" required placeholder="seuemail@empresa.com" />
+          </label>
+
+          <label>
+            Senha
+            <input id="login-password" type="password" autocomplete="current-password" required placeholder="••••••••" />
+          </label>
+
+          <button class="btn primary" type="submit">Entrar</button>
+
+          <div class="row">
+            <button id="btn-demo" class="btn ghost" type="button">Entrar em modo demonstração</button>
+          </div>
+
+          <p class="muted small" id="login-status"></p>
+        </form>
+      </div>
+    </main>
+
+    <!-- APP (LOGADO) -->
+    <main id="view-app" class="view hidden">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="btn-menu" class="icon-btn" aria-label="Menu">
+            ☰
+          </button>
+          <div class="brand">
+            <div class="brand-title">Serralheria</div>
+            <div class="brand-subtitle" id="subtitle">Dashboard</div>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <button id="btn-sync" class="btn ghost small-btn" type="button">Sincronizar</button>
+          <button id="btn-logout" class="btn danger small-btn" type="button">Sair</button>
+        </div>
+      </header>
+
+      <!-- Drawer -->
+      <aside id="drawer" class="drawer hidden" aria-hidden="true">
+        <div class="drawer-content">
+          <div class="drawer-header">
+            <div>
+              <div class="drawer-title">Menu</div>
+              <div class="muted small" id="whoami">Usuário</div>
+            </div>
+            <button id="btn-drawer-close" class="icon-btn" aria-label="Fechar">✕</button>
+          </div>
+
+          <nav class="drawer-nav">
+            <button class="nav-item" data-route="dashboard">Dashboard</button>
+            <button class="nav-item" data-route="clients">Clientes</button>
+            <button class="nav-item" data-route="quotes">Orçamentos</button>
+            <button class="nav-item" data-route="workorders">Ordens de Serviço</button>
+            <button class="nav-item" data-route="finance">Financeiro</button>
+            <button class="nav-item" data-route="settings">Configurações</button>
+          </nav>
+
+          <div class="drawer-footer muted small">
+            <div>Versão: <span id="app-version">2026-01-19</span></div>
+            <div>Modo: <span id="app-mode">Mock</span></div>
+          </div>
+        </div>
+        <div id="drawer-backdrop" class="drawer-backdrop"></div>
+      </aside>
+
+      <!-- CONTENT -->
+      <section class="content">
+        <!-- DASHBOARD -->
+        <section id="page-dashboard" class="page">
+          <h2>Resumo</h2>
+
+          <div class="grid">
+            <div class="kpi">
+              <div class="kpi-label">A receber (mês)</div>
+              <div class="kpi-value" id="kpi-ar">R$ 0,00</div>
+              <div class="kpi-sub muted small" id="kpi-ar-sub">0 itens</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">A pagar (mês)</div>
+              <div class="kpi-value" id="kpi-ap">R$ 0,00</div>
+              <div class="kpi-sub muted small" id="kpi-ap-sub">0 itens</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Caixa (saldo)</div>
+              <div class="kpi-value" id="kpi-cash">R$ 0,00</div>
+              <div class="kpi-sub muted small" id="kpi-cash-sub">Atual</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Atalhos</h3>
+            <div class="row wrap">
+              <button class="btn primary" data-route="finance">Financeiro</button>
+              <button class="btn" data-route="quotes">Novo orçamento</button>
+              <button class="btn" data-route="clients">Novo cliente</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Pendências</h3>
+            <div id="dash-pending" class="list"></div>
+          </div>
+        </section>
+
+        <!-- CLIENTES -->
+        <section id="page-clients" class="page hidden">
+          <div class="page-head">
+            <h2>Clientes</h2>
+            <button id="btn-add-client" class="btn primary">Novo cliente</button>
+          </div>
+
+          <div class="card">
+            <div class="row">
+              <input id="client-search" class="grow" placeholder="Buscar por nome/telefone..." />
+              <button id="btn-client-refresh" class="btn">Atualizar</button>
+            </div>
+          </div>
+
+          <div id="clients-list" class="list"></div>
+
+          <!-- Modal Cliente -->
+          <dialog id="modal-client" class="modal">
+            <form method="dialog" id="client-form" class="form">
+              <h3 id="client-form-title">Novo cliente</h3>
+              <input type="hidden" id="client-id" />
+
+              <label>Nome
+                <input id="client-name" required placeholder="Ex.: João Silva" />
+              </label>
+
+              <label>Telefone/WhatsApp
+                <input id="client-phone" placeholder="Ex.: (34) 9xxxx-xxxx" />
+              </label>
+
+              <label>Endereço
+                <input id="client-address" placeholder="Rua, nº, bairro, cidade" />
+              </label>
+
+              <label>Observações
+                <textarea id="client-notes" rows="3" placeholder="Preferências, referência, etc."></textarea>
+              </label>
+
+              <div class="row">
+                <button class="btn" value="cancel">Cancelar</button>
+                <button id="btn-client-save" class="btn primary" value="default">Salvar</button>
+                <button id="btn-client-delete" class="btn danger hidden" value="default" type="button">Excluir</button>
+              </div>
+
+              <p class="muted small" id="client-status"></p>
+            </form>
+          </dialog>
+        </section>
+
+        <!-- ORÇAMENTOS -->
+        <section id="page-quotes" class="page hidden">
+          <div class="page-head">
+            <h2>Orçamentos</h2>
+            <button id="btn-add-quote" class="btn primary">Novo orçamento</button>
+          </div>
+
+          <div class="card">
+            <div class="row wrap">
+              <select id="quote-status-filter">
+                <option value="">Todos</option>
+                <option value="aberto">Aberto</option>
+                <option value="enviado">Enviado</option>
+                <option value="aprovado">Aprovado</option>
+                <option value="recusado">Recusado</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+              <input id="quote-search" class="grow" placeholder="Buscar por cliente/descrição..." />
+              <button id="btn-quote-refresh" class="btn">Atualizar</button>
+            </div>
+          </div>
+
+          <div id="quotes-list" class="list"></div>
+
+          <dialog id="modal-quote" class="modal">
+            <form method="dialog" id="quote-form" class="form">
+              <h3 id="quote-form-title">Novo orçamento</h3>
+              <input type="hidden" id="quote-id" />
+
+              <label>Cliente
+                <select id="quote-client" required></select>
+              </label>
+
+              <label>Descrição do serviço
+                <textarea id="quote-desc" rows="3" required placeholder="Ex.: Portão basculante 3,0 x 2,2..."></textarea>
+              </label>
+
+              <div class="row">
+                <label class="grow">Valor total (R$)
+                  <input id="quote-total" inputmode="decimal" placeholder="0,00" />
+                </label>
+                <label>Status
+                  <select id="quote-status">
+                    <option value="aberto">Aberto</option>
+                    <option value="enviado">Enviado</option>
+                    <option value="aprovado">Aprovado</option>
+                    <option value="recusado">Recusado</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>Prazo (dias)
+                <input id="quote-deadline-days" inputmode="numeric" placeholder="Ex.: 10" />
+              </label>
+
+              <div class="row">
+                <button class="btn" value="cancel">Cancelar</button>
+                <button id="btn-quote-save" class="btn primary" value="default">Salvar</button>
+                <button id="btn-quote-delete" class="btn danger hidden" value="default" type="button">Excluir</button>
+              </div>
+
+              <p class="muted small" id="quote-status-msg"></p>
+            </form>
+          </dialog>
+        </section>
+
+        <!-- ORDENS DE SERVIÇO -->
+        <section id="page-workorders" class="page hidden">
+          <div class="page-head">
+            <h2>Ordens de Serviço</h2>
+            <button id="btn-add-wo" class="btn primary">Nova OS</button>
+          </div>
+
+          <div class="card">
+            <div class="row wrap">
+              <select id="wo-status-filter">
+                <option value="">Todas</option>
+                <option value="producao">Produção</option>
+                <option value="pintura">Pintura</option>
+                <option value="instalacao">Instalação</option>
+                <option value="entregue">Entregue</option>
+                <option value="finalizado">Finalizado</option>
+              </select>
+              <input id="wo-search" class="grow" placeholder="Buscar por cliente/serviço..." />
+              <button id="btn-wo-refresh" class="btn">Atualizar</button>
+            </div>
+          </div>
+
+          <div id="wo-list" class="list"></div>
+
+          <dialog id="modal-wo" class="modal">
+            <form method="dialog" id="wo-form" class="form">
+              <h3 id="wo-form-title">Nova OS</h3>
+              <input type="hidden" id="wo-id" />
+
+              <label>Cliente
+                <select id="wo-client" required></select>
+              </label>
+
+              <label>Descrição do serviço
+                <textarea id="wo-desc" rows="3" required></textarea>
+              </label>
+
+              <div class="row">
+                <label class="grow">Status
+                  <select id="wo-status">
+                    <option value="producao">Produção</option>
+                    <option value="pintura">Pintura</option>
+                    <option value="instalacao">Instalação</option>
+                    <option value="entregue">Entregue</option>
+                    <option value="finalizado">Finalizado</option>
+                  </select>
+                </label>
+                <label>Entrega (data)
+                  <input id="wo-due" type="date" />
+                </label>
+              </div>
+
+              <div class="row">
+                <button class="btn" value="cancel">Cancelar</button>
+                <button id="btn-wo-save" class="btn primary" value="default">Salvar</button>
+                <button id="btn-wo-delete" class="btn danger hidden" type="button">Excluir</button>
+              </div>
+
+              <p class="muted small" id="wo-status-msg"></p>
+            </form>
+          </dialog>
+        </section>
+
+        <!-- FINANCEIRO -->
+        <section id="page-finance" class="page hidden">
+          <div class="page-head">
+            <h2>Financeiro</h2>
+            <button id="btn-add-tx" class="btn primary">Novo lançamento</button>
+          </div>
+
+          <div class="tabs">
+            <button class="tab active" data-tab="ar">A receber</button>
+            <button class="tab" data-tab="ap">A pagar</button>
+            <button class="tab" data-tab="cash">Caixa</button>
+            <button class="tab" data-tab="reports">Relatórios</button>
+          </div>
+
+          <section id="tab-ar" class="tab-panel">
+            <div class="card">
+              <div class="row wrap">
+                <input id="ar-search" class="grow" placeholder="Buscar (cliente/descrição)..." />
+                <input id="ar-month" type="month" />
+                <button id="btn-ar-refresh" class="btn">Atualizar</button>
+              </div>
+            </div>
+            <div id="ar-list" class="list"></div>
+          </section>
+
+          <section id="tab-ap" class="tab-panel hidden">
+            <div class="card">
+              <div class="row wrap">
+                <input id="ap-search" class="grow" placeholder="Buscar (fornecedor/categoria)..." />
+                <input id="ap-month" type="month" />
+                <button id="btn-ap-refresh" class="btn">Atualizar</button>
+              </div>
+            </div>
+            <div id="ap-list" class="list"></div>
+          </section>
+
+          <section id="tab-cash" class="tab-panel hidden">
+            <div class="card">
+              <div class="row wrap">
+                <input id="cash-month" type="month" />
+                <button id="btn-cash-refresh" class="btn">Atualizar</button>
+              </div>
+              <div class="grid">
+                <div class="kpi">
+                  <div class="kpi-label">Entradas</div>
+                  <div class="kpi-value" id="cash-in">R$ 0,00</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Saídas</div>
+                  <div class="kpi-value" id="cash-out">R$ 0,00</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Saldo</div>
+                  <div class="kpi-value" id="cash-balance">R$ 0,00</div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Extrato</h3>
+              <div id="cash-list" class="list"></div>
+            </div>
+          </section>
+
+          <section id="tab-reports" class="tab-panel hidden">
+            <div class="card">
+              <h3>Resumo do mês</h3>
+              <div class="row wrap">
+                <input id="rep-month" type="month" />
+                <button id="btn-rep-refresh" class="btn">Atualizar</button>
+                <button id="btn-rep-export" class="btn">Gerar resumo para WhatsApp</button>
+              </div>
+              <pre id="rep-output" class="pre"></pre>
+            </div>
+          </section>
+
+          <dialog id="modal-tx" class="modal">
+            <form method="dialog" id="tx-form" class="form">
+              <h3 id="tx-form-title">Novo lançamento</h3>
+              <input type="hidden" id="tx-id" />
+
+              <label>Tipo
+                <select id="tx-type" required>
+                  <option value="receber">A receber</option>
+                  <option value="pagar">A pagar</option>
+                </select>
+              </label>
+
+              <label>Descrição
+                <input id="tx-desc" required placeholder="Ex.: Entrada OS #12 / Compra tubo 2&quot;..." />
+              </label>
+
+              <div class="row">
+                <label class="grow">Valor (R$)
+                  <input id="tx-amount" inputmode="decimal" placeholder="0,00" required />
+                </label>
+                <label>Vencimento
+                  <input id="tx-due" type="date" />
+                </label>
+              </div>
+
+              <label>Categoria
+                <select id="tx-category">
+                  <option value="">(opcional)</option>
+                  <option value="material">Material</option>
+                  <option value="mao_de_obra">Mão de obra</option>
+                  <option value="transporte">Transporte</option>
+                  <option value="energia">Energia</option>
+                  <option value="aluguel">Aluguel</option>
+                  <option value="impostos">Impostos</option>
+                  <option value="outros">Outros</option>
+                </select>
+              </label>
+
+              <label>Status
+                <select id="tx-status">
+                  <option value="aberto">Aberto</option>
+                  <option value="parcial">Parcial</option>
+                  <option value="quitado">Quitado</option>
+                </select>
+              </label>
+
+              <div class="row">
+                <button class="btn" value="cancel">Cancelar</button>
+                <button id="btn-tx-save" class="btn primary" value="default">Salvar</button>
+                <button id="btn-tx-delete" class="btn danger hidden" type="button">Excluir</button>
+              </div>
+
+              <p class="muted small" id="tx-status-msg"></p>
+            </form>
+          </dialog>
+        </section>
+
+        <!-- CONFIG -->
+        <section id="page-settings" class="page hidden">
+          <h2>Configurações</h2>
+          <div class="card">
+            <h3>Conexão</h3>
+            <p class="muted">O sistema pode rodar em modo demonstração (sem banco) ou conectado ao Supabase.</p>
+            <div class="row">
+              <label class="grow">Modo
+                <select id="settings-mode">
+                  <option value="mock">Mock (sem banco)</option>
+                  <option value="supabase">Supabase (online)</option>
+                </select>
+              </label>
+              <button id="btn-settings-apply" class="btn primary">Aplicar</button>
+            </div>
+
+            <hr class="sep" />
+
+            <label>Supabase URL
+              <input id="settings-supabase-url" placeholder="https://xxxx.supabase.co" />
+            </label>
+            <label>Supabase ANON KEY
+              <input id="settings-supabase-key" placeholder="eyJhbGciOi..." />
+            </label>
+
+            <p class="muted small">As chaves ficam no navegador do usuário. Para produção, o ideal é aplicar regras RLS no banco.</p>
+          </div>
+        </section>
+      </section>
+
+      <!-- Bottom Nav -->
+      <nav class="bottomnav">
+        <button class="bn-item active" data-route="dashboard">Dashboard</button>
+        <button class="bn-item" data-route="clients">Clientes</button>
+        <button class="bn-item" data-route="quotes">Orçamentos</button>
+        <button class="bn-item" data-route="finance">Financeiro</button>
+      </nav>
+    </main>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
