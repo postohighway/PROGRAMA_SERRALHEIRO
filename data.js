@@ -1,256 +1,283 @@
-import { createClientIfConfigured } from "./supabaseClient.js";
-import { uid } from "./utils.js";
-
-/**
- * Data Layer
- * - mode "mock": salva em localStorage (funciona offline)
- * - mode "supabase": usa Supabase (precisa URL/KEY + tabelas)
- */
+// data.js
+import { uid, todayISO, monthISO, fmtMoney } from "./utils.js";
 
 const LS_KEY = "serralheria_settings_v1";
-const LS_DB  = "serralheria_mock_db_v1";
 
 let _mode = "mock";
-let _sb = null;
+let _supabase = null;
 
-function loadMockDB(){
-  const raw = localStorage.getItem(LS_DB);
-  if(raw) return JSON.parse(raw);
-
-  const seed = {
-    clients: [
-      { id: uid(), name:"Cliente Demonstração", phone:"(00) 90000-0000", address:"", notes:"" },
-    ],
-    quotes: [
-      { id: uid(), client_id:null, desc:"Portão 3,0 x 2,2 (exemplo)", total: 2500, status:"aberto", deadline_days: 10 },
-    ],
-    workorders: [],
-    txs: [
-      { id: uid(), type:"receber", desc:"Entrada OS (exemplo)", amount: 800, due_date: new Date().toISOString().slice(0,10), category:null, status:"aberto" },
-      { id: uid(), type:"pagar", desc:"Compra material (exemplo)", amount: 320, due_date: new Date().toISOString().slice(0,10), category:"material", status:"aberto" },
-    ],
-  };
-  localStorage.setItem(LS_DB, JSON.stringify(seed));
-  return seed;
-}
-function saveMockDB(db){
-  localStorage.setItem(LS_DB, JSON.stringify(db));
-}
-
-function getSettings(){
-  const raw = localStorage.getItem(LS_KEY);
-  if(!raw) return { mode:"mock", supabaseUrl:"", supabaseKey:"" };
-  try{ return JSON.parse(raw); }catch{ return { mode:"mock", supabaseUrl:"", supabaseKey:"" }; }
-}
-
-function saveSettings(s){
-  localStorage.setItem(LS_KEY, JSON.stringify(s));
-}
-
-async function initFromSettings(){
-  const s = getSettings();
-  _mode = s.mode || "mock";
-
-  if(_mode === "supabase"){
-    _sb = createClientIfConfigured(s.supabaseUrl, s.supabaseKey);
-    if(!_sb){
-      _mode = "mock";
-      _sb = null;
-    }
-  }else{
-    _sb = null;
+function getSavedSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+  } catch {
+    return {};
   }
 }
 
-function setMode(mode){
-  _mode = mode;
-  if(mode !== "supabase") _sb = null;
+function saveSettings(obj) {
+  localStorage.setItem(LS_KEY, JSON.stringify(obj || {}));
 }
 
-function mode(){ return _mode; }
-function getSavedSettings(){ return getSettings(); }
+function setMode(m) {
+  _mode = m === "supabase" ? "supabase" : "mock";
+}
 
-async function login(email, password){
-  if(_mode !== "supabase") return true;
-  const { data, error } = await _sb.auth.signInWithPassword({ email, password });
-  if(error) throw error;
+function mode() {
+  return _mode;
+}
+
+// --- Mock DB ---
+const mockDB = {
+  clients: [],
+  quotes: [],
+  workorders: [],
+  txs: [],
+  session: null,
+};
+
+function ensureMockSeed() {
+  if (mockDB.clients.length > 0) return;
+
+  const c1 = { id: uid("cli"), name: "Cliente Exemplo", phone: "(31) 99999-0000", address: "Rua A, 123", notes: "" };
+  const c2 = { id: uid("cli"), name: "Maria Silva", phone: "(31) 98888-1111", address: "Rua B, 456", notes: "" };
+  mockDB.clients.push(c1, c2);
+
+  mockDB.quotes.push({
+    id: uid("orc"),
+    client_id: c1.id,
+    desc: "Portão basculante",
+    total: 3500,
+    status: "aberto",
+    deadline_days: 7,
+    created_at: todayISO(),
+  });
+
+  mockDB.workorders.push({
+    id: uid("os"),
+    client_id: c2.id,
+    desc: "Grade de janela",
+    status: "producao",
+    due_date: todayISO(),
+    created_at: todayISO(),
+  });
+
+  const m = monthISO(new Date());
+  mockDB.txs.push(
+    { id: uid("tx"), type: "receber", desc: "Entrada Orçamento", amount: 500, due_date: `${m}-10`, category: "Serviços", status: "quitado" },
+    { id: uid("tx"), type: "pagar", desc: "Compra de material", amount: 240, due_date: `${m}-11`, category: "Materiais", status: "quitado" },
+    { id: uid("tx"), type: "receber", desc: "Saldo a receber", amount: 3000, due_date: `${m}-20`, category: "Serviços", status: "aberto" },
+  );
+}
+
+// --- Supabase init ---
+async function initFromSettings() {
+  const s = getSavedSettings();
+  setMode(s.mode || "mock");
+
+  if (_mode === "supabase") {
+    if (!s.supabaseUrl || !s.supabaseKey) {
+      // modo supabase selecionado mas sem credenciais → mantém sem cliente
+      _supabase = null;
+      return;
+    }
+
+    // Import dinâmico do client via CDN (browser)
+    // Caso você já tenha um supabaseClient.js próprio, podemos mudar depois.
+    const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm");
+    _supabase = createClient(s.supabaseUrl, s.supabaseKey);
+  } else {
+    _supabase = null;
+    ensureMockSeed();
+  }
+}
+
+// --- AUTH ---
+async function login(email, password) {
+  if (_mode === "mock") {
+    mockDB.session = { email };
+    return true;
+  }
+
+  if (!_supabase) throw new Error("Supabase não inicializado. Confira URL e Key em Configurações.");
+
+  const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
   return !!data?.session;
 }
 
-async function logout(){
-  if(_mode !== "supabase") return true;
-  await _sb.auth.signOut();
-  return true;
-}
-
-// ---------- CRUD helpers ----------
-function mockList(key){
-  const db = loadMockDB();
-  return [...(db[key] || [])];
-}
-function mockCreate(key, payload){
-  const db = loadMockDB();
-  const item = { id: uid(), ...payload };
-  db[key].push(item);
-  saveMockDB(db);
-  return item;
-}
-function mockUpdate(key, id, payload){
-  const db = loadMockDB();
-  const idx = db[key].findIndex(x => x.id === id);
-  if(idx < 0) throw new Error("Item não encontrado.");
-  db[key][idx] = { ...db[key][idx], ...payload };
-  saveMockDB(db);
-  return db[key][idx];
-}
-function mockRemove(key, id){
-  const db = loadMockDB();
-  db[key] = (db[key] || []).filter(x => x.id !== id);
-  saveMockDB(db);
-}
-
-async function sbList(table){
-  const { data, error } = await _sb.from(table).select("*").order("created_at", { ascending:false });
-  if(error) throw error;
-  return data || [];
-}
-async function sbCreate(table, payload){
-  const { data, error } = await _sb.from(table).insert(payload).select("*").single();
-  if(error) throw error;
-  return data;
-}
-async function sbUpdate(table, id, payload){
-  const { data, error } = await _sb.from(table).update(payload).eq("id", id).select("*").single();
-  if(error) throw error;
-  return data;
-}
-async function sbRemove(table, id){
-  const { error } = await _sb.from(table).delete().eq("id", id);
-  if(error) throw error;
-}
-
-// ---------- Public API ----------
-const clients = {
-  async list(){
-    if(_mode === "supabase") return sbList("clients");
-    return mockList("clients");
-  },
-  async create(payload){
-    if(_mode === "supabase") return sbCreate("clients", payload);
-    return mockCreate("clients", payload);
-  },
-  async update(id, payload){
-    if(_mode === "supabase") return sbUpdate("clients", id, payload);
-    return mockUpdate("clients", id, payload);
-  },
-  async remove(id){
-    if(_mode === "supabase") return sbRemove("clients", id);
-    return mockRemove("clients", id);
+async function logout() {
+  if (_mode === "mock") {
+    mockDB.session = null;
+    return;
   }
+  if (_supabase) await _supabase.auth.signOut();
+}
+
+// --- Helpers Mock CRUD ---
+function mockList(table) {
+  return [...mockDB[table]];
+}
+function mockCreate(table, payload) {
+  const row = { id: uid(table), ...payload };
+  mockDB[table].push(row);
+  return row;
+}
+function mockUpdate(table, id, payload) {
+  const idx = mockDB[table].findIndex(x => x.id === id);
+  if (idx < 0) throw new Error("Item não encontrado.");
+  mockDB[table][idx] = { ...mockDB[table][idx], ...payload };
+  return mockDB[table][idx];
+}
+function mockRemove(table, id) {
+  const idx = mockDB[table].findIndex(x => x.id === id);
+  if (idx < 0) return;
+  mockDB[table].splice(idx, 1);
+}
+
+// --- Collections API (mock por enquanto / supabase depois) ---
+const clients = {
+  async list() {
+    if (_mode === "mock") return mockList("clients");
+
+    // Supabase: tabela "clients"
+    const { data, error } = await _supabase.from("clients").select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+  async create(payload) {
+    if (_mode === "mock") return mockCreate("clients", payload);
+
+    const { data, error } = await _supabase.from("clients").insert(payload).select("*").single();
+    if (error) throw error;
+    return data;
+  },
+  async update(id, payload) {
+    if (_mode === "mock") return mockUpdate("clients", id, payload);
+
+    const { data, error } = await _supabase.from("clients").update(payload).eq("id", id).select("*").single();
+    if (error) throw error;
+    return data;
+  },
+  async remove(id) {
+    if (_mode === "mock") return mockRemove("clients", id);
+
+    const { error } = await _supabase.from("clients").delete().eq("id", id);
+    if (error) throw error;
+  },
 };
 
 const quotes = {
-  async list(){
-    if(_mode === "supabase") return sbList("quotes");
-    return mockList("quotes");
+  async list() {
+    if (_mode === "mock") return mockList("quotes");
+    const { data, error } = await _supabase.from("quotes").select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
   },
-  async create(payload){
-    if(_mode === "supabase") return sbCreate("quotes", payload);
-    return mockCreate("quotes", payload);
+  async create(payload) {
+    if (_mode === "mock") return mockCreate("quotes", payload);
+    const { data, error } = await _supabase.from("quotes").insert(payload).select("*").single();
+    if (error) throw error;
+    return data;
   },
-  async update(id, payload){
-    if(_mode === "supabase") return sbUpdate("quotes", id, payload);
-    return mockUpdate("quotes", id, payload);
+  async update(id, payload) {
+    if (_mode === "mock") return mockUpdate("quotes", id, payload);
+    const { data, error } = await _supabase.from("quotes").update(payload).eq("id", id).select("*").single();
+    if (error) throw error;
+    return data;
   },
-  async remove(id){
-    if(_mode === "supabase") return sbRemove("quotes", id);
-    return mockRemove("quotes", id);
-  }
+  async remove(id) {
+    if (_mode === "mock") return mockRemove("quotes", id);
+    const { error } = await _supabase.from("quotes").delete().eq("id", id);
+    if (error) throw error;
+  },
 };
 
 const workorders = {
-  async list(){
-    if(_mode === "supabase") return sbList("workorders");
-    return mockList("workorders");
+  async list() {
+    if (_mode === "mock") return mockList("workorders");
+    const { data, error } = await _supabase.from("workorders").select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
   },
-  async create(payload){
-    if(_mode === "supabase") return sbCreate("workorders", payload);
-    return mockCreate("workorders", payload);
+  async create(payload) {
+    if (_mode === "mock") return mockCreate("workorders", payload);
+    const { data, error } = await _supabase.from("workorders").insert(payload).select("*").single();
+    if (error) throw error;
+    return data;
   },
-  async update(id, payload){
-    if(_mode === "supabase") return sbUpdate("workorders", id, payload);
-    return mockUpdate("workorders", id, payload);
+  async update(id, payload) {
+    if (_mode === "mock") return mockUpdate("workorders", id, payload);
+    const { data, error } = await _supabase.from("workorders").update(payload).eq("id", id).select("*").single();
+    if (error) throw error;
+    return data;
   },
-  async remove(id){
-    if(_mode === "supabase") return sbRemove("workorders", id);
-    return mockRemove("workorders", id);
-  }
+  async remove(id) {
+    if (_mode === "mock") return mockRemove("workorders", id);
+    const { error } = await _supabase.from("workorders").delete().eq("id", id);
+    if (error) throw error;
+  },
 };
 
 const txs = {
-  async list(){
-    if(_mode === "supabase") return sbList("transactions");
-    return mockList("txs");
+  async list() {
+    if (_mode === "mock") return mockList("txs");
+    const { data, error } = await _supabase.from("txs").select("*").order("due_date", { ascending: true });
+    if (error) throw error;
+    return data || [];
   },
-  async create(payload){
-    if(_mode === "supabase") return sbCreate("transactions", payload);
-    return mockCreate("txs", payload);
+  async create(payload) {
+    if (_mode === "mock") return mockCreate("txs", payload);
+    const { data, error } = await _supabase.from("txs").insert(payload).select("*").single();
+    if (error) throw error;
+    return data;
   },
-  async update(id, payload){
-    if(_mode === "supabase") return sbUpdate("transactions", id, payload);
-    return mockUpdate("txs", id, payload);
+  async update(id, payload) {
+    if (_mode === "mock") return mockUpdate("txs", id, payload);
+    const { data, error } = await _supabase.from("txs").update(payload).eq("id", id).select("*").single();
+    if (error) throw error;
+    return data;
   },
-  async remove(id){
-    if(_mode === "supabase") return sbRemove("transactions", id);
-    return mockRemove("txs", id);
-  }
+  async remove(id) {
+    if (_mode === "mock") return mockRemove("txs", id);
+    const { error } = await _supabase.from("txs").delete().eq("id", id);
+    if (error) throw error;
+  },
 };
 
 const reports = {
-  async monthSummary(yyyyMm){
-    const tx = await txs.list();
-    const monthTx = tx.filter(t => (t.due_date || "").startsWith(yyyyMm));
-    const paid = monthTx.filter(t => t.status === "quitado");
-    const open = monthTx.filter(t => t.status !== "quitado");
+  async monthSummary(yyyyMm) {
+    const list = await txs.list();
+    const month = yyyyMm || monthISO(new Date());
 
-    const inPaid  = paid.filter(t=>t.type==="receber").reduce((a,b)=>a+(Number(b.amount)||0),0);
-    const outPaid = paid.filter(t=>t.type==="pagar").reduce((a,b)=>a+(Number(b.amount)||0),0);
+    const inMonth = list.filter(t => (t.due_date || "").startsWith(month));
+    const ar = inMonth.filter(t => t.type === "receber");
+    const ap = inMonth.filter(t => t.type === "pagar");
 
-    const inOpen  = open.filter(t=>t.type==="receber").reduce((a,b)=>a+(Number(b.amount)||0),0);
-    const outOpen = open.filter(t=>t.type==="pagar").reduce((a,b)=>a+(Number(b.amount)||0),0);
+    const totalAR = ar.reduce((a, b) => a + Number(b.amount || 0), 0);
+    const totalAP = ap.reduce((a, b) => a + Number(b.amount || 0), 0);
+    const quitados = inMonth.filter(t => t.status === "quitado");
+    const cashIn = quitados.filter(t => t.type === "receber").reduce((a, b) => a + Number(b.amount || 0), 0);
+    const cashOut = quitados.filter(t => t.type === "pagar").reduce((a, b) => a + Number(b.amount || 0), 0);
 
     const text =
-`MÊS: ${yyyyMm}
-- Entradas quitadas: R$ ${inPaid.toFixed(2)}
-- Saídas quitadas:   R$ ${outPaid.toFixed(2)}
-- Saldo (quitado):   R$ ${(inPaid - outPaid).toFixed(2)}
-
-PENDENTE NO MÊS
-- A receber:         R$ ${inOpen.toFixed(2)}
-- A pagar:           R$ ${outOpen.toFixed(2)}
+`Resumo do mês ${month}
+- A Receber: ${fmtMoney(totalAR)}
+- A Pagar:   ${fmtMoney(totalAP)}
+- Caixa (quitados): ${fmtMoney(cashIn - cashOut)}
 `;
 
-    const whatsappText =
-`Resumo Financeiro (${yyyyMm})
-Entradas quitadas: R$ ${inPaid.toFixed(2)}
-Saídas quitadas:   R$ ${outPaid.toFixed(2)}
-Saldo:             R$ ${(inPaid - outPaid).toFixed(2)}
-
-Pendente:
-A receber:         R$ ${inOpen.toFixed(2)}
-A pagar:           R$ ${outOpen.toFixed(2)}
-`;
+    const whatsappText = text.replace(/\n/g, "\n");
 
     return { text, whatsappText };
-  }
+  },
 };
 
 export const Data = {
   initFromSettings,
-  setMode,
-  mode,
   getSavedSettings,
   saveSettings,
+  setMode,
+  mode,
   login,
   logout,
   clients,
