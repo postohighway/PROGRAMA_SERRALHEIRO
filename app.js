@@ -32,7 +32,7 @@ function showPage(route){
     dashboard: "Dashboard",
     clients: "Clientes",
     quotes: "Orçamentos",
-    workorders: "Ordens de Serviço",
+    workorders: "Tickets",
     finance: "Financeiro",
     settings: "Configurações",
   };
@@ -395,7 +395,7 @@ function wireWorkorders(){
   els("btn-wo-delete")?.addEventListener("click", async ()=>{
     const id = els("wo-id")?.value;
     if(!id) return;
-    if(!confirm("Excluir OS?")) return;
+    if(!confirm("Excluir ticket?")) return;
     await Data.workorders.remove(id);
     els("modal-wo")?.close();
     await refreshWorkorders();
@@ -404,17 +404,44 @@ function wireWorkorders(){
 
 async function openWoModal(wo=null){
   safeText("wo-status-msg", "");
-  if (els("wo-id")) els("wo-id").value = wo?.id || "";
-  await fillClientSelect("wo-client", wo?.client_id);
 
-  if (els("wo-desc")) els("wo-desc").value = wo?.desc || "";
-  if (els("wo-status")) els("wo-status").value = wo?.status || "producao";
-  if (els("wo-due")) els("wo-due").value = wo?.due_date || "";
+  // Se vier da lista, geralmente vem sem histórico → buscamos completo (premium)
+  let woObj = wo;
+  try{
+    if (wo?.id && (!Array.isArray(wo.history) || wo.history.length === 0)){
+      const full = await Data.workorders.get(wo.id);
+      if (full) woObj = full;
+    }
+  }catch(err){
+    console.warn("Falha ao carregar ticket completo:", err);
+  }
 
-  safeText("wo-form-title", wo ? "Editar OS" : "Nova OS");
-  els("btn-wo-delete")?.classList.toggle("hidden", !wo);
+  if (els("wo-id")) els("wo-id").value = woObj?.id || "";
+  await fillClientSelect("wo-client", woObj?.client_id);
+
+  if (els("wo-desc")) els("wo-desc").value = woObj?.desc || "";
+  if (els("wo-status")) els("wo-status").value = woObj?.status || "aberto";
+  if (els("wo-due")) els("wo-due").value = woObj?.due_date || "";
+
+  safeText("wo-form-title", woObj ? "Editar Ticket" : "Novo Ticket");
+  els("btn-wo-delete")?.classList.toggle("hidden", !woObj?.id);
+
+  // Histórico do ticket (premium)
+  const histObj = woObj ? woObj : { id: null, history: [] };
+  wireWoHistory(histObj);
 
   els("modal-wo")?.showModal();
+}
+
+function fmtDateTime(dt){
+  if(!dt) return "";
+  try{
+    const d = new Date(dt);
+    if(isNaN(d.getTime())) return String(dt);
+    return d.toLocaleString("pt-BR");
+  }catch{
+    return String(dt);
+  }
 }
 
 async function saveWo(){
@@ -422,7 +449,7 @@ async function saveWo(){
   const payload = {
     client_id: els("wo-client")?.value,
     desc: (els("wo-desc")?.value || "").trim(),
-    status: els("wo-status")?.value || "producao",
+    status: els("wo-status")?.value || "aberto",
     due_date: els("wo-due")?.value || null,
   };
 
@@ -462,20 +489,20 @@ async function refreshWorkorders(){
   root.innerHTML = "";
 
   if(filtered.length === 0){
-    root.innerHTML = `<div class="card muted">Nenhuma OS encontrada.</div>`;
+    root.innerHTML = `<div class="card muted">Nenhum ticket encontrado.</div>`;
     return;
   }
 
   for(const wo of filtered){
     const c = clientMap.get(wo.client_id);
-    const due = wo.due_date ? `Entrega: ${wo.due_date}` : "Sem data";
+    const due = wo.due_date ? `Entrega: ${wo.due_date}` : "";
     const el = document.createElement("div");
     el.className = "item";
     el.innerHTML = `
       <div>
         <div class="item-title">${escapeHtml(c?.name || "Cliente")}</div>
         <div class="item-sub">${escapeHtml(wo.desc || "")}</div>
-        <span class="badge">${escapeHtml(wo.status)} • ${escapeHtml(due)}</span>
+        <span class="badge">${escapeHtml(labelStatus(wo.status))}${due ? ` • ${escapeHtml(due)}` : ""}</span>
       </div>
       <div class="item-right">
         <button class="btn small-btn">Abrir</button>
@@ -484,6 +511,156 @@ async function refreshWorkorders(){
     el.querySelector("button")?.addEventListener("click", ()=> openWoModal(wo));
     root.appendChild(el);
   }
+}
+
+
+function labelStatus(s){
+  const v = String(s || "").toLowerCase();
+  if(v === "aberto") return "Aberto";
+  if(v === "recebido") return "Recebido";
+  if(v === "em_analise") return "Em análise";
+  if(v === "concluido") return "Concluído";
+  return s || "";
+}
+
+function fmtHistTime(iso){
+  try{
+    const d = new Date(iso);
+    return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  }catch(_){
+    return iso;
+  }
+}
+
+
+async function renderWoHistory(wo, opts = {}) {
+  const el = document.getElementById("wo-history");
+  if (!el) return;
+
+  const filter = opts.filter ?? document.getElementById("wo-history-filter")?.value ?? "all";
+  const qRaw = opts.search ?? document.getElementById("wo-history-search")?.value ?? "";
+  const q = String(qRaw).trim().toLowerCase();
+
+  const list = Array.isArray(wo.history) ? wo.history.slice() : [];
+  // já vem ordenado no get(), mas garantimos
+  list.sort((a, b) => new Date(a.at || a.created_at || 0) - new Date(b.at || b.created_at || 0));
+
+  const norm = (ev) => {
+    const action = String(ev.action || "");
+    const at = ev.at || ev.created_at || ev.createdAt || null;
+
+    if (action === "create") {
+      return { at, action, kind: "ok", label: "Criado", msg: `Ticket criado • Status: ${labelStatus(ev.to_status || ev.toStatus || wo.status)}` };
+    }
+
+    if (action === "status_change") {
+      return { at, action, kind: "warn", label: "Status", msg: `Status: ${labelStatus(ev.from_status)} → ${labelStatus(ev.to_status)}` };
+    }
+
+    if (action === "note") {
+      return { at, action, kind: "info", label: "Nota", msg: String(ev.note || "") };
+    }
+
+    // fallback
+    return { at, action, kind: "muted", label: action || "Evento", msg: String(ev.note || ev.message || "") };
+  };
+
+  const filtered = list
+    .map(norm)
+    .filter((ev) => {
+      const isManual = ev.action === "note";
+      if (filter === "manual" && !isManual) return false;
+      if (filter === "system" && isManual) return false;
+      if (!q) return true;
+      const hay = `${ev.label} ${ev.msg}`.toLowerCase();
+      return hay.includes(q);
+    });
+
+  if (!filtered.length) {
+    el.innerHTML = `<div class="muted small">Sem histórico ainda.</div>`;
+    return;
+  }
+
+  el.innerHTML = filtered
+    .map((ev) => {
+      const at = fmtHistTime(ev.at);
+      const msg = escapeHtml(String(ev.msg || ""));
+      return `
+        <div class="tl-item">
+          <div class="tl-dot ${ev.kind}"></div>
+          <div class="tl-card">
+            <div class="tl-head">
+              <div class="tl-badge ${ev.kind}">${escapeHtml(ev.label)}</div>
+              <div class="tl-time small muted">${escapeHtml(at)}</div>
+            </div>
+            <div class="tl-msg">${msg}</div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function wireWoHistory(wo) {
+  const sel = document.getElementById("wo-history-filter");
+  const search = document.getElementById("wo-history-search");
+  const btnRefresh = document.getElementById("btn-wo-history-refresh");
+  const btnAdd = document.getElementById("btn-wo-history-add");
+  const note = document.getElementById("wo-history-note");
+
+  const rerender = () => renderWoHistory(wo);
+
+  // remove handlers antigos (evitar duplicação ao abrir modal várias vezes)
+  const cloneAndReplace = (node) => {
+    if (!node) return null;
+    const clone = node.cloneNode(true);
+    node.parentNode.replaceChild(clone, node);
+    return clone;
+  };
+
+  const sel2 = cloneAndReplace(sel);
+  const search2 = cloneAndReplace(search);
+  const btnRefresh2 = cloneAndReplace(btnRefresh);
+  const btnAdd2 = cloneAndReplace(btnAdd);
+  const note2 = note; // textarea não precisa clonar
+
+  sel2?.addEventListener("change", rerender);
+  search2?.addEventListener("input", rerender);
+
+  btnRefresh2?.addEventListener("click", async () => {
+    if (!wo.id) return;
+    try{
+      const fresh = await Data.workorders.get(wo.id);
+      if (fresh) Object.assign(wo, fresh);
+      await renderWoHistory(wo);
+      toast("Histórico atualizado.");
+    }catch(e){
+      console.error(e);
+      toast("Falha ao atualizar histórico.");
+    }
+  });
+
+  btnAdd2?.addEventListener("click", async () => {
+    if (!wo.id) return toast("Salve o ticket primeiro para liberar o histórico.");
+    const text = String(note2?.value || "").trim();
+    if (!text) return toast("Escreva uma nota primeiro.");
+    btnAdd2.disabled = true;
+    try {
+      const updated = await Data.workorders.addNote(wo.id, text);
+      if (updated) Object.assign(wo, updated);
+      if (note2) note2.value = "";
+      await renderWoHistory(wo);
+      toast("Nota adicionada no histórico.");
+    } catch (e) {
+      console.error(e);
+      toast("Erro ao adicionar nota.");
+    } finally {
+      btnAdd2.disabled = false;
+    }
+  });
+
+  // primeira renderização
+  renderWoHistory(wo);
 }
 
 function wireFinance(){
