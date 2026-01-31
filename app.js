@@ -116,9 +116,10 @@ function wireAuth(){
 
   els("btn-demo")?.addEventListener("click", async ()=>{
     try{
-      // Demo deve funcionar mesmo sem Supabase
+      // Demo deve funcionar mesmo se o usuário salvou modo Supabase sem credenciais
+      Data.saveSettings({ mode: "mock", supabaseUrl: "", supabaseKey: "" });
+      await Data.initFromSettings();
       state.mode = "mock";
-      Data.setMode("mock");
       state.user = { email: "demo@local" };
       afterLogin();
     }catch(err){
