@@ -1,134 +1,38 @@
-const STORAGE_KEY = "app_settings";
+const App = (() => {
 
-let _mode = "mock";
-let _supabase = null;
-
-function getSavedSettings(){
-  try{
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-  }catch{
-    return {};
+  function init() {
+    console.log("App iniciado");
   }
-}
 
-function saveSettings(s){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-}
+  function enterDemo() {
+    try {
+      Data.saveSettings({
+        mode: "mock"
+      });
 
-async function initFromSettings(){
-  const s = getSavedSettings();
-  _mode = s.mode || "mock";
-
-  if(_mode === "supabase"){
-    if(!s.supabaseUrl || !s.supabaseKey){
-      throw new Error("Supabase não configurado.");
+      location.reload();
+    } catch (e) {
+      console.error("Erro ao entrar em demo:", e);
     }
-
-    if(!window.supabase){
-      throw new Error("SDK Supabase não carregado.");
-    }
-
-    _supabase = window.supabase.createClient(
-      s.supabaseUrl,
-      s.supabaseKey
-    );
-  } else {
-    _supabase = null;
   }
-}
 
-function mode(){
-  return _mode;
-}
+  function login(email, password) {
+    const settings = Data.getSavedSettings();
 
-async function login(){
-  return true;
-}
-
-async function logout(){
-  return true;
-}
-
-/* =======================
-   MOCK STORAGE
-======================= */
-
-function mockTable(name){
-  const key = `mock_${name}`;
-  return {
-    list(){
-      return JSON.parse(localStorage.getItem(key) || "[]");
-    },
-    save(rows){
-      localStorage.setItem(key, JSON.stringify(rows));
+    if (settings.mode === "supabase") {
+      alert("Login real ainda será implementado");
+      return;
     }
-  };
-}
 
-function createCrud(table){
-  const t = mockTable(table);
+    enterDemo();
+  }
 
   return {
-    async list(){
-      if(_mode === "mock") return t.list();
-      const { data, error } = await _supabase.from(table).select("*");
-      if(error) throw error;
-      return data || [];
-    },
-
-    async create(payload){
-      if(_mode === "mock"){
-        const rows = t.list();
-        payload.id = crypto.randomUUID();
-        rows.push(payload);
-        t.save(rows);
-        return payload;
-      }
-      const { data, error } = await _supabase.from(table).insert(payload).select().single();
-      if(error) throw error;
-      return data;
-    },
-
-    async update(id, payload){
-      if(_mode === "mock"){
-        const rows = t.list();
-        const i = rows.findIndex(r=> r.id === id);
-        if(i>=0){
-          rows[i] = {...rows[i], ...payload};
-          t.save(rows);
-        }
-        return;
-      }
-      const { error } = await _supabase.from(table).update(payload).eq("id", id);
-      if(error) throw error;
-    },
-
-    async remove(id){
-      if(_mode === "mock"){
-        const rows = t.list().filter(r=> r.id !== id);
-        t.save(rows);
-        return;
-      }
-      const { error } = await _supabase.from(table).delete().eq("id", id);
-      if(error) throw error;
-    }
+    init,
+    login,
+    enterDemo
   };
-}
 
-/* =======================
-   EXPORT
-======================= */
+})();
 
-export const Data = {
-  initFromSettings,
-  getSavedSettings,
-  saveSettings,
-  mode,
-  login,
-  logout,
-
-  clients: createCrud("clients"),
-  quotes: createCrud("quotes"),
-  workorders: createCrud("workorders"),
-  txs: createCrud("txs"),
-};
+document.addEventListener("DOMContentLoaded", App.init);
