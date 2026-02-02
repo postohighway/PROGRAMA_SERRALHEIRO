@@ -3,6 +3,8 @@
 // Observação:
 // - O front usa "clients", mas no banco (Supabase) usamos a tabela "customers".
 
+console.log("[data.js] VERSION 2026-02-02A");
+
 import { uid, todayISO, monthISO } from "./utils.js";
 import { createClientIfConfigured } from "./supabaseClient.js";
 
@@ -54,6 +56,24 @@ function ensureMockSeed() {
   const c2 = { id: uid("cli"), name: "Maria Silva", phone: "(31) 98888-1111", address: "Rua B, 456", notes: "" };
   mockDB.clients.push(c1, c2);
 
+  mockDB.quotes.push({
+    id: uid("quo"),
+    company_id: mockDB.active_company_id,
+    ticket_id: null,
+    status: "aberto",
+    currency: "BRL",
+    subtotal: 3500,
+    discount: 0,
+    surcharge: 0,
+    total: 3500,
+    sent_at: null,
+    approved_at: null,
+    rejected_at: null,
+    approval_note: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  });
+
   const woId = uid("wo");
   mockDB.workorders.push({
     id: woId,
@@ -72,7 +92,7 @@ function ensureMockSeed() {
   mockDB.txs.push(
     { id: uid("tx"), company_id: mockDB.active_company_id, type: "receber", desc: "Entrada Orçamento", amount: 500, due_date: `${m}-10`, category: "Serviços", status: "quitado", created_at: new Date().toISOString() },
     { id: uid("tx"), company_id: mockDB.active_company_id, type: "pagar", desc: "Compra de material", amount: 240, due_date: `${m}-11`, category: "Materiais", status: "quitado", created_at: new Date().toISOString() },
-    { id: uid("tx"), company_id: mockDB.active_company_id, type: "receber", desc: "Saldo a receber", amount: 3000, due_date: `${m}-20`, category: "Serviços", status: "aberto", created_at: new Date().toISOString() }
+    { id: uid("tx"), company_id: mockDB.active_company_id, type: "receber", desc: "Saldo a receber", amount: 3000, due_date: `${m}-20`, category: "Serviços", status: "aberto", created_at: new Date().toISOString() },
   );
 }
 
@@ -107,7 +127,7 @@ async function ensureSessionLoaded() {
 }
 
 // ---------------------------
-// Supabase init (com cache do client)
+// Supabase init (COM CACHE)
 // ---------------------------
 async function initFromSettings() {
   const s = getSavedSettings();
@@ -132,23 +152,23 @@ async function initFromSettings() {
 
   const sig = `${s.supabaseUrl}|${s.supabaseKey}`;
 
-  // ✅ evita "Multiple GoTrueClient"
+  // ✅ evita criar múltiplos clients
   if (!_supabase || _supabaseSig !== sig) {
     _supabase = createClientIfConfigured(s.supabaseUrl, s.supabaseKey);
     _supabaseSig = sig;
   }
 
-  // força carregar sessão do storage já no boot
+  // força carregar sessão já no boot
   await ensureSessionLoaded();
 }
 
 // ---------------------------
-// Company context (MULTIEMPRESAS)
+// Company context (RLS / MULTIEMPRESAS)
 // ---------------------------
 async function getActiveCompanyId() {
   const s = getSavedSettings();
 
-  // cache local (multi-empresas)
+  // cache local
   if (typeof s.activeCompanyId === "string" && s.activeCompanyId.trim()) {
     return s.activeCompanyId;
   }
@@ -184,7 +204,6 @@ async function getActiveCompanyId() {
     return companyId;
   }
 
-  // se userId é null, a sessão não está carregada (anon) => RLS filtra tudo
   if (!userId) {
     throw new Error("Sessão do Supabase não carregou (usuário anon). Faça logout/login e tente novamente.");
   }
@@ -212,7 +231,7 @@ async function login(email, password) {
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
-  // limpa cache ruim
+  // limpa cache de empresa para recalcular
   const s = getSavedSettings();
   delete s.activeCompanyId;
   saveSettings(s);
@@ -220,7 +239,7 @@ async function login(email, password) {
   await ensureSessionLoaded();
   await getActiveCompanyId();
 
-  return !!data?.session;
+  return !!(data && data.session);
 }
 
 async function logout() {
@@ -232,7 +251,6 @@ async function logout() {
     mockDB.session = null;
     return true;
   }
-
   if (_supabase) await _supabase.auth.signOut();
   return true;
 }
@@ -306,6 +324,19 @@ const clients = {
 };
 
 // ---------------------------
+// QUOTES
+// ---------------------------
+const quotes = {
+  async list() {
+    if (_mode === "mock") return mockList("quotes");
+    const sb = mustSupabase();
+    const { data, error } = await sb.from("quotes").select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+};
+
+// ---------------------------
 // WORKORDERS
 // ---------------------------
 const workorders = {
@@ -366,6 +397,8 @@ const txs = {
     const sb = mustSupabase();
     const companyId = await getActiveCompanyId();
 
+    if (!companyId) throw new Error("Não foi possível determinar a company ativa.");
+
     const row = payload?.company_id ? payload : { ...payload, company_id: companyId };
 
     const { data, error } = await sb.from("txs").insert(row).select("*").single();
@@ -416,6 +449,7 @@ export const Data = {
   setActiveCompanyId,
 
   clients,
+  quotes,
   workorders,
   txs,
   reports,
