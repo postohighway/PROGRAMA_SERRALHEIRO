@@ -13,85 +13,56 @@ let _supabase = null;
 // ---------------------------
 // Settings (localStorage)
 // ---------------------------
-function getSavedSettings() {
+export function getSavedSettings() {
   try {
-    return JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
   }
 }
 
-function saveSettings(obj) {
-  localStorage.setItem(LS_KEY, JSON.stringify(obj || {}));
+export function saveSettings(s) {
+  localStorage.setItem(LS_KEY, JSON.stringify(s || {}));
 }
 
-function setMode(m) {
-  _mode = m === "supabase" ? "supabase" : "mock";
-}
-
-function mode() {
-  return _mode;
+export function setMode(m) {
+  _mode = m;
 }
 
 // ---------------------------
-// Mock DB
+// Mock DB (seed simples)
 // ---------------------------
 const mockDB = {
   session: null,
   active_company_id: "mock-company-1",
-  clients: [],
+
+  customers: [
+    { id: "c1", company_id: "mock-company-1", name: "Cliente A", phone: "(34) 99999-0000", city: "Uberlândia" },
+    { id: "c2", company_id: "mock-company-1", name: "Cliente B", phone: "(34) 98888-1111", city: "Uberlândia" },
+  ],
   quotes: [],
+  quote_items: [],
   workorders: [],
-  txs: [],
+  txs: [
+    { id: "t1", company_id: "mock-company-1", type: "receber", desc: "Serviço X", amount: 500, due_date: todayISO(), category: "Serviços", status: "aberto", created_at: new Date().toISOString() },
+  ],
 };
 
 function ensureMockSeed() {
-  if (mockDB.clients.length) return;
+  // se quiser seed adicional no futuro, aqui é o lugar
+}
 
-  const c1 = { id: uid("cli"), name: "Cliente Exemplo", phone: "(31) 99999-0000", address: "Rua A, 123", notes: "" };
-  const c2 = { id: uid("cli"), name: "Maria Silva", phone: "(31) 98888-1111", address: "Rua B, 456", notes: "" };
-  mockDB.clients.push(c1, c2);
-
-  mockDB.quotes.push({
-    id: uid("quo"),
-    company_id: mockDB.active_company_id,
-    ticket_id: null,
-    status: "aberto",
-    currency: "BRL",
-    subtotal: 3500,
-    discount: 0,
-    surcharge: 0,
-    total: 3500,
-    sent_at: null,
-    approved_at: null,
-    rejected_at: null,
-    approval_note: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
-
-  const woId = uid("wo");
-  mockDB.workorders.push({
-    id: woId,
-    company_id: mockDB.active_company_id,
-    ticket_id: null,
-    client_id: c2.id,
-    desc: "Grade de janela",
-    status: "producao",
-    due_date: todayISO(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    history: [
-      { action: "create", at: new Date().toISOString(), to_status: "aberto" },
-    ],
-  });
-
-  const m = monthISO(new Date());
-  mockDB.txs.push(
-    { id: uid("tx"), company_id: mockDB.active_company_id, type: "receber", desc: "Entrada Orçamento", amount: 500, due_date: `${m}-10`, category: "Serviços", status: "quitado", created_at: new Date().toISOString() },
-    { id: uid("tx"), company_id: mockDB.active_company_id, type: "pagar", desc: "Compra de material", amount: 240, due_date: `${m}-11`, category: "Materiais", status: "quitado", created_at: new Date().toISOString() },
-    { id: uid("tx"), company_id: mockDB.active_company_id, type: "receber", desc: "Saldo a receber", amount: 3000, due_date: `${m}-20`, category: "Serviços", status: "aberto", created_at: new Date().toISOString() },
-  );
+function seedDemoDataIfEmpty() {
+  // opcional: preenche dados se estiver vazio
+  if (mockDB.txs.length === 0) {
+    const m = monthISO(new Date());
+    mockDB.txs.push(
+      { id: "tseed1", company_id: "mock-company-1", type: "receber", desc: "Venda balcão", amount: 1200, due_date: `${m}-05`, category: "Vendas", status: "aberto", created_at: new Date().toISOString() },
+      { id: "tseed2", company_id: "mock-company-1", type: "pagar", desc: "Fornecedor", amount: 300, due_date: `${m}-10`, category: "Compras", status: "aberto", created_at: new Date().toISOString() },
+      { id: "tseed3", company_id: "mock-company-1", type: "pagar", desc: "Aluguel", amount: 900, due_date: `${m}-20`, category: "Fixos", status: "aberto", created_at: new Date().toISOString() },
+    );
+  }
 }
 
 // ---------------------------
@@ -113,16 +84,50 @@ async function initFromSettings() {
       ensureMockSeed();
       return;
     }
-    const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm");
-    _supabase = createClient(s.supabaseUrl, s.supabaseKey);
+
+    // Evita múltiplas instâncias do GoTrueClient no mesmo contexto (warning do console)
+    // Recria o client apenas se URL/KEY mudarem.
+    const sameClient =
+      _supabase &&
+      _supabase.__serralheria_url === s.supabaseUrl &&
+      _supabase.__serralheria_key === s.supabaseKey;
+
+    if (!sameClient) {
+      const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+      _supabase = createClient(s.supabaseUrl, s.supabaseKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          // storageKey fixo para evitar colisões com outras apps no mesmo domínio
+          storageKey: "serralheria_auth_v1",
+        },
+      });
+
+      // tags internas para detectar mudança de config
+      _supabase.__serralheria_url = s.supabaseUrl;
+      _supabase.__serralheria_key = s.supabaseKey;
+    }
+
+    // Garante que a sessão já foi carregada do storage antes de qualquer query com RLS
+    try {
+      await _supabase.auth.getSession();
+    } catch {
+      // não bloqueia init
+    }
   } else {
     _supabase = null;
     ensureMockSeed();
   }
 }
 
+function mustSupabase() {
+  if (!_supabase) throw new Error("Supabase não inicializado. Confira URL e Key em Configurações.");
+  return _supabase;
+}
+
 // ---------------------------
-// Company context (RLS)
+// Multi-empresa (company ativa)
 // ---------------------------
 async function getActiveCompanyId() {
   const s = getSavedSettings();
@@ -155,11 +160,6 @@ async function setActiveCompanyId(companyId) {
   return companyId;
 }
 
-function mustSupabase() {
-  if (!_supabase) throw new Error("Supabase não inicializado.");
-  return _supabase;
-}
-
 // ---------------------------
 // AUTH
 // ---------------------------
@@ -173,6 +173,7 @@ async function login(email, password) {
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
+  // depois de logar, tenta resolver a company ativa
   await getActiveCompanyId();
   return !!(data && data.session);
 }
@@ -197,344 +198,181 @@ function mockCreate(table, payload) {
 }
 function mockUpdate(table, id, payload) {
   const idx = mockDB[table].findIndex((x) => x.id === id);
-  if (idx < 0) throw new Error("Item não encontrado.");
+  if (idx < 0) throw new Error("Item não encontrado");
   mockDB[table][idx] = { ...mockDB[table][idx], ...payload };
   return mockDB[table][idx];
 }
 function mockRemove(table, id) {
   const idx = mockDB[table].findIndex((x) => x.id === id);
-  if (idx >= 0) mockDB[table].splice(idx, 1);
+  if (idx < 0) return true;
+  mockDB[table].splice(idx, 1);
+  return true;
 }
 
 // ---------------------------
-// CLIENTS (front) => CUSTOMERS (db)
+// Collections
 // ---------------------------
 const clients = {
   async list() {
-    if (_mode === "mock") return mockList("clients");
-
+    if (_mode === "mock") return mockList("customers");
     const sb = mustSupabase();
     const { data, error } = await sb.from("customers").select("*").order("created_at", { ascending: false });
     if (error) throw error;
     return data || [];
   },
-
   async create(payload) {
-    if (_mode === "mock") return mockCreate("clients", payload);
-
+    if (_mode === "mock") return mockCreate("customers", payload);
     const sb = mustSupabase();
-    const companyId = await getActiveCompanyId();
-    if (!companyId) throw new Error("Não foi possível determinar a company ativa.");
-
-    const row = {
-      company_id: companyId,
-      name: payload && payload.name ? payload.name : "",
-      phone: payload && payload.phone ? payload.phone : "",
-      email: payload && payload.email ? payload.email : null,
-      address: payload && payload.address ? payload.address : null,
-      created_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await sb.from("customers").insert(row).select("*").single();
+    const company_id = await getActiveCompanyId();
+    if (!company_id) throw new Error("Não foi possível determinar a company ativa.");
+    const { data, error } = await sb.from("customers").insert([{ ...payload, company_id }]).select("*").single();
     if (error) throw error;
     return data;
   },
-
   async update(id, payload) {
-    if (_mode === "mock") return mockUpdate("clients", id, payload);
-
+    if (_mode === "mock") return mockUpdate("customers", id, payload);
     const sb = mustSupabase();
     const { data, error } = await sb.from("customers").update(payload).eq("id", id).select("*").single();
     if (error) throw error;
     return data;
   },
-
   async remove(id) {
-    if (_mode === "mock") return mockRemove("clients", id);
-
+    if (_mode === "mock") return mockRemove("customers", id);
     const sb = mustSupabase();
     const { error } = await sb.from("customers").delete().eq("id", id);
     if (error) throw error;
+    return true;
   },
 };
 
-// ---------------------------
-// QUOTES
-// ---------------------------
 const quotes = {
   async list() {
     if (_mode === "mock") return mockList("quotes");
-
     const sb = mustSupabase();
     const { data, error } = await sb.from("quotes").select("*").order("created_at", { ascending: false });
     if (error) throw error;
     return data || [];
   },
-
   async create(payload) {
     if (_mode === "mock") return mockCreate("quotes", payload);
-
     const sb = mustSupabase();
-    const companyId = await getActiveCompanyId();
-    if (!companyId) throw new Error("Não foi possível determinar a company ativa.");
-    const row = payload && payload.company_id ? payload : { ...payload, company_id: companyId };
-
-    const { data, error } = await sb.from("quotes").insert(row).select("*").single();
+    const company_id = await getActiveCompanyId();
+    if (!company_id) throw new Error("Não foi possível determinar a company ativa.");
+    const { data, error } = await sb.from("quotes").insert([{ ...payload, company_id }]).select("*").single();
     if (error) throw error;
     return data;
   },
-
   async update(id, payload) {
     if (_mode === "mock") return mockUpdate("quotes", id, payload);
-
     const sb = mustSupabase();
     const { data, error } = await sb.from("quotes").update(payload).eq("id", id).select("*").single();
     if (error) throw error;
     return data;
   },
-
   async remove(id) {
     if (_mode === "mock") return mockRemove("quotes", id);
-
     const sb = mustSupabase();
     const { error } = await sb.from("quotes").delete().eq("id", id);
     if (error) throw error;
+    return true;
   },
 };
-
-// ---------------------------
-// WORKORDERS
-// ---------------------------
-function parseStatusChangeBody(body) {
-  // ex: "aberto → em_analise"
-  const s = String(body || "");
-  const parts = s.split("→");
-  if (parts.length < 2) return { from_status: null, to_status: null };
-  const from_status = parts[0].trim();
-  const to_status = parts.slice(1).join("→").trim();
-  return { from_status, to_status };
-}
-
-async function loadTicketHistoryFor(ticketId) {
-  const sb = mustSupabase();
-  const { data, error } = await sb
-    .from("ticket_history")
-    .select("*")
-    .eq("ticket_id", ticketId)
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-
-  const out = [];
-  for (const ev of data || []) {
-    const action = ev.event_type === "note" ? "note" : (ev.event_type || "");
-    if (action === "status_change") {
-      const st = parseStatusChangeBody(ev.body);
-      out.push({ action: "status_change", at: ev.created_at, from_status: st.from_status, to_status: st.to_status });
-      continue;
-    }
-    if (action === "create") {
-      out.push({ action: "create", at: ev.created_at, to_status: "aberto" });
-      continue;
-    }
-    if (action === "note") {
-      out.push({ action: "note", at: ev.created_at, note: ev.body || "" });
-      continue;
-    }
-    out.push({ action: action || "event", at: ev.created_at, note: ev.body || "" });
-  }
-  return out;
-}
 
 const workorders = {
   async list() {
     if (_mode === "mock") return mockList("workorders");
-
     const sb = mustSupabase();
     const { data, error } = await sb.from("workorders").select("*").order("created_at", { ascending: false });
     if (error) throw error;
     return data || [];
   },
-
-  async get(id) {
-    if (_mode === "mock") {
-      const wo = mockDB.workorders.find((x) => x.id === id);
-      if (!wo) throw new Error("OS não encontrada.");
-      return { ...wo, history: Array.isArray(wo.history) ? wo.history.slice() : [] };
-    }
-
-    const sb = mustSupabase();
-    const { data, error } = await sb.from("workorders").select("*").eq("id", id).single();
-    if (error) throw error;
-
-    const wo = data;
-    if (wo && wo.ticket_id) {
-      try {
-        wo.history = await loadTicketHistoryFor(wo.ticket_id);
-      } catch {
-        wo.history = [];
-      }
-    } else {
-      wo.history = [];
-    }
-
-    return wo;
-  },
-
   async create(payload) {
-    if (_mode === "mock") {
-      const row = mockCreate("workorders", { ...payload, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-      row.history = [{ action: "create", at: new Date().toISOString(), to_status: row.status || "aberto" }];
-      return row;
-    }
-
+    if (_mode === "mock") return mockCreate("workorders", payload);
     const sb = mustSupabase();
-    const companyId = await getActiveCompanyId();
-    if (!companyId) throw new Error("Não foi possível determinar a company ativa.");
-
-    const row = payload && payload.company_id ? payload : { ...payload, company_id: companyId };
-    const { data, error } = await sb.from("workorders").insert(row).select("*").single();
+    const company_id = await getActiveCompanyId();
+    if (!company_id) throw new Error("Não foi possível determinar a company ativa.");
+    const { data, error } = await sb.from("workorders").insert([{ ...payload, company_id }]).select("*").single();
     if (error) throw error;
     return data;
   },
-
   async update(id, payload) {
-    if (_mode === "mock") return mockUpdate("workorders", id, { ...payload, updated_at: new Date().toISOString() });
-
+    if (_mode === "mock") return mockUpdate("workorders", id, payload);
     const sb = mustSupabase();
     const { data, error } = await sb.from("workorders").update(payload).eq("id", id).select("*").single();
     if (error) throw error;
     return data;
   },
-
   async remove(id) {
     if (_mode === "mock") return mockRemove("workorders", id);
-
     const sb = mustSupabase();
     const { error } = await sb.from("workorders").delete().eq("id", id);
     if (error) throw error;
-  },
-
-  async addNote(workorderId, text) {
-    const noteText = String(text || "").trim();
-    if (!noteText) return null;
-
-    if (_mode === "mock") {
-      const wo = mockDB.workorders.find((x) => x.id === workorderId);
-      if (!wo) throw new Error("OS não encontrada.");
-      if (!Array.isArray(wo.history)) wo.history = [];
-      wo.history.push({ action: "note", at: new Date().toISOString(), note: noteText });
-      return { history: wo.history.slice() };
-    }
-
-    const sb = mustSupabase();
-
-    // carrega workorder pra descobrir ticket_id
-    const { data: wo, error: ewo } = await sb.from("workorders").select("id,ticket_id,company_id").eq("id", workorderId).single();
-    if (ewo) throw ewo;
-    if (!wo || !wo.ticket_id) throw new Error("Esta OS não está ligada a um ticket (ticket_id vazio).");
-
-    // tenta pegar company_id pelo ticket (mais correto)
-    let ticketCompanyId = wo.company_id || null;
-    try {
-      const { data: t, error: et } = await sb.from("tickets").select("company_id").eq("id", wo.ticket_id).single();
-      if (!et && t && t.company_id) ticketCompanyId = t.company_id;
-    } catch {}
-
-    // user atual (opcional)
-    let authorName = null;
-    let authorType = "usuario";
-    try {
-      const { data: u } = await sb.auth.getUser();
-      if (u && u.user && u.user.email) authorName = u.user.email;
-    } catch {}
-
-    const row = {
-      ticket_id: wo.ticket_id,
-      company_id: ticketCompanyId,
-      source: "message",
-      event_type: "note",
-      author_type: authorType,
-      author_name: authorName,
-      title: "Nota",
-      body: noteText,
-      meta: authorName ? { author_name: authorName, author_type: authorType } : { author_type: authorType },
-    };
-
-    const { error } = await sb.from("ticket_history").insert(row);
-    if (error) throw error;
-
-    // devolve história atualizada
-    const history = await loadTicketHistoryFor(wo.ticket_id);
-    return { history };
+    return true;
   },
 };
 
-// ---------------------------
-// TXS
-// ---------------------------
 const txs = {
   async list() {
-    if (_mode === "mock") return mockList("txs");
-
+    if (_mode === "mock") {
+      seedDemoDataIfEmpty();
+      return mockList("txs").sort((a, b) => (b.due_date || "").localeCompare(a.due_date || ""));
+    }
     const sb = mustSupabase();
-    const { data, error } = await sb.from("txs").select("*").order("created_at", { ascending: false });
+    const { data, error } = await sb.from("txs").select("*").order("due_date", { ascending: true });
     if (error) throw error;
     return data || [];
   },
-
   async create(payload) {
     if (_mode === "mock") return mockCreate("txs", payload);
-
     const sb = mustSupabase();
-    const companyId = await getActiveCompanyId();
-    if (!companyId) throw new Error("Não foi possível determinar a company ativa.");
-    const row = payload && payload.company_id ? payload : { ...payload, company_id: companyId };
+    const company_id = await getActiveCompanyId();
+    if (!company_id) throw new Error("Não foi possível determinar a company ativa.");
 
-    const { data, error } = await sb.from("txs").insert(row).select("*").single();
+    const row = {
+      company_id,
+      type: payload.type,
+      desc: payload.desc ?? "",
+      amount: Number(payload.amount ?? 0),
+      due_date: payload.due_date ?? null,
+      category: payload.category ?? null,
+      status: payload.status ?? "aberto",
+    };
+
+    const { data, error } = await sb.from("txs").insert([row]).select("*").single();
     if (error) throw error;
     return data;
   },
-
   async update(id, payload) {
     if (_mode === "mock") return mockUpdate("txs", id, payload);
-
     const sb = mustSupabase();
     const { data, error } = await sb.from("txs").update(payload).eq("id", id).select("*").single();
     if (error) throw error;
     return data;
   },
-
   async remove(id) {
     if (_mode === "mock") return mockRemove("txs", id);
-
     const sb = mustSupabase();
     const { error } = await sb.from("txs").delete().eq("id", id);
     if (error) throw error;
+    return true;
   },
 };
 
 // ---------------------------
-// REPORTS (sem regex)
+// Reports (placeholder)
 // ---------------------------
 const reports = {
-  monthSummary(list) {
-    const map = {};
-    const arr = Array.isArray(list) ? list : [];
-
-    for (const tx of arr) {
-      const due = String(tx && tx.due_date ? tx.due_date : "");
-      const key = due.length >= 7 ? due.slice(0, 7) : "sem-data";
-
-      if (!map[key]) map[key] = { receive: 0, pay: 0 };
-
-      const amt = Number(tx && tx.amount ? tx.amount : 0);
-      if (tx && tx.type === "receber") map[key].receive += amt;
-      else map[key].pay += amt;
-    }
-
-    return Object.entries(map)
-      .map(([month, v]) => ({ month, receive: v.receive, pay: v.pay, result: v.receive - v.pay }))
-      .sort((a, b) => (a.month > b.month ? 1 : -1));
+  async financeSummary() {
+    const rows = await txs.list();
+    const ar = rows.filter((r) => r.type === "receber");
+    const ap = rows.filter((r) => r.type === "pagar");
+    const sum = (arr) => arr.reduce((acc, x) => acc + Number(x.amount || 0), 0);
+    return {
+      a_receber: sum(ar),
+      a_pagar: sum(ap),
+      saldo: sum(ar) - sum(ap),
+      total_rows: rows.length,
+    };
   },
 };
 
@@ -543,7 +381,8 @@ const reports = {
 // ---------------------------
 export const Data = {
   initFromSettings,
-  mode,
+
+  // mode/settings
   setMode,
   saveSettings,
   getSavedSettings,
