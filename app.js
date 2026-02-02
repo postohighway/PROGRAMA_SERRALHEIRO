@@ -2,18 +2,22 @@
 
 import { Data } from "./data.js";
 
+let BOOT_READY = false;
+
 async function boot() {
   try {
-    // 1. Inicializa Supabase e carrega sessão
+    console.log("BOOT START");
+
     await Data.initFromSettings();
 
-    // 2. Aguarda sessão estar pronta
     if (Data.supabase) {
       const { data } = await Data.supabase.auth.getSession();
-      console.log("SESSION BOOT:", data?.session || null);
+      console.log("SESSION:", data?.session || null);
     }
 
-    // 3. Só depois renderiza o app
+    BOOT_READY = true;
+    console.log("BOOT READY");
+
     renderApp();
 
   } catch (err) {
@@ -22,9 +26,41 @@ async function boot() {
   }
 }
 
+function ensureBoot() {
+  if (!BOOT_READY) {
+    throw new Error("Sistema ainda inicializando. Aguarde 1 segundo e tente novamente.");
+  }
+}
+
 function renderApp() {
-  console.log("APP RENDER OK");
-  // seu código normal de renderização aqui
+  console.log("APP RENDER");
+
+  // EXEMPLO: amarre o botão salvar
+  const btn = document.querySelector("#btnSalvar");
+  if (btn) {
+    btn.onclick = async () => {
+      try {
+        ensureBoot();
+        await salvarLancamento();
+      } catch (e) {
+        alert(e.message);
+      }
+    };
+  }
+}
+
+// SUA FUNÇÃO REAL DE SALVAR
+async function salvarLancamento() {
+  const payload = {
+    type: "receber",
+    desc: "teste",
+    amount: 100,
+    due_date: "2026-02-02",
+    status: "aberto",
+  };
+
+  await Data.txs.create(payload);
+  alert("Salvo com sucesso");
 }
 
 boot();
