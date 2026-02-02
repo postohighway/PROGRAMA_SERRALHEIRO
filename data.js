@@ -10,7 +10,7 @@ const LS_KEY = "serralheria_settings_v1";
 
 let _mode = "mock"; // "mock" | "supabase"
 let _supabase = null;
-let _supabaseSig = null; // assinatura url|key p/ evitar múltiplos clients
+let _supabaseSig = null; // url|key para evitar múltiplos clients
 
 // ---------------------------
 // Settings (localStorage)
@@ -54,24 +54,6 @@ function ensureMockSeed() {
   const c2 = { id: uid("cli"), name: "Maria Silva", phone: "(31) 98888-1111", address: "Rua B, 456", notes: "" };
   mockDB.clients.push(c1, c2);
 
-  mockDB.quotes.push({
-    id: uid("quo"),
-    company_id: mockDB.active_company_id,
-    ticket_id: null,
-    status: "aberto",
-    currency: "BRL",
-    subtotal: 3500,
-    discount: 0,
-    surcharge: 0,
-    total: 3500,
-    sent_at: null,
-    approved_at: null,
-    rejected_at: null,
-    approval_note: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
-
   const woId = uid("wo");
   mockDB.workorders.push({
     id: woId,
@@ -105,14 +87,14 @@ function mustSupabase() {
 async function ensureSessionLoaded() {
   const sb = mustSupabase();
 
-  // 1) tenta ler sessão do storage
+  // tenta ler sessão do storage
   let session = null;
   try {
     const { data } = await sb.auth.getSession();
     session = data?.session || null;
   } catch {}
 
-  // 2) se não veio, tenta refresh
+  // se não veio, tenta refresh
   if (!session) {
     try {
       await sb.auth.refreshSession();
@@ -125,7 +107,7 @@ async function ensureSessionLoaded() {
 }
 
 // ---------------------------
-// Supabase init
+// Supabase init (com cache do client)
 // ---------------------------
 async function initFromSettings() {
   const s = getSavedSettings();
@@ -139,7 +121,6 @@ async function initFromSettings() {
   }
 
   if (!s.supabaseUrl || !s.supabaseKey) {
-    // fallback seguro
     _supabase = null;
     _supabaseSig = null;
     s.mode = "mock";
@@ -151,7 +132,7 @@ async function initFromSettings() {
 
   const sig = `${s.supabaseUrl}|${s.supabaseKey}`;
 
-  // ✅ evita múltiplos clients (mata o "Multiple GoTrueClient")
+  // ✅ evita "Multiple GoTrueClient"
   if (!_supabase || _supabaseSig !== sig) {
     _supabase = createClientIfConfigured(s.supabaseUrl, s.supabaseKey);
     _supabaseSig = sig;
@@ -162,12 +143,12 @@ async function initFromSettings() {
 }
 
 // ---------------------------
-// Company context
+// Company context (MULTIEMPRESAS)
 // ---------------------------
 async function getActiveCompanyId() {
   const s = getSavedSettings();
 
-  // cache local
+  // cache local (multi-empresas)
   if (typeof s.activeCompanyId === "string" && s.activeCompanyId.trim()) {
     return s.activeCompanyId;
   }
@@ -176,11 +157,11 @@ async function getActiveCompanyId() {
 
   const sb = mustSupabase();
 
-  // ✅ garante sessão antes de consultar tabela com RLS
+  // ✅ garante sessão antes de consultar RLS
   const session = await ensureSessionLoaded();
-  const uid = session?.user?.id || null;
+  const userId = session?.user?.id || null;
 
-  console.log("[getActiveCompanyId] session uid:", uid);
+  console.log("[getActiveCompanyId] session userId:", userId);
 
   const { data, error } = await sb
     .from("company_users")
@@ -195,16 +176,16 @@ async function getActiveCompanyId() {
 
   console.log("[getActiveCompanyId] company_users data:", data);
 
-  const companyId = data && data[0] ? data[0].company_id : null;
+  const companyId = data?.[0]?.company_id || null;
 
-  if (companyId && typeof companyId === "string") {
+  if (companyId) {
     s.activeCompanyId = companyId;
     saveSettings(s);
     return companyId;
   }
 
-  // Se chegou aqui, normalmente é porque session uid está null (anon) e o RLS filtrou tudo
-  if (!uid) {
+  // se userId é null, a sessão não está carregada (anon) => RLS filtra tudo
+  if (!userId) {
     throw new Error("Sessão do Supabase não carregou (usuário anon). Faça logout/login e tente novamente.");
   }
 
@@ -236,11 +217,10 @@ async function login(email, password) {
   delete s.activeCompanyId;
   saveSettings(s);
 
-  // força sessão e resolve company
   await ensureSessionLoaded();
   await getActiveCompanyId();
 
-  return !!(data && data.session);
+  return !!data?.session;
 }
 
 async function logout() {
@@ -326,45 +306,7 @@ const clients = {
 };
 
 // ---------------------------
-// QUOTES
-// ---------------------------
-const quotes = {
-  async list() {
-    if (_mode === "mock") return mockList("quotes");
-    const sb = mustSupabase();
-    const { data, error } = await sb.from("quotes").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return data || [];
-  },
-
-  async create(payload) {
-    if (_mode === "mock") return mockCreate("quotes", payload);
-    const sb = mustSupabase();
-    const companyId = await getActiveCompanyId();
-    const row = payload?.company_id ? payload : { ...payload, company_id: companyId };
-    const { data, error } = await sb.from("quotes").insert(row).select("*").single();
-    if (error) throw error;
-    return data;
-  },
-
-  async update(id, payload) {
-    if (_mode === "mock") return mockUpdate("quotes", id, payload);
-    const sb = mustSupabase();
-    const { data, error } = await sb.from("quotes").update(payload).eq("id", id).select("*").single();
-    if (error) throw error;
-    return data;
-  },
-
-  async remove(id) {
-    if (_mode === "mock") return mockRemove("quotes", id);
-    const sb = mustSupabase();
-    const { error } = await sb.from("quotes").delete().eq("id", id);
-    if (error) throw error;
-  },
-};
-
-// ---------------------------
-// WORKORDERS (como estava, sem mexer)
+// WORKORDERS
 // ---------------------------
 const workorders = {
   async list() {
@@ -423,26 +365,12 @@ const txs = {
 
     const sb = mustSupabase();
     const companyId = await getActiveCompanyId();
+
     const row = payload?.company_id ? payload : { ...payload, company_id: companyId };
 
     const { data, error } = await sb.from("txs").insert(row).select("*").single();
     if (error) throw error;
     return data;
-  },
-
-  async update(id, payload) {
-    if (_mode === "mock") return mockUpdate("txs", id, payload);
-    const sb = mustSupabase();
-    const { data, error } = await sb.from("txs").update(payload).eq("id", id).select("*").single();
-    if (error) throw error;
-    return data;
-  },
-
-  async remove(id) {
-    if (_mode === "mock") return mockRemove("txs", id);
-    const sb = mustSupabase();
-    const { error } = await sb.from("txs").delete().eq("id", id);
-    if (error) throw error;
   },
 };
 
@@ -488,10 +416,8 @@ export const Data = {
   setActiveCompanyId,
 
   clients,
-  quotes,
   workorders,
   txs,
-
   reports,
 
   get supabase() {
