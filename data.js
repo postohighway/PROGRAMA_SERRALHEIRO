@@ -1,9 +1,11 @@
 // data.js
-// Camada de dados (Mock + Supabase) para o "Sistema da Serralheria"
-// Observação:
-// - O front usa "clients", mas no banco (Supabase) usamos a tabela "customers".
+// Data layer (Mock + Supabase)
+// Financeiro definitivo:
+// - A RECEBER  => public.payments
+// - A PAGAR    => public.purchases
+// - LISTAGEM   => public.txs_view (read-only)
 
-console.log("[data.js] VERSION 2026-02-02A");
+console.log("[data.js] VERSION 2026-02-03 FINANCE-MIGRATION");
 
 import { uid, todayISO, monthISO } from "./utils.js";
 import { createClientIfConfigured } from "./supabaseClient.js";
@@ -12,7 +14,7 @@ const LS_KEY = "serralheria_settings_v1";
 
 let _mode = "mock"; // "mock" | "supabase"
 let _supabase = null;
-let _supabaseSig = null; // url|key para evitar múltiplos clients
+let _supabaseSig = null;
 
 // ---------------------------
 // Settings (localStorage)
@@ -46,7 +48,8 @@ const mockDB = {
   clients: [],
   quotes: [],
   workorders: [],
-  txs: [],
+  // financeiro (mock) no formato da txs_view
+  finance: [],
 };
 
 function ensureMockSeed() {
@@ -55,24 +58,6 @@ function ensureMockSeed() {
   const c1 = { id: uid("cli"), name: "Cliente Exemplo", phone: "(31) 99999-0000", address: "Rua A, 123", notes: "" };
   const c2 = { id: uid("cli"), name: "Maria Silva", phone: "(31) 98888-1111", address: "Rua B, 456", notes: "" };
   mockDB.clients.push(c1, c2);
-
-  mockDB.quotes.push({
-    id: uid("quo"),
-    company_id: mockDB.active_company_id,
-    ticket_id: null,
-    status: "aberto",
-    currency: "BRL",
-    subtotal: 3500,
-    discount: 0,
-    surcharge: 0,
-    total: 3500,
-    sent_at: null,
-    approved_at: null,
-    rejected_at: null,
-    approval_note: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
 
   const woId = uid("wo");
   mockDB.workorders.push({
@@ -89,10 +74,43 @@ function ensureMockSeed() {
   });
 
   const m = monthISO(new Date());
-  mockDB.txs.push(
-    { id: uid("tx"), company_id: mockDB.active_company_id, type: "receber", desc: "Entrada Orçamento", amount: 500, due_date: `${m}-10`, category: "Serviços", status: "quitado", created_at: new Date().toISOString() },
-    { id: uid("tx"), company_id: mockDB.active_company_id, type: "pagar", desc: "Compra de material", amount: 240, due_date: `${m}-11`, category: "Materiais", status: "quitado", created_at: new Date().toISOString() },
-    { id: uid("tx"), company_id: mockDB.active_company_id, type: "receber", desc: "Saldo a receber", amount: 3000, due_date: `${m}-20`, category: "Serviços", status: "aberto", created_at: new Date().toISOString() },
+  mockDB.finance.push(
+    {
+      company_id: mockDB.active_company_id,
+      id: uid("pay"),
+      type: "receber",
+      desc: "Entrada Orçamento",
+      amount: 500,
+      due_date: `${m}-10`,
+      category: null,
+      status: "quitado",
+      source_table: "payments",
+      created_at: new Date().toISOString(),
+    },
+    {
+      company_id: mockDB.active_company_id,
+      id: uid("pur"),
+      type: "pagar",
+      desc: "Compra de material",
+      amount: 240,
+      due_date: `${m}-11`,
+      category: null,
+      status: "aberto",
+      source_table: "purchases",
+      created_at: new Date().toISOString(),
+    },
+    {
+      company_id: mockDB.active_company_id,
+      id: uid("pay"),
+      type: "receber",
+      desc: "Saldo a receber",
+      amount: 3000,
+      due_date: `${m}-20`,
+      category: null,
+      status: "aberto",
+      source_table: "payments",
+      created_at: new Date().toISOString(),
+    }
   );
 }
 
@@ -107,14 +125,12 @@ function mustSupabase() {
 async function ensureSessionLoaded() {
   const sb = mustSupabase();
 
-  // tenta ler sessão do storage
   let session = null;
   try {
     const { data } = await sb.auth.getSession();
     session = data?.session || null;
   } catch {}
 
-  // se não veio, tenta refresh
   if (!session) {
     try {
       await sb.auth.refreshSession();
@@ -152,13 +168,11 @@ async function initFromSettings() {
 
   const sig = `${s.supabaseUrl}|${s.supabaseKey}`;
 
-  // ✅ evita criar múltiplos clients
   if (!_supabase || _supabaseSig !== sig) {
     _supabase = createClientIfConfigured(s.supabaseUrl, s.supabaseKey);
     _supabaseSig = sig;
   }
 
-  // força carregar sessão já no boot
   await ensureSessionLoaded();
 }
 
@@ -168,7 +182,6 @@ async function initFromSettings() {
 async function getActiveCompanyId() {
   const s = getSavedSettings();
 
-  // cache local
   if (typeof s.activeCompanyId === "string" && s.activeCompanyId.trim()) {
     return s.activeCompanyId;
   }
@@ -176,8 +189,6 @@ async function getActiveCompanyId() {
   if (_mode === "mock") return mockDB.active_company_id;
 
   const sb = mustSupabase();
-
-  // ✅ garante sessão antes de consultar RLS
   const session = await ensureSessionLoaded();
   const userId = session?.user?.id || null;
 
@@ -237,7 +248,10 @@ async function login(email, password) {
   saveSettings(s);
 
   await ensureSessionLoaded();
-  await getActiveCompanyId();
+
+  // trava company ativa no login
+  const cid = await getActiveCompanyId();
+  console.log("LOGIN COMPANY FIXED:", cid);
 
   return !!(data && data.session);
 }
@@ -256,31 +270,11 @@ async function logout() {
 }
 
 // ---------------------------
-// Mock helpers
-// ---------------------------
-function mockList(table) { return mockDB[table].slice(); }
-function mockCreate(table, payload) {
-  const row = { id: uid(table), ...payload };
-  mockDB[table].push(row);
-  return row;
-}
-function mockUpdate(table, id, payload) {
-  const idx = mockDB[table].findIndex((x) => x.id === id);
-  if (idx < 0) throw new Error("Item não encontrado.");
-  mockDB[table][idx] = { ...mockDB[table][idx], ...payload };
-  return mockDB[table][idx];
-}
-function mockRemove(table, id) {
-  const idx = mockDB[table].findIndex((x) => x.id === id);
-  if (idx >= 0) mockDB[table].splice(idx, 1);
-}
-
-// ---------------------------
 // CLIENTS => CUSTOMERS
 // ---------------------------
 const clients = {
   async list() {
-    if (_mode === "mock") return mockList("clients");
+    if (_mode === "mock") return mockDB.clients.slice();
     const sb = mustSupabase();
     const { data, error } = await sb.from("customers").select("*").order("created_at", { ascending: false });
     if (error) throw error;
@@ -288,7 +282,11 @@ const clients = {
   },
 
   async create(payload) {
-    if (_mode === "mock") return mockCreate("clients", payload);
+    if (_mode === "mock") {
+      const row = { id: uid("cli"), ...payload };
+      mockDB.clients.push(row);
+      return row;
+    }
 
     const sb = mustSupabase();
     const companyId = await getActiveCompanyId();
@@ -308,7 +306,13 @@ const clients = {
   },
 
   async update(id, payload) {
-    if (_mode === "mock") return mockUpdate("clients", id, payload);
+    if (_mode === "mock") {
+      const idx = mockDB.clients.findIndex((x) => x.id === id);
+      if (idx < 0) throw new Error("Cliente não encontrado.");
+      mockDB.clients[idx] = { ...mockDB.clients[idx], ...payload };
+      return mockDB.clients[idx];
+    }
+
     const sb = mustSupabase();
     const { data, error } = await sb.from("customers").update(payload).eq("id", id).select("*").single();
     if (error) throw error;
@@ -316,23 +320,15 @@ const clients = {
   },
 
   async remove(id) {
-    if (_mode === "mock") return mockRemove("clients", id);
+    if (_mode === "mock") {
+      const idx = mockDB.clients.findIndex((x) => x.id === id);
+      if (idx >= 0) mockDB.clients.splice(idx, 1);
+      return;
+    }
+
     const sb = mustSupabase();
     const { error } = await sb.from("customers").delete().eq("id", id);
     if (error) throw error;
-  },
-};
-
-// ---------------------------
-// QUOTES
-// ---------------------------
-const quotes = {
-  async list() {
-    if (_mode === "mock") return mockList("quotes");
-    const sb = mustSupabase();
-    const { data, error } = await sb.from("quotes").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return data || [];
   },
 };
 
@@ -341,7 +337,7 @@ const quotes = {
 // ---------------------------
 const workorders = {
   async list() {
-    if (_mode === "mock") return mockList("workorders");
+    if (_mode === "mock") return mockDB.workorders.slice();
     const sb = mustSupabase();
     const { data, error } = await sb.from("workorders").select("*").order("created_at", { ascending: false });
     if (error) throw error;
@@ -350,21 +346,33 @@ const workorders = {
 
   async create(payload) {
     if (_mode === "mock") {
-      const row = mockCreate("workorders", { ...payload, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-      row.history = [{ action: "create", at: new Date().toISOString(), to_status: row.status || "aberto" }];
+      const row = {
+        id: uid("wo"),
+        ...payload,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      mockDB.workorders.push(row);
       return row;
     }
 
     const sb = mustSupabase();
     const companyId = await getActiveCompanyId();
     const row = payload?.company_id ? payload : { ...payload, company_id: companyId };
+
     const { data, error } = await sb.from("workorders").insert(row).select("*").single();
     if (error) throw error;
     return data;
   },
 
   async update(id, payload) {
-    if (_mode === "mock") return mockUpdate("workorders", id, { ...payload, updated_at: new Date().toISOString() });
+    if (_mode === "mock") {
+      const idx = mockDB.workorders.findIndex((x) => x.id === id);
+      if (idx < 0) throw new Error("OS não encontrada.");
+      mockDB.workorders[idx] = { ...mockDB.workorders[idx], ...payload, updated_at: new Date().toISOString() };
+      return mockDB.workorders[idx];
+    }
+
     const sb = mustSupabase();
     const { data, error } = await sb.from("workorders").update(payload).eq("id", id).select("*").single();
     if (error) throw error;
@@ -372,7 +380,12 @@ const workorders = {
   },
 
   async remove(id) {
-    if (_mode === "mock") return mockRemove("workorders", id);
+    if (_mode === "mock") {
+      const idx = mockDB.workorders.findIndex((x) => x.id === id);
+      if (idx >= 0) mockDB.workorders.splice(idx, 1);
+      return;
+    }
+
     const sb = mustSupabase();
     const { error } = await sb.from("workorders").delete().eq("id", id);
     if (error) throw error;
@@ -380,35 +393,147 @@ const workorders = {
 };
 
 // ---------------------------
-// TXS
+// FINANCEIRO (novo)
 // ---------------------------
-const txs = {
+const finance = {
+  // listagem consolidada
   async list() {
-    if (_mode === "mock") return mockList("txs");
-    const sb = mustSupabase();
-    const { data, error } = await sb.from("txs").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return data || [];
-  },
-
-  async create(payload) {
-    if (_mode === "mock") return mockCreate("txs", payload);
+    if (_mode === "mock") return mockDB.finance.slice().sort((a, b) => (a.due_date < b.due_date ? 1 : -1));
 
     const sb = mustSupabase();
     const companyId = await getActiveCompanyId();
 
-    if (!companyId) throw new Error("Não foi possível determinar a company ativa.");
+    const { data, error } = await sb
+      .from("txs_view")
+      .select("*")
+      .eq("company_id", companyId)
+      .order("due_date", { ascending: false });
 
-    const row = payload?.company_id ? payload : { ...payload, company_id: companyId };
+    if (error) throw error;
+    return data || [];
+  },
 
-    const { data, error } = await sb.from("txs").insert(row).select("*").single();
+  // cria lançamento: decide tabela base
+  async create(payload) {
+    const type = payload?.type;
+
+    if (type !== "receber" && type !== "pagar") {
+      throw new Error("Tipo inválido. Use 'receber' ou 'pagar'.");
+    }
+
+    if (_mode === "mock") {
+      const companyId = mockDB.active_company_id;
+      const row = {
+        company_id: companyId,
+        id: uid(type === "receber" ? "pay" : "pur"),
+        type,
+        desc: String(payload?.desc || "").trim(),
+        amount: Number(payload?.amount || 0),
+        due_date: payload?.due_date || todayISO(),
+        category: payload?.category ?? null,
+        status: payload?.status || "aberto",
+        source_table: type === "receber" ? "payments" : "purchases",
+        created_at: new Date().toISOString(),
+      };
+      mockDB.finance.push(row);
+      return row;
+    }
+
+    const sb = mustSupabase();
+    const companyId = await getActiveCompanyId();
+
+    if (type === "receber") {
+      // payments: (company_id, amount, note, paid_at?, created_at/updated_at defaults)
+      const insertRow = {
+        company_id: companyId,
+        amount: Number(payload?.amount || 0),
+        note: String(payload?.desc || "").trim() || null,
+        // se vier quitado, marca paid_at agora
+        paid_at: payload?.status === "quitado" ? new Date().toISOString() : null,
+      };
+
+      const { data, error } = await sb.from("payments").insert(insertRow).select("*").single();
+      if (error) throw error;
+      return data;
+    }
+
+    // pagar => purchases: (company_id, value, description, date, paid_at?)
+    const insertRow = {
+      company_id: companyId,
+      value: Number(payload?.amount || 0),
+      description: String(payload?.desc || "").trim() || null,
+      date: payload?.due_date || todayISO(),
+      paid_at: payload?.status === "quitado" ? new Date().toISOString() : null,
+    };
+
+    const { data, error } = await sb.from("purchases").insert(insertRow).select("*").single();
     if (error) throw error;
     return data;
+  },
+
+  // marcar como quitado (respeita origem)
+  async markPaid(item) {
+    const source = item?.source_table;
+    const id = item?.id;
+
+    if (!id) throw new Error("ID inválido.");
+
+    if (_mode === "mock") {
+      const idx = mockDB.finance.findIndex((x) => x.id === id && x.source_table === source);
+      if (idx >= 0) mockDB.finance[idx].status = "quitado";
+      return true;
+    }
+
+    const sb = mustSupabase();
+    const paid_at = new Date().toISOString();
+
+    if (source === "payments") {
+      const { error } = await sb.from("payments").update({ paid_at }).eq("id", id);
+      if (error) throw error;
+      return true;
+    }
+
+    if (source === "purchases") {
+      const { error } = await sb.from("purchases").update({ paid_at }).eq("id", id);
+      if (error) throw error;
+      return true;
+    }
+
+    throw new Error("Origem desconhecida no financeiro (source_table).");
+  },
+
+  async unpay(item) {
+    const source = item?.source_table;
+    const id = item?.id;
+
+    if (!id) throw new Error("ID inválido.");
+
+    if (_mode === "mock") {
+      const idx = mockDB.finance.findIndex((x) => x.id === id && x.source_table === source);
+      if (idx >= 0) mockDB.finance[idx].status = "aberto";
+      return true;
+    }
+
+    const sb = mustSupabase();
+
+    if (source === "payments") {
+      const { error } = await sb.from("payments").update({ paid_at: null }).eq("id", id);
+      if (error) throw error;
+      return true;
+    }
+
+    if (source === "purchases") {
+      const { error } = await sb.from("purchases").update({ paid_at: null }).eq("id", id);
+      if (error) throw error;
+      return true;
+    }
+
+    throw new Error("Origem desconhecida no financeiro (source_table).");
   },
 };
 
 // ---------------------------
-// REPORTS
+// REPORTS (baseado na listagem consolidada)
 // ---------------------------
 const reports = {
   monthSummary(list) {
@@ -449,9 +574,10 @@ export const Data = {
   setActiveCompanyId,
 
   clients,
-  quotes,
   workorders,
-  txs,
+
+  // ✅ novo financeiro
+  finance,
   reports,
 
   get supabase() {
