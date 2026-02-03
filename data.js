@@ -1,352 +1,362 @@
-// data.js
-// Camada de dados do sistema (mock + supabase)
-// Versão: bootstrap robusto + singleton supabase client
+import { createClientIfConfigured } from "./supabaseClient.js";
 
-let _mode = "mock"; // "mock" | "supabase"
-let _supabase = null;
-let _settings = getSavedSettings() || { supabaseUrl: "", supabaseAnonKey: "", activeCompanyId: "" };
+export const VERSION = "2026-02-03A";
+const LS_KEY = "serralheria_settings_v1";
 
-// ---------------------------
-// SETTINGS
-// ---------------------------
-
-const LS_KEY = "SERRALHERIA_SETTINGS_V1";
-
-function getSavedSettings() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    return {
-      supabaseUrl: obj?.supabaseUrl || "",
-      supabaseAnonKey: obj?.supabaseAnonKey || "",
-      activeCompanyId: obj?.activeCompanyId || "",
-    };
-  } catch {
-    return null;
-  }
-}
-
-function saveSettings(next) {
-  _settings = {
-    supabaseUrl: (next?.supabaseUrl || "").trim(),
-    supabaseAnonKey: (next?.supabaseAnonKey || "").trim(),
-    activeCompanyId: (next?.activeCompanyId || "").trim(),
-  };
-  localStorage.setItem(LS_KEY, JSON.stringify(_settings));
-  return _settings;
-}
-
-// ---------------------------
-// MODE
-// ---------------------------
-
-function getMode() {
-  return _mode;
-}
-
-function setMode(nextMode) {
-  _mode = nextMode === "supabase" ? "supabase" : "mock";
-}
-
-function mustSupabase() {
-  if (_mode !== "supabase" || !_supabase) {
-    throw new Error("Supabase não inicializado. Configure Supabase URL/Anon Key em Configurações.");
-  }
-  return _supabase;
-}
-
-// ---------------------------
-// Supabase init (singleton + fallback de config)
-// ---------------------------
-
-let _supabaseSingleton = null;
-let _supabaseSingletonUrl = null;
-let _supabaseSingletonKey = null;
-let _createClientFn = null;
-
-async function _loadConfigFromFiles() {
-  // Ordem:
-  // 1) config.local.js (dev/local)
-  // 2) config.js (opcional, se você decidir commitar config pública)
-  // 3) config.example.js (geralmente placeholder)
+/* ----------------------------- CONFIG LOADER ----------------------------- */
+/**
+ * Procura config nesta ordem:
+ * 1) ./config.local.js  (ambiente local)
+ * 2) ./config.js        (produção / GitHub Pages)
+ * 3) ./config.example.js
+ *
+ * Os seus arquivos config.* exportam:  export const CONFIG = {...}
+ */
+async function loadConfigFromModules() {
   const candidates = ["./config.local.js", "./config.js", "./config.example.js"];
+
   for (const path of candidates) {
     try {
-      const mod = await import(path);
-      const cfg = mod?.CONFIG || mod?.default || mod;
-      const supabaseUrl = String(cfg?.SUPABASE_URL || "").trim();
-      const supabaseAnonKey = String(cfg?.SUPABASE_ANON_KEY || "").trim();
+      // cache-buster para não ficar preso em config antigo
+      const mod = await import(`${path}?v=${Date.now()}`);
+      const cfg = mod?.CONFIG;
+      if (!cfg) continue;
 
+      const url = (cfg.SUPABASE_URL || "").trim();
+      const key = (cfg.SUPABASE_KEY || "").trim();
+
+      // ignora placeholders do example
       const looksPlaceholder =
-        !supabaseUrl ||
-        !supabaseAnonKey ||
-        supabaseUrl.includes("YOUR_") ||
-        supabaseAnonKey.includes("YOUR_") ||
-        supabaseUrl.includes("example") ||
-        supabaseAnonKey.includes("example");
+        /COLE_AQUI/i.test(url) || /COLE_AQUI/i.test(key) || url.length < 10 || key.length < 10;
 
-      if (!looksPlaceholder) return { supabaseUrl, supabaseAnonKey };
-    } catch (_) {
-      // arquivo pode não existir no GitHub Pages -> ignore
+      if (!looksPlaceholder) {
+        return { SUPABASE_URL: url, SUPABASE_KEY: key };
+      }
+    } catch (e) {
+      // normal: arquivo pode não existir em produção/local
     }
   }
   return null;
 }
 
-async function initFromSettings() {
-  // 1) carrega do localStorage (cada navegador tem seu storage!)
-  const saved = getSavedSettings() || {};
-  _settings = {
-    supabaseUrl: saved.supabaseUrl || "",
-    supabaseAnonKey: saved.supabaseAnonKey || "",
-    activeCompanyId: saved.activeCompanyId || "",
-  };
+/* ----------------------------- SETTINGS ----------------------------- */
+function safeJsonParse(s) {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
 
-  // 2) fallback: se não tiver no storage, tenta ler de config*.js (principalmente no localhost)
-  if (!_settings.supabaseUrl || !_settings.supabaseAnonKey) {
-    const cfg = await _loadConfigFromFiles();
-    if (cfg) {
-      _settings.supabaseUrl = cfg.supabaseUrl;
-      _settings.supabaseAnonKey = cfg.supabaseAnonKey;
-      // Não persistimos automaticamente.
+function defaultSettings() {
+  return {
+    mode: "mock", // "mock" | "supabase"
+    supabase_url: "",
+    supabase_key: "",
+    active_company_id: "",
+    last_boot: null,
+  };
+}
+
+export function getSavedSettings() {
+  const raw = localStorage.getItem(LS_KEY);
+  const parsed = raw ? safeJsonParse(raw) : null;
+  return { ...defaultSettings(), ...(parsed || {}) };
+}
+
+export function saveSettings(patch) {
+  const current = getSavedSettings();
+  const next = { ...current, ...(patch || {}), last_boot: new Date().toISOString() };
+  localStorage.setItem(LS_KEY, JSON.stringify(next));
+  return next;
+}
+
+export function clearSettings() {
+  localStorage.removeItem(LS_KEY);
+}
+
+/* ----------------------------- STATE ----------------------------- */
+let supabase = null;
+let mode = "mock";
+
+/* ----------------------------- MOCK STORE ----------------------------- */
+const mockDB = {
+  txs: [
+    // exemplo:
+    // { id:"m1", type:"receber", desc:"Entrada", amount:500, due_date:"2026-02-10", category:"Serviços", status:"quitado", created_at:..., updated_at:... }
+  ],
+};
+
+/* ----------------------------- HELPERS ----------------------------- */
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function normalizeTxPayload(payload) {
+  const p = { ...(payload || {}) };
+
+  const type = String(p.type || "").toLowerCase();
+  if (!["receber", "pagar"].includes(type)) {
+    throw new Error("Tipo inválido. Use 'receber' ou 'pagar'.");
+  }
+
+  const desc = String(p.desc || "").trim();
+  if (!desc) throw new Error("Descrição obrigatória.");
+
+  const amount = Number(p.amount);
+  if (!Number.isFinite(amount) || amount < 0) throw new Error("Valor inválido.");
+
+  const due_date = String(p.due_date || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due_date)) {
+    throw new Error("Vencimento inválido. Use YYYY-MM-DD.");
+  }
+
+  const status = String(p.status || "aberto").toLowerCase();
+  if (!["aberto", "quitado"].includes(status)) {
+    throw new Error("Status inválido. Use 'aberto' ou 'quitado'.");
+  }
+
+  const category = p.category == null ? null : String(p.category).trim();
+
+  return { type, desc, amount, due_date, category, status };
+}
+
+async function getUserIdOrThrow() {
+  if (!supabase) throw new Error("Supabase não inicializado.");
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  const userId = data?.user?.id;
+  if (!userId) throw new Error("Usuário não autenticado.");
+  return userId;
+}
+
+async function getActiveCompanyId() {
+  const saved = getSavedSettings();
+
+  // 1) se já tem salva e parece válida
+  if (saved.active_company_id && String(saved.active_company_id).length > 10) {
+    return saved.active_company_id;
+  }
+
+  // 2) tentar descobrir via company_users filtrando explicitamente por user_id
+  const userId = await getUserIdOrThrow();
+
+  const { data: memberships, error } = await supabase
+    .from("company_users")
+    .select("company_id")
+    .eq("user_id", userId);
+
+  if (error) throw error;
+
+  const ids = (memberships || []).map((m) => m.company_id).filter(Boolean);
+
+  if (ids.length === 1) {
+    saveSettings({ active_company_id: ids[0] });
+    return ids[0];
+  }
+
+  if (ids.length > 1) {
+    // por enquanto: escolhe o primeiro e salva (depois podemos criar UI de seleção)
+    saveSettings({ active_company_id: ids[0] });
+    return ids[0];
+  }
+
+  throw new Error("Não foi possível determinar a company ativa.");
+}
+
+/* ----------------------------- INIT ----------------------------- */
+export async function initFromSettings() {
+  const saved = getSavedSettings();
+
+  // 1) Tenta completar settings a partir de config.* se estiver vazio
+  if ((!saved.supabase_url || !saved.supabase_key) && typeof window !== "undefined") {
+    const cfg = await loadConfigFromModules();
+    if (cfg?.SUPABASE_URL && cfg?.SUPABASE_KEY) {
+      saveSettings({
+        supabase_url: cfg.SUPABASE_URL,
+        supabase_key: cfg.SUPABASE_KEY,
+        // se veio config válido, já muda para supabase automaticamente:
+        mode: "supabase",
+      });
     }
   }
 
-  // 3) se ainda não tiver credenciais, entra em modo mock (não quebra UI)
-  if (!_settings.supabaseUrl || !_settings.supabaseAnonKey) {
-    setMode("mock");
-    _supabase = null;
-    _supabaseSingleton = null;
-    _supabaseSingletonUrl = null;
-    _supabaseSingletonKey = null;
-    return false;
+  const s2 = getSavedSettings();
+  mode = s2.mode || "mock";
+
+  // 2) Instancia supabase se modo supabase E tem keys
+  if (mode === "supabase") {
+    supabase = createClientIfConfigured(s2.supabase_url, s2.supabase_key);
+    if (!supabase) {
+      // não derruba app: volta para mock
+      console.warn("Supabase não configurado corretamente. Caindo para modo mock.");
+      mode = "mock";
+      supabase = null;
+      saveSettings({ mode: "mock" });
+    }
+  } else {
+    supabase = null;
   }
 
-  // 4) carrega createClient uma única vez
-  if (!_createClientFn) {
-    const pkg = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm");
-    _createClientFn = pkg.createClient;
-  }
-
-  // 5) singleton do supabase client: evita "Multiple GoTrueClient instances"
-  const credsChanged =
-    _supabaseSingletonUrl !== _settings.supabaseUrl ||
-    _supabaseSingletonKey !== _settings.supabaseAnonKey;
-
-  if (!_supabaseSingleton || credsChanged) {
-    _supabaseSingleton = _createClientFn(_settings.supabaseUrl, _settings.supabaseAnonKey);
-    _supabaseSingletonUrl = _settings.supabaseUrl;
-    _supabaseSingletonKey = _settings.supabaseAnonKey;
-  }
-
-  _supabase = _supabaseSingleton;
-  setMode("supabase");
-  return true;
+  console.log(`[data.js] VERSION ${VERSION}`);
+  console.log(`[data.js] MODE: ${mode}`);
+  return { mode, supabaseReady: !!supabase };
 }
 
-// ---------------------------
-// AUTH
-// ---------------------------
+export function isSupabase() {
+  return mode === "supabase" && !!supabase;
+}
 
-async function login(email, password) {
-  const ok = await initFromSettings();
-  if (!ok) throw new Error("Supabase não configurado. Informe Supabase URL e Anon Key em Configurações.");
+export function getSupabase() {
+  return supabase;
+}
 
-  const sb = mustSupabase();
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+/* ----------------------------- TXS (FINANCEIRO) ----------------------------- */
+/**
+ * Estratégia: Financeiro usa a tabela `txs` (central), com `company_id`.
+ * Isso evita confusão com payments/purchases e views.
+ */
+async function txs_list_supabase({ month } = {}) {
+  const companyId = await getActiveCompanyId();
+
+  let q = supabase
+    .from("txs")
+    .select("id, company_id, type, desc, amount, due_date, category, status, created_at, updated_at")
+    .eq("company_id", companyId)
+    .order("due_date", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  // month: "2026-02" => filtra intervalos [01..último dia]
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [y, m] = month.split("-").map((x) => Number(x));
+    const start = `${month}-01`;
+    const endDate = new Date(y, m, 0); // dia 0 do próximo mês => último do mês atual
+    const end = `${month}-${String(endDate.getDate()).padStart(2, "0")}`;
+
+    q = q.gte("due_date", start).lte("due_date", end);
+  }
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+function txs_list_mock() {
+  return [...mockDB.txs].sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+}
+
+async function txs_create_supabase(payload) {
+  const companyId = await getActiveCompanyId();
+  const tx = normalizeTxPayload(payload);
+
+  const row = {
+    company_id: companyId,
+    type: tx.type,
+    desc: tx.desc,
+    amount: tx.amount,
+    due_date: tx.due_date,
+    category: tx.category,
+    status: tx.status,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  };
+
+  const { data, error } = await supabase.from("txs").insert(row).select("*").single();
   if (error) throw error;
   return data;
 }
 
-async function logout() {
-  if (_mode !== "supabase" || !_supabase) return;
-  const sb = mustSupabase();
-  const { error } = await sb.auth.signOut();
-  if (error) throw error;
+function txs_create_mock(payload) {
+  const tx = normalizeTxPayload(payload);
+  const row = {
+    id: `m_${Math.random().toString(16).slice(2)}`,
+    company_id: "mock",
+    ...tx,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  };
+  mockDB.txs.unshift(row);
+  return row;
 }
 
-// ---------------------------
-// MULTI-EMPRESA
-// ---------------------------
+async function txs_update_supabase(id, patch) {
+  const companyId = await getActiveCompanyId();
+  const p = { ...(patch || {}) };
+  if (p.amount != null) p.amount = Number(p.amount);
+  if (p.desc != null) p.desc = String(p.desc).trim();
+  if (p.due_date != null) p.due_date = String(p.due_date).trim();
+  if (p.status != null) p.status = String(p.status).toLowerCase();
+  if (p.type != null) p.type = String(p.type).toLowerCase();
+  if (p.category != null) p.category = p.category === "" ? null : String(p.category).trim();
 
-function getActiveCompanyIdFromStorage() {
-  try {
-    return (localStorage.getItem("ACTIVE_COMPANY_ID") || "").trim();
-  } catch {
-    return "";
-  }
-}
+  p.updated_at = nowIso();
 
-function setActiveCompanyIdToStorage(companyId) {
-  try {
-    localStorage.setItem("ACTIVE_COMPANY_ID", String(companyId || "").trim());
-  } catch {
-    // ignore
-  }
-}
-
-async function getActiveCompanyId() {
-  if (_mode !== "supabase") return null;
-
-  // 1) prioridade: storage dedicado
-  const stored = getActiveCompanyIdFromStorage();
-  if (stored) return stored;
-
-  // 2) depois: settings
-  if (_settings?.activeCompanyId) return _settings.activeCompanyId;
-
-  // 3) senão: primeira company disponível para o usuário
-  const sb = mustSupabase();
-
-  // Em projetos com RLS, normalmente a tabela já filtra pelo auth.uid()
-  const { data, error } = await sb
-    .from("company_users")
-    .select("company_id")
-    .limit(10);
+  const { data, error } = await supabase
+    .from("txs")
+    .update(p)
+    .eq("id", id)
+    .eq("company_id", companyId)
+    .select("*")
+    .single();
 
   if (error) throw error;
-
-  const first = data?.[0]?.company_id || null;
-  if (first) {
-    setActiveCompanyIdToStorage(first);
-    _settings.activeCompanyId = first;
-    saveSettings(_settings);
-  }
-  return first;
+  return data;
 }
 
-// ---------------------------
-// TXS (FINANCEIRO)
-// ---------------------------
+function txs_update_mock(id, patch) {
+  const idx = mockDB.txs.findIndex((x) => x.id === id);
+  if (idx < 0) throw new Error("TX não encontrada.");
+  mockDB.txs[idx] = { ...mockDB.txs[idx], ...(patch || {}), updated_at: nowIso() };
+  return mockDB.txs[idx];
+}
 
-const txs = {
-  async list({ type, monthISO, query } = {}) {
-    if (_mode === "mock") {
-      return [];
-    }
+async function txs_remove_supabase(id) {
+  const companyId = await getActiveCompanyId();
+  const { error } = await supabase.from("txs").delete().eq("id", id).eq("company_id", companyId);
+  if (error) throw error;
+  return true;
+}
 
-    const sb = mustSupabase();
-    const companyId = await getActiveCompanyId();
-    if (!companyId) throw new Error("Não foi possível determinar a company ativa.");
+function txs_remove_mock(id) {
+  const before = mockDB.txs.length;
+  mockDB.txs = mockDB.txs.filter((x) => x.id !== id);
+  return mockDB.txs.length !== before;
+}
 
-    let q = sb.from("txs").select("*").eq("company_id", companyId).order("due_date", { ascending: true });
-
-    if (type) q = q.eq("type", type);
-
-    if (monthISO) {
-      // monthISO: "2026-02" -> filtra do primeiro ao último dia
-      const [y, m] = monthISO.split("-").map((v) => parseInt(v, 10));
-      const start = new Date(Date.UTC(y, m - 1, 1));
-      const end = new Date(Date.UTC(y, m, 1));
-      q = q.gte("due_date", start.toISOString().slice(0, 10)).lt("due_date", end.toISOString().slice(0, 10));
-    }
-
-    if (query) {
-      // busca simples por desc/category
-      q = q.or(`desc.ilike.%${query}%,category.ilike.%${query}%`);
-    }
-
-    const { data, error } = await q;
-    if (error) throw error;
-    return data || [];
-  },
-
-  async create(payload) {
-    if (_mode === "mock") return { id: crypto.randomUUID(), ...payload };
-
-    const sb = mustSupabase();
-    const companyId = await getActiveCompanyId();
-    if (!companyId) throw new Error("Não foi possível determinar a company ativa.");
-
-    const row = {
-      company_id: companyId,
-      type: payload.type,
-      desc: payload.desc || payload.description || "",
-      amount: Number(payload.amount || 0),
-      due_date: payload.due_date || payload.dueDate || null,
-      category: payload.category || null,
-      status: payload.status || "aberto",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await sb.from("txs").insert(row).select("*").single();
-    if (error) throw error;
-    return data;
-  },
-
-  async update(id, patch) {
-    if (_mode === "mock") return { id, ...patch };
-
-    const sb = mustSupabase();
-    const companyId = await getActiveCompanyId();
-    if (!companyId) throw new Error("Não foi possível determinar a company ativa.");
-
-    const row = {
-      ...patch,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await sb
-      .from("txs")
-      .update(row)
-      .eq("id", id)
-      .eq("company_id", companyId)
-      .select("*")
-      .single();
-
-    if (error) throw error;
-    return data;
-  },
-
-  async remove(id) {
-    if (_mode === "mock") return true;
-
-    const sb = mustSupabase();
-    const companyId = await getActiveCompanyId();
-    if (!companyId) throw new Error("Não foi possível determinar a company ativa.");
-
-    const { error } = await sb.from("txs").delete().eq("id", id).eq("company_id", companyId);
-    if (error) throw error;
-    return true;
-  },
-};
-
-// ---------------------------
-// STUBS (mantém compatibilidade com app.js)
-// ---------------------------
-
-const clients = {};
-const quotes = {};
-const workorders = {};
-const reports = {};
-
-// ---------------------------
-// EXPORT
-// ---------------------------
-
+/* ----------------------------- PUBLIC API ----------------------------- */
 export const Data = {
-  get mode() {
-    return getMode();
-  },
-  setMode,
+  VERSION,
+
+  // boot/config
+  initFromSettings,
   getSavedSettings,
   saveSettings,
-  initFromSettings,
-  login,
-  logout,
+  clearSettings,
+  isSupabase,
+  supabase: () => supabase,
 
-  // domínios
-  txs,
-  clients,
-  quotes,
-  workorders,
-  reports,
+  // financeiro
+  txs: {
+    list: async (opts = {}) => {
+      if (isSupabase()) return txs_list_supabase(opts);
+      return txs_list_mock();
+    },
+    create: async (payload) => {
+      if (isSupabase()) return txs_create_supabase(payload);
+      return txs_create_mock(payload);
+    },
+    update: async (id, patch) => {
+      if (isSupabase()) return txs_update_supabase(id, patch);
+      return txs_update_mock(id, patch);
+    },
+    remove: async (id) => {
+      if (isSupabase()) return txs_remove_supabase(id);
+      return txs_remove_mock(id);
+    },
+  },
 
-  // multi-empresa helpers (se quiser chamar do app)
-  getActiveCompanyId,
-  setActiveCompanyIdToStorage,
+  // util (para debug rápido no console)
+  _debug: {
+    getActiveCompanyId,
+  },
 };
-
-export default Data;
