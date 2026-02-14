@@ -1,23 +1,10 @@
-<!doctype html>
-<html lang="pt-br">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Serralheria | Sistema</title>
-  <link rel="stylesheet" href="./styles.css" />
-  <link rel="icon" href="./favicom.ico" />
-</head>
-<body>
-  <div id="app"></div>
+<!-- Supabase UMD primeiro -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- Supabase UMD (sem módulos) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- Config do ambiente (GitHub) -->
+<script src="./config.js"></script>
 
-  <!-- Ordem IMPORTA -->
- <script src="config.js"></script>
-<script src="supabaseClient.js"></script>
-<script src="data.js"></script>
-<script src="app.js"></script>
-</body>
-</html>
-
+<!-- Cliente e app -->
+<script src="./supabaseClient.js"></script>
+<script src="./data.js"></script>
+<script src="./app.js"></script>
