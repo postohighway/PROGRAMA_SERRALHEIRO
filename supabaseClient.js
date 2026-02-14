@@ -1,46 +1,51 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+// supabaseClient.js (SEM MODULES)
+// Requer: script UMD do supabase carregado antes (supabase.min.js)
+// Requer: window.CONFIG definido antes (config.local.js)
 
-const GLOBAL_KEY = "__SERRALHERIA_SUPABASE_CLIENT__";
+(function () {
+  const cfg = window.CONFIG || {};
+  const url = cfg.SUPABASE_URL;
+  const key = cfg.SUPABASE_KEY;
 
-/**
- * Cria/retorna SEMPRE a mesma instância (singleton) para evitar:
- * "Multiple GoTrueClient instances detected..."
- */
-export function createClientIfConfigured(url, key) {
-  if (!url || !key) return null;
+  // O UMD expõe um objeto global "supabase" com createClient
+  const lib = window.supabase;
 
-  const normalizedUrl = String(url).trim();
-  const normalizedKey = String(key).trim();
-
-  // Usa um "signature" simples para não misturar projetos/configs
-  const signature = `${normalizedUrl}::${normalizedKey.slice(0, 16)}...`;
-
-  const g = globalThis;
-  if (g[GLOBAL_KEY] && g[GLOBAL_KEY].signature === signature && g[GLOBAL_KEY].client) {
-    return g[GLOBAL_KEY].client;
+  if (!lib || typeof lib.createClient !== "function") {
+    console.error("[supabaseClient] ERRO: biblioteca UMD do Supabase não carregou.");
+    window.sb = null;
+    window.supabaseClient = null;
+    return;
   }
 
-  try {
-    const client = createClient(normalizedUrl, normalizedKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-
-        // storageKey único por host+path (evita conflito com outros apps Supabase no mesmo domínio)
-        storageKey: `serralheria_auth_${location.host}${location.pathname}`.replace(/[^a-zA-Z0-9_]/g, "_"),
-      },
-      global: {
-        headers: {
-          "x-client-info": "serralheria-front",
-        },
-      },
-    });
-
-    g[GLOBAL_KEY] = { signature, client };
-    return client;
-  } catch (err) {
-    console.error("Falha ao criar Supabase client:", err);
-    return null;
+  if (!url || !key || String(key).length < 30) {
+    console.warn("[supabaseClient] Aviso: SUPABASE_URL/KEY ausentes. (rodará em mock se seu Data permitir)");
+    window.sb = null;
+    window.supabaseClient = null;
+    return;
   }
-}
+
+  // Evita “Multiple GoTrueClient instances” reaproveitando se já existir
+  if (window.supabaseClient) {
+    window.sb = window.supabaseClient;
+    console.log("[supabaseClient] Reuso: window.supabaseClient já existe.");
+    return;
+  }
+
+  const client = lib.createClient(url, key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+    global: {
+      headers: {
+        "X-Client-Info": "serralheria-front",
+      },
+    },
+  });
+
+  window.supabaseClient = client;
+  window.sb = client; // apelido curto pro console
+
+  console.log("[supabaseClient] OK: window.sb pronto");
+})();
