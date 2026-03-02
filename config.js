@@ -1,10 +1,17 @@
-// config.js (COMMITAR no GitHub Pages)
-// Preencha com seus dados do Supabase.
+// config.js (PRECISA estar no GitHub Pages)
 window.sbConfig = {
-  supabaseUrl: 'https://lnfaukysiiflparrciwz.supabase.co',
-  supabaseAnonKey: 'a5429d0e-347b-4476-bfe8-b0da0cfa2182
-4e44632d-15b0-484d-bc01-ec8bff2e2189',
+  supabaseUrl: "https://lnfaukysiiflparrciwz.supabase.co",
 
-  // Opcional, mas RECOMENDADO para o app já iniciar sem depender de buscar company_users
-  defaultCompanyId: '4e44632d-15b0-484d-bc01-ec8bff2e2189'
+  // Cole aqui a ANON KEY do Supabase (é um token longo, parece um JWT; NÃO é UUID).
+  // IMPORTANTE: tem que ficar em UMA linha (sem quebra de linha).
+  supabaseAnonKey: "COLE_AQUI_SUA_SUPABASE_ANON_KEY_REAL",
+
+  // opcional, mas recomendado
+  defaultCompanyId: "4e44632d-15b0-484d-bc01-ec8bff2e2189"
 };
+
+console.log("[config] OK", {
+  hasUrl: !!window.sbConfig.supabaseUrl,
+  anonLen: (window.sbConfig.supabaseAnonKey || "").length,
+  defaultCompany: window.sbConfig.defaultCompanyId
+});
