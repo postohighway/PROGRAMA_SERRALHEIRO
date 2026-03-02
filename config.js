@@ -1,6 +1,6 @@
 // config.js (PRECISA estar no GitHub Pages)
 window.sbConfig = {
-  supabaseUrl: "https://lnfaukysiiflparrciwz.supabase.co",
+  supabaseUrl: 'https://lnfaukysiiflparrciwz.supabase.co',
 
   // Cole aqui a ANON KEY do Supabase (é um token longo, parece um JWT; NÃO é UUID).
   // IMPORTANTE: tem que ficar em UMA linha (sem quebra de linha).
