@@ -311,7 +311,7 @@
         from_status: null,
         to_status: status,
         note: null,
-        meta: { source: "app", kind: "ticket_create" },
+        meta: { source: 'app', kind: 'ticket_create' },
         created_at: new Date().toISOString(),
       };
 
