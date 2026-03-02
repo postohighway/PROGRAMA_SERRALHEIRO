@@ -308,19 +308,15 @@
         company_id: state.companyId,
         actor_user_id: state.userId,
         action: "create",
-        meta: { source: "app", kind: "ticket_create" },
         from_status: null,
         to_status: status,
         note: null,
-        created_at: new Date().toISOString(),
+        meta: { source: 'app', kind: 'ticket_create' },
+      created_at: new Date().toISOString(),
       };
 
       const h = await q(sb.from("ticket_history").insert(histPayload));
-      if (h.error) {
-        console.error("[ticket_history insert] payload=", histPayload);
-        console.error("[ticket_history insert] error=", h.error);
-        throw h.error;
-      }
+      if (h.error) throw h.error;
 
       // limpa form
       if ($("#fClientName")) $("#fClientName").value = "";
