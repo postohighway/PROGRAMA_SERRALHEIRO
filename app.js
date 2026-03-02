@@ -311,8 +311,8 @@
         from_status: null,
         to_status: status,
         note: null,
-        created_at: new Date().toISOString(),
         meta: {},
+        created_at: new Date().toISOString(),
       };
 
       const h = await q(sb.from("ticket_history").insert(histPayload));
