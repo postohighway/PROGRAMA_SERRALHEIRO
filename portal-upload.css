@@ -1,0 +1,189 @@
+:root{
+  --bg:#0b1220;
+  --card:#0f1a2d;
+  --card2:#0c1628;
+  --text:#e8eefc;
+  --muted:#9fb0d0;
+  --border:rgba(255,255,255,.10);
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --primary:#2b7cff;
+  --primary2:#1f5ed6;
+  --danger:#ff4d4d;
+  --ok:#3ddc97;
+  --warn:#ffcc66;
+  --radius:18px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  background:
+    radial-gradient(900px 600px at 15% 10%, rgba(43,124,255,.20), transparent 55%),
+    radial-gradient(900px 600px at 85% 20%, rgba(61,220,151,.12), transparent 60%),
+    var(--bg);
+  color:var(--text);
+}
+
+.top{
+  padding:18px 16px 6px;
+  display:flex;
+  justify-content:center;
+}
+.brand{
+  width:min(860px, 100%);
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:rgba(15,26,45,.55);
+  backdrop-filter: blur(8px);
+}
+.logo{height:44px; width:auto}
+.brandName{font-weight:800; letter-spacing:.2px}
+.brandSub{font-size:12px; color:var(--muted); margin-top:2px}
+
+.wrap{display:flex; justify-content:center; padding:12px 16px 72px}
+.card{
+  width:min(860px, 100%);
+  background:linear-gradient(180deg, rgba(15,26,45,.85), rgba(12,22,40,.82));
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.cardHead{padding:18px 18px 8px}
+h1{margin:0 0 8px; font-size:20px}
+p{margin:0}
+.muted{color:var(--muted)}
+.grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  padding:10px 18px 12px;
+}
+@media(min-width:840px){
+  .grid{grid-template-columns:1fr 1fr}
+}
+
+.slot{
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:rgba(255,255,255,.03);
+}
+.slotTitle{
+  padding:12px 12px 10px;
+  font-weight:700;
+  border-bottom:1px solid var(--border);
+}
+.slotBody{padding:12px}
+input[type=file]{
+  width:100%;
+  padding:12px;
+  border-radius:14px;
+  border:1px dashed rgba(255,255,255,.22);
+  background:rgba(0,0,0,.15);
+  color:var(--text);
+}
+.hint{margin-top:8px; font-size:12px; color:var(--muted)}
+.preview{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:8px;
+  margin-top:12px;
+}
+@media(min-width:520px){
+  .preview{grid-template-columns: repeat(5, 1fr)}
+}
+.thumb{
+  position:relative;
+  border-radius:12px;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(0,0,0,.25);
+  aspect-ratio: 1 / 1;
+}
+.thumb img, .thumb video{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.badge{
+  position:absolute;
+  top:6px;
+  left:6px;
+  font-size:11px;
+  padding:4px 8px;
+  border-radius:999px;
+  background:rgba(0,0,0,.55);
+  border:1px solid rgba(255,255,255,.12);
+}
+.meta{margin-top:8px; font-size:12px}
+
+.actions{
+  display:flex;
+  gap:10px;
+  padding:12px 18px 18px;
+  justify-content:flex-end;
+}
+.btn{
+  border:none;
+  border-radius:14px;
+  padding:12px 14px;
+  font-weight:800;
+  letter-spacing:.2px;
+  cursor:pointer;
+}
+.btn.primary{
+  background:linear-gradient(180deg, var(--primary), var(--primary2));
+  color:white;
+}
+.btn.primary:disabled{opacity:.45; cursor:not-allowed}
+.btn.ghost{
+  background:transparent;
+  border:1px solid rgba(255,255,255,.16);
+  color:var(--text);
+}
+.progressWrap{padding:0 18px 18px}
+.progressBar{
+  width:100%;
+  height:12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(0,0,0,.25);
+  overflow:hidden;
+}
+.progressFill{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg, rgba(61,220,151,.9), rgba(43,124,255,.9));
+}
+.status{
+  margin:0 18px 10px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  padding:12px;
+  background:rgba(0,0,0,.18);
+}
+.statusTitle{font-weight:900; margin-bottom:4px}
+.status.info{border-color:rgba(43,124,255,.35)}
+.status.ok{border-color:rgba(61,220,151,.45)}
+.status.warn{border-color:rgba(255,204,102,.50)}
+.status.err{border-color:rgba(255,77,77,.55)}
+.foot{padding:0 18px 18px; font-size:12px}
+.footer{
+  position:fixed;
+  left:0; right:0; bottom:0;
+  padding:10px 16px;
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  background:rgba(11,18,32,.65);
+  border-top:1px solid rgba(255,255,255,.10);
+  backdrop-filter: blur(8px);
+  font-size:12px;
+}
