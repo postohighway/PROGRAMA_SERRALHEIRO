@@ -1,6 +1,6 @@
 // config.js (GitHub Pages) — robusto contra key quebrada/colada com newline
 (function () {
-  const SUPABASE_URL = "https://lnfaukysiiflparrciwz.supabase.co";
+  const SUPABASE_URL = 'https://lnfaukysiiflparrciwz.supabase.co';
 
   // Cole a ANON KEY aqui dentro (pode colar com quebra de linha sem problema)
   const SUPABASE_ANON_KEY_RAW = `
