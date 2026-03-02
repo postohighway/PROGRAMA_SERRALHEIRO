@@ -1,802 +1,655 @@
-/* ============================================================
-   CHAMADA DE MEDIUNS - app.js
-   Versao: 2026-01-21-a
-   Destaques:
-   - Ordem de fila por (ordem_grupo, sort_order, name)
-   - Destaque visual: amarelo (próximo mesa) / vermelho (próximo psicografia)
-   - Botão: Imprimir próxima chamada (próxima terça-feira)
-   - Participantes: botão "X" para desativar (remover do front) sem quebrar histórico
-   ============================================================ */
+// app.js
+// Módulo Chamados (Tickets) + Histórico
+// ✅ Compatível com Supabase JS v2
+// ✅ Corrige o bug: sb.from(...).select(...).eq is not a function (encadeamento errado)
+// ✅ Insere histórico com campos corretos (company_id + actor_user_id)
+// ✅ Não usa fetch manual, só window.sb
 
-console.log("APP.JS CARREGADO: 2026-01-21-a");
+(function () {
+  "use strict";
 
-/* ====== SUPABASE ====== */
-const SUPABASE_URL = "https://nouzzyrevykdmnqifjjt.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vdXp6eXJldnlrZG1ucWlmamp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzOTYzMDIsImV4cCI6MjA4MDk3MjMwMn0.s2OzeSXe7CrKDNl6fXkTcMj_Vgitod0l0h0BiJA79nc";
+  const sb = window.sb;
 
-function headersJson(prefer = "return=representation") {
-  return {
-    apikey: SUPABASE_ANON_KEY,
-    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    "Content-Type": "application/json",
-    Prefer: prefer,
-  };
-}
+  // tenta pegar companyId de qualquer lugar comum (config.local.js / sbConfig / etc.)
+  const cfg = window.sbConfig || window.CONFIG || {};
+  const FALLBACK_COMPANY_ID =
+    cfg.defaultCompanyId ||
+    cfg.DEFAULT_COMPANY_ID ||
+    window.DEFAULT_COMPANY_ID ||
+    null;
 
-async function sbGet(path) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: headersJson() });
-  const t = await r.text();
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${t}`);
-  return t ? JSON.parse(t) : [];
-}
+  const $ = (sel) => document.querySelector(sel);
 
-async function sbPost(path, body, prefer = "return=minimal") {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    method: "POST",
-    headers: headersJson(prefer),
-    body: JSON.stringify(body),
-  });
-  const t = await r.text();
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${t}`);
-  return t ? JSON.parse(t) : [];
-}
+  const state = {
+    companyId: FALLBACK_COMPANY_ID,
+    userId: null,
+    session: null,
 
-async function sbPatch(path, body, prefer = "return=minimal") {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    method: "PATCH",
-    headers: headersJson(prefer),
-    body: JSON.stringify(body),
-  });
-  const t = await r.text();
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${t}`);
-  return t ? JSON.parse(t) : [];
-}
+    tickets: [],
+    selectedTicket: null,
+    history: [],
 
-/* Upsert de chamadas por conflito medium_id,data (precisa unique no banco) */
-async function sbUpsertChamadas(rows) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/chamadas?on_conflict=medium_id,data`, {
-    method: "POST",
-    headers: {
-      ...headersJson("resolution=merge-duplicates,return=minimal"),
-    },
-    body: JSON.stringify(rows),
-  });
-  const t = await r.text();
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${t}`);
-  return true;
-}
+    slaPlans: [],
+    loading: false,
 
-/* ====== DOM ====== */
-const $ = (id) => document.getElementById(id);
-function must(id) {
-  const e = $(id);
-  if (!e) throw new Error(`ID NAO ENCONTRADO NO HTML: ${id}`);
-  return e;
-}
-
-/* Tabs */
-const tabChamada = must("tabChamada");
-const tabParticipantes = must("tabParticipantes");
-const viewChamada = must("viewChamada");
-const viewParticipantes = must("viewParticipantes");
-
-/* Status */
-const statusPill = must("statusPill");
-const statusText = must("statusText");
-const msgTopo = must("msgTopo");
-const msgErro = must("msgErro");
-
-/* Chamada */
-const dataChamada = must("dataChamada");
-const btnVerificar = must("btnVerificar");
-const btnSalvar = must("btnSalvar");
-const btnImprimirProxima = must("btnImprimirProxima");
-
-const resumoGeral = must("resumoGeral");
-const reservasMesa = must("reservasMesa");
-
-/* Proximos */
-const nextMesaDirigenteName = must("nextMesaDirigenteName");
-const nextPsicoDirigenteName = must("nextPsicoDirigenteName");
-const nextMesaIncorpName = must("nextMesaIncorpName");
-const nextMesaDesenvName = must("nextMesaDesenvName");
-
-/* Listas */
-const listaDirigentes = must("listaDirigentes");
-const listaIncorporacao = must("listaIncorporacao");
-const listaDesenvolvimento = must("listaDesenvolvimento");
-const listaCarencia = must("listaCarencia");
-
-/* Participantes */
-const partFiltroGrupo = must("partFiltroGrupo");
-const partBusca = must("partBusca");
-const btnRecarregarParticipantes = must("btnRecarregarParticipantes");
-const listaParticipantes = must("listaParticipantes");
-const partMsg = must("partMsg");
-const partErr = must("partErr");
-
-const novoNome = must("novoNome");
-const novoGrupo = must("novoGrupo");
-const novoAtivo = must("novoAtivo");
-const novoMesa = must("novoMesa");
-const novoPsico = must("novoPsico");
-const btnAdicionarParticipante = must("btnAdicionarParticipante");
-
-/* ====== ESTADO ====== */
-let mediumsAll = [];
-let rotacao = {
-  mesa_dirigente: null,
-  mesa_incorporacao: null,
-  mesa_desenvolvimento: null,
-  psicografia: null,
-};
-let currentDateISO = null;
-
-let chamadasMap = new Map();
-
-/* timestamps de clique: last-click wins */
-const tsMesa = new Map();
-const tsPsico = new Map();
-
-/* Targets atuais (para destaque e impressão) */
-let nextTargets = {
-  mesa_dirigente: null,
-  mesa_incorporacao: null,
-  mesa_desenvolvimento: null,
-  psicografia: null,
-};
-
-/* ====== UI helpers ====== */
-function setOk(msg = "") { msgTopo.textContent = msg; msgErro.textContent = ""; }
-function setErro(msg = "") { msgErro.textContent = msg; }
-function setConn(ok, msg) { statusText.textContent = msg; statusPill.classList.toggle("ok", !!ok); }
-
-function pOk(msg = "") { partMsg.textContent = msg; partErr.textContent = ""; }
-function pErr(msg = "") { partErr.textContent = msg; partMsg.textContent = ""; }
-
-function nameOf(m) { return m.name ?? m.nome ?? "(sem nome)"; }
-function numOrInf(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
-}
-
-/* ORDENACAO CORRETA: fila por ordem_grupo / sort_order / nome */
-function byQueue(a, b) {
-  const ag = numOrInf(a.ordem_grupo);
-  const bg = numOrInf(b.ordem_grupo);
-  if (ag !== bg) return ag - bg;
-
-  const as = numOrInf(a.sort_order);
-  const bs = numOrInf(b.sort_order);
-  if (as !== bs) return as - bs;
-
-  return nameOf(a).localeCompare(nameOf(b), "pt-BR", { sensitivity: "base" });
-}
-
-function eligible(group_type) {
-  return mediumsAll
-    .filter((m) => m.active === true && m.group_type === group_type)
-    .slice()
-    .sort(byQueue);
-}
-
-/* regra: todo dirigente pode psicografar */
-function eligiblePsicoDirigentes() {
-  return eligible("dirigente");
-}
-
-/* ====== ROTACAO ====== */
-function computeNext(list, lastId) {
-  if (!list.length) return null;
-  if (!lastId) return list[0];
-  const idx = list.findIndex((x) => x.id === lastId);
-  if (idx === -1) return list[0];
-  return list[(idx + 1) % list.length];
-}
-
-function computeNextSkip(list, lastId, skipId) {
-  if (!list.length) return null;
-  let n = computeNext(list, lastId);
-  if (!skipId || list.length === 1) return n;
-  if (n && n.id === skipId) n = computeNext(list, n.id);
-  return n;
-}
-
-function pickLastClicked(ids, tsMap) {
-  let bestId = null;
-  let bestTs = -1;
-  for (const id of ids) {
-    const ts = tsMap.get(id);
-    if (typeof ts === "number" && ts > bestTs) {
-      bestTs = ts;
-      bestId = id;
-    }
-  }
-  if (!bestId && ids.length) bestId = ids[ids.length - 1];
-  return bestId;
-}
-
-/* ====== LOAD ====== */
-async function loadMediums() {
-  // IMPORTANTISSIMO: trazer ordem_grupo e sort_order
-  mediumsAll = await sbGet(
-    "mediums?select=id,name,group_type,active,presencas,faltas,mesa,psicografia,ordem_grupo,sort_order"
-  );
-}
-
-async function loadRotacao() {
-  const rows = await sbGet("rotacao?select=group_type,last_medium_id");
-  rotacao = {
-    mesa_dirigente: null,
-    mesa_incorporacao: null,
-    mesa_desenvolvimento: null,
-    psicografia: null,
-  };
-  for (const r of rows) {
-    if (Object.prototype.hasOwnProperty.call(rotacao, r.group_type)) {
-      rotacao[r.group_type] = r.last_medium_id || null;
-    }
-  }
-}
-
-async function loadChamadasForDate(iso) {
-  chamadasMap = new Map();
-  tsMesa.clear();
-  tsPsico.clear();
-
-  const rows = await sbGet(`chamadas?select=medium_id,status&data=eq.${iso}`);
-  for (const r of rows) {
-    chamadasMap.set(r.medium_id, (r.status || "").toUpperCase());
-  }
-}
-
-/* ====== PROXIMOS ====== */
-function computeTargetsFromRotacao() {
-  const dir = eligible("dirigente");
-  const inc = eligible("incorporacao");
-  const des = eligible("desenvolvimento");
-  const ps  = eligiblePsicoDirigentes();
-
-  const nextMesaDir = computeNext(dir, rotacao.mesa_dirigente);
-  const nextMesaInc = computeNext(inc, rotacao.mesa_incorporacao);
-  const nextMesaDes = computeNext(des, rotacao.mesa_desenvolvimento);
-
-  const nextPsico = computeNextSkip(ps, rotacao.psicografia, nextMesaDir ? nextMesaDir.id : null);
-
-  nextTargets = {
-    mesa_dirigente: nextMesaDir ? nextMesaDir.id : null,
-    mesa_incorporacao: nextMesaInc ? nextMesaInc.id : null,
-    mesa_desenvolvimento: nextMesaDes ? nextMesaDes.id : null,
-    psicografia: nextPsico ? nextPsico.id : null,
+    filterText: "",
+    filterStatus: "(todos)",
   };
 
-  return { nextMesaDir, nextMesaInc, nextMesaDes, nextPsico };
-}
-
-function renderProximos() {
-  const { nextMesaDir, nextMesaInc, nextMesaDes, nextPsico } = computeTargetsFromRotacao();
-
-  nextMesaDirigenteName.textContent = nextMesaDir ? nameOf(nextMesaDir) : "—";
-  nextMesaIncorpName.textContent    = nextMesaInc ? nameOf(nextMesaInc) : "—";
-  nextMesaDesenvName.textContent    = nextMesaDes ? nameOf(nextMesaDes) : "—";
-  nextPsicoDirigenteName.textContent= nextPsico ? nameOf(nextPsico) : "—";
-}
-
-/* ====== RESUMO ====== */
-function renderResumo() {
-  const active = mediumsAll.filter((m) => m.active === true);
-
-  let p = 0, m = 0, f = 0, ps = 0;
-  const mesa = [];
-
-  for (const med of active) {
-    const st = (chamadasMap.get(med.id) || "").toUpperCase();
-    if (st === "P") p++;
-    if (st === "M") { m++; mesa.push(nameOf(med)); }
-    if (st === "F") f++;
-    if (st === "PS") ps++;
+  // ----------------------------
+  // UI helpers
+  // ----------------------------
+  function setBadge(ok) {
+    const el = $("#connBadge");
+    if (!el) return;
+    el.textContent = ok ? "Conectado" : "Desconectado";
+    el.classList.toggle("ok", !!ok);
+    el.classList.toggle("bad", !ok);
   }
 
-  const total = p + m + f;
-  const presPct = total ? Math.round(((p + m) / total) * 100) : 0;
-  const faltPct = total ? Math.round((f / total) * 100) : 0;
-
-  resumoGeral.textContent = `P:${p} M:${m} F:${f} PS:${ps} | Presença:${presPct}% | Faltas:${faltPct}%`;
-  reservasMesa.textContent = mesa.length ? mesa.join(", ") : "—";
-}
-
-/* ====== LISTA / RADIOS ====== */
-function buildStatusOptions(m) {
-  const base = ["P", "M", "F"];
-  if (m.group_type === "dirigente") base.push("PS");
-  return base;
-}
-
-function makeRow(m) {
-  const wrap = document.createElement("div");
-  wrap.className = "itemRow";
-
-  // Destaques por "próximo"
-  const isMesaNext =
-    (m.group_type === "dirigente" && m.id === nextTargets.mesa_dirigente) ||
-    (m.group_type === "incorporacao" && m.id === nextTargets.mesa_incorporacao) ||
-    (m.group_type === "desenvolvimento" && m.id === nextTargets.mesa_desenvolvimento);
-
-  const isPsicoNext =
-    (m.group_type === "dirigente" && m.id === nextTargets.psicografia);
-
-  if (isMesaNext) wrap.classList.add("nextMesa");
-  if (isPsicoNext) wrap.classList.add("nextPsico");
-
-  const left = document.createElement("div");
-  left.className = "itemLeft";
-
-  const title = document.createElement("div");
-  title.className = "itemName";
-  title.textContent = nameOf(m);
-
-  const pres = Number(m.presencas || 0);
-  const falt = Number(m.faltas || 0);
-  const denom = pres + falt;
-  const presPct = denom ? Math.round((pres / denom) * 100) : 0;
-  const faltPct = denom ? Math.round((falt / denom) * 100) : 0;
-
-  const meta = document.createElement("div");
-  meta.className = "itemMeta";
-  meta.textContent = `Presenças: ${pres} | Faltas: ${falt} | Presença: ${presPct}% | Faltas: ${faltPct}%`;
-
-  left.appendChild(title);
-  left.appendChild(meta);
-
-  const right = document.createElement("div");
-  right.className = "itemRight";
-
-  const radios = document.createElement("div");
-  radios.className = "radioGroup";
-
-  const current = (chamadasMap.get(m.id) || "").toUpperCase();
-
-  for (const s of buildStatusOptions(m)) {
-    const rid = `r_${m.id}_${s}`;
-
-    const inp = document.createElement("input");
-    inp.type = "radio";
-    inp.name = `st_${m.id}`;
-    inp.id = rid;
-    inp.value = s;
-    inp.checked = current === s;
-
-    const lbl = document.createElement("label");
-    lbl.className = "radioLbl";
-    lbl.setAttribute("for", rid);
-
-    const dot = document.createElement("span");
-    dot.className = "dot";
-    const txt = document.createElement("span");
-    txt.className = "radioTxt";
-    txt.textContent = s;
-
-    lbl.appendChild(dot);
-    lbl.appendChild(txt);
-
-    inp.addEventListener("change", () => {
-      if (!currentDateISO) {
-        setErro("Selecione a data e clique em Verificar data.");
-        return;
-      }
-      chamadasMap.set(m.id, s);
-
-      if (s === "M") tsMesa.set(m.id, Date.now()); else tsMesa.delete(m.id);
-      if (s === "PS") tsPsico.set(m.id, Date.now()); else tsPsico.delete(m.id);
-
-      renderResumo();
-    });
-
-    radios.appendChild(inp);
-    radios.appendChild(lbl);
-  }
-
-  right.appendChild(radios);
-  wrap.appendChild(left);
-  wrap.appendChild(right);
-  return wrap;
-}
-
-function renderChamada() {
-  listaDirigentes.innerHTML = "";
-  listaIncorporacao.innerHTML = "";
-  listaDesenvolvimento.innerHTML = "";
-  listaCarencia.innerHTML = "";
-
-  // Recalcula targets (para destaque consistente mesmo se mudou active/rotacao)
-  renderProximos();
-
-  const dir = eligible("dirigente");
-  const inc = eligible("incorporacao");
-  const des = eligible("desenvolvimento");
-  const car = eligible("carencia");
-
-  for (const m of dir) listaDirigentes.appendChild(makeRow(m));
-  for (const m of inc) listaIncorporacao.appendChild(makeRow(m));
-  for (const m of des) listaDesenvolvimento.appendChild(makeRow(m));
-  for (const m of car) listaCarencia.appendChild(makeRow(m));
-
-  renderResumo();
-}
-
-/* ====== SALVAR ====== */
-async function persistRotacaoFromClicks() {
-  const active = mediumsAll.filter((m) => m.active === true);
-
-  const dirMesaIds = active
-    .filter((m) => m.group_type === "dirigente" && (chamadasMap.get(m.id) || "") === "M")
-    .map((m) => m.id);
-
-  const incMesaIds = active
-    .filter((m) => m.group_type === "incorporacao" && (chamadasMap.get(m.id) || "") === "M")
-    .map((m) => m.id);
-
-  const desMesaIds = active
-    .filter((m) => m.group_type === "desenvolvimento" && (chamadasMap.get(m.id) || "") === "M")
-    .map((m) => m.id);
-
-  const psicoIds = active
-    .filter((m) => m.group_type === "dirigente" && (chamadasMap.get(m.id) || "") === "PS")
-    .map((m) => m.id);
-
-  const lastMesaDir = pickLastClicked(dirMesaIds, tsMesa);
-  const lastMesaInc = pickLastClicked(incMesaIds, tsMesa);
-  const lastMesaDes = pickLastClicked(desMesaIds, tsMesa);
-  let lastPsico = pickLastClicked(psicoIds, tsPsico);
-
-  // Garante que não seja a mesma pessoa em Mesa e Psicografia
-  if (lastMesaDir && lastPsico && lastMesaDir === lastPsico) {
-    const psList = eligiblePsicoDirigentes();
-    lastPsico = computeNextSkip(psList, lastPsico, lastMesaDir)?.id || lastPsico;
-  }
-
-  if (lastMesaDir) await sbPatch(`rotacao?group_type=eq.mesa_dirigente`, { last_medium_id: lastMesaDir });
-  if (lastMesaInc) await sbPatch(`rotacao?group_type=eq.mesa_incorporacao`, { last_medium_id: lastMesaInc });
-  if (lastMesaDes) await sbPatch(`rotacao?group_type=eq.mesa_desenvolvimento`, { last_medium_id: lastMesaDes });
-  if (lastPsico)   await sbPatch(`rotacao?group_type=eq.psicografia`, { last_medium_id: lastPsico });
-}
-
-async function onSalvarTudo() {
-  if (!currentDateISO) return setErro("Selecione a data e clique em Verificar data.");
-
-  try {
-    const active = mediumsAll.filter((m) => m.active === true);
-    const rows = [];
-
-    for (const m of active) {
-      const st = (chamadasMap.get(m.id) || "").toUpperCase();
-      if (["P", "M", "F", "PS"].includes(st)) {
-        rows.push({ medium_id: m.id, data: currentDateISO, status: st });
-      }
-    }
-    if (rows.length) await sbUpsertChamadas(rows);
-
-    await persistRotacaoFromClicks();
-    await loadRotacao();
-    renderChamada();
-
-    setOk("Chamada salva e rotação atualizada.");
-  } catch (e) {
-    setErro("Erro ao salvar: " + e.message);
-  }
-}
-
-/* ====== VERIFICAR DATA ====== */
-async function onVerificar() {
-  setErro("");
-  const iso = (dataChamada.value || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return setErro("Data inválida.");
-  currentDateISO = iso;
-  await loadChamadasForDate(iso);
-  setOk(`Data carregada: ${iso}`);
-  renderChamada();
-}
-
-/* ====== IMPRESSÃO: PRÓXIMA TERÇA ====== */
-function pad2(n) { return String(n).padStart(2, "0"); }
-
-function toISODate(d) {
-  const yy = d.getFullYear();
-  const mm = pad2(d.getMonth() + 1);
-  const dd = pad2(d.getDate());
-  return `${yy}-${mm}-${dd}`;
-}
-
-function nextTuesdayISO(fromDate = new Date()) {
-  const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
-  // 0=domingo ... 2=terça
-  let add = (2 - d.getDay() + 7) % 7;
-  if (add === 0) add = 7; // se hoje é terça, pega a próxima
-  d.setDate(d.getDate() + add);
-  return toISODate(d);
-}
-
-function formatBR(iso) {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-function esc(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-function buildPrintDoc(dateISO) {
-  const { nextMesaDir, nextMesaInc, nextMesaDes, nextPsico } = computeTargetsFromRotacao();
-
-  const dir = eligible("dirigente");
-  const inc = eligible("incorporacao");
-  const des = eligible("desenvolvimento");
-  const car = eligible("carencia");
-
-  function mkTable(list, opts={ ps:false }) {
-    const cols = opts.ps ? "<th>PS</th>" : "";
-    const rows = list.map((m, i) => `
-      <tr>
-        <td style="width:36px; text-align:right;">${i+1}</td>
-        <td>${esc(nameOf(m))}</td>
-        <td style="text-align:center;">[ ]</td>
-        <td style="text-align:center;">[ ]</td>
-        <td style="text-align:center;">[ ]</td>
-        ${opts.ps ? '<td style="text-align:center;">[ ]</td>' : ''}
-      </tr>
-    `).join("");
-
-    return `
-      <table>
-        <thead>
-          <tr>
-            <th style="width:36px;">#</th>
-            <th>Nome</th>
-            <th>P</th>
-            <th>M</th>
-            <th>F</th>
-            ${cols}
-          </tr>
-        </thead>
-        <tbody>
-          ${rows || '<tr><td colspan="6">—</td></tr>'}
-        </tbody>
-      </table>
-    `;
-  }
-
-  const reservas = `
-    <div class="resBox">
-      <div><strong>Data:</strong> ${formatBR(dateISO)} (terça-feira)</div>
-      <div style="margin-top:6px;">
-        <strong>Reservas sugeridas (para conferência):</strong><br/>
-        Mesa Dirigente: <span class="tag warn">${esc(nextMesaDir ? nameOf(nextMesaDir) : "—")}</span>
-        Psicografia: <span class="tag err">${esc(nextPsico ? nameOf(nextPsico) : "—")}</span><br/>
-        Mesa Incorporação: <span class="tag warn">${esc(nextMesaInc ? nameOf(nextMesaInc) : "—")}</span><br/>
-        Mesa Desenvolvimento: <span class="tag warn">${esc(nextMesaDes ? nameOf(nextMesaDes) : "—")}</span>
-      </div>
-      <div style="margin-top:10px; color:#333;">
-        Observação: esta impressão é um “backup” para fazer a chamada manualmente se o sistema falhar.
-      </div>
-    </div>
-  `;
-
-  return `
-<!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Impressão - Chamada ${formatBR(dateISO)}</title>
-  <style>
-    body{font-family:Arial, sans-serif; margin:18px; color:#111}
-    h1{margin:0 0 6px; font-size:18px}
-    h2{margin:18px 0 8px; font-size:14px}
-    .resBox{border:1px solid #999; padding:10px; border-radius:8px; background:#f7f7f7}
-    .tag{display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #999}
-    .warn{background:#fff4d6; border-color:#f59e0b}
-    .err{background:#ffe3e3; border-color:#ef4444}
-    table{width:100%; border-collapse:collapse; margin-top:6px}
-    th,td{border:1px solid #999; padding:6px 8px; font-size:12px}
-    th{background:#efefef; text-align:left}
-    @media print{ .noPrint{display:none} }
-  </style>
-</head>
-<body>
-  <div class="noPrint" style="text-align:right; margin-bottom:10px;">
-    <button onclick="window.print()">Imprimir</button>
-  </div>
-
-  <h1>Chamada de Médiuns - ${formatBR(dateISO)}</h1>
-  ${reservas}
-
-  <h2>Dirigentes</h2>
-  ${mkTable(dir, {ps:true})}
-
-  <h2>Médiuns de Incorporação</h2>
-  ${mkTable(inc)}
-
-  <h2>Médiuns em Desenvolvimento</h2>
-  ${mkTable(des)}
-
-  <h2>Médiuns em Carência</h2>
-  ${mkTable(car)}
-</body>
-</html>
-  `;
-}
-
-async function onImprimirProxima() {
-  try {
-    // Garante base atualizada
-    await loadMediums();
-    await loadRotacao();
-
-    const iso = nextTuesdayISO(new Date());
-    const w = window.open("", "_blank");
-    if (!w) {
-      setErro("Bloqueio de pop-up: permita abrir nova aba para imprimir.");
+  function setMsg(msg, type = "info") {
+    const box = $("#topMessage");
+    if (!box) return;
+    if (!msg) {
+      box.classList.add("hidden");
+      box.textContent = "";
       return;
     }
-    w.document.open();
-    w.document.write(buildPrintDoc(iso));
-    w.document.close();
-  } catch (e) {
-    setErro("Erro ao preparar impressão: " + e.message);
-  }
-}
-
-/* ====== PARTICIPANTES ====== */
-function matchesFilter(m) {
-  const g = (partFiltroGrupo.value || "").trim();
-  const q = (partBusca.value || "").trim().toLowerCase();
-  if (g && m.group_type !== g) return false;
-  if (q && !nameOf(m).toLowerCase().includes(q)) return false;
-  return true;
-}
-
-function renderParticipants() {
-  listaParticipantes.innerHTML = "";
-  const filtered = mediumsAll.filter(matchesFilter).sort(byQueue);
-
-  if (!filtered.length) {
-    const div = document.createElement("div");
-    div.className = "empty";
-    div.textContent = "Nenhum participante encontrado.";
-    listaParticipantes.appendChild(div);
-    return;
+    box.classList.remove("hidden");
+    box.classList.remove("err", "info", "ok");
+    box.classList.add(type);
+    box.textContent = msg;
   }
 
-  for (const m of filtered) {
-    const row = document.createElement("div");
-    row.className = "itemRow";
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
 
-    const left = document.createElement("div");
-    left.className = "itemLeft";
-    left.innerHTML = `
-      <div class="itemName">${esc(nameOf(m))}</div>
-      <div class="itemMeta">Grupo: ${m.group_type} | Ativo: ${m.active ? "Sim" : "Não"} | Ordem: ${m.ordem_grupo ?? "-"} / ${m.sort_order ?? "-"}</div>
-    `;
+  function fmtDateBR(dt) {
+    if (!dt) return "";
+    const d = new Date(dt);
+    const day = String(d.getDate()).padStart(2, "0");
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const y = d.getFullYear();
+    return `${day}/${m}/${y}`;
+  }
 
-    const right = document.createElement("div");
-    right.className = "itemRight";
+  function fmtDateISO(dt) {
+    if (!dt) return "";
+    const d = new Date(dt);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
 
-    // Botão "X" (soft delete): desativa para sumir do front sem quebrar histórico (chamadas)
-    const btnX = document.createElement("button");
-    btnX.className = "btn danger small";
-    btnX.type = "button";
-    btnX.textContent = "X";
-    btnX.title = "Remover (desativar) participante";
+  // ----------------------------
+  // Supabase safe-query builder
+  // (evita o erro select().eq não existir)
+  // ----------------------------
+  async function q(builder) {
+    // o segredo é: montar o builder inteiro (com eq/order/limit)
+    // e só depois await no final
+    return await builder;
+  }
 
-    btnX.disabled = !m.active; // se já está inativo, não precisa
-    btnX.addEventListener("click", async () => {
-      const ok = confirm(`Remover (desativar) o participante "${nameOf(m)}"?\n\nIsso NÃO apaga chamadas antigas, apenas desativa para não aparecer no front.`);
-      if (!ok) return;
-
-      try {
-        await sbPatch(`mediums?id=eq.${m.id}`, { active: false });
-        pOk(`Participante removido (desativado): ${nameOf(m)}`);
-        await reloadParticipants();
-      } catch (e) {
-        pErr("Erro ao remover: " + e.message);
+  // ----------------------------
+  // Boot/Auth
+  // ----------------------------
+  async function boot() {
+    try {
+      if (!sb) {
+        setBadge(false);
+        setMsg("Supabase não inicializado (window.sb). Confira supabaseClient.js.", "err");
+        return;
       }
+
+      const { data: sess, error: sessErr } = await sb.auth.getSession();
+      if (sessErr) console.warn("getSession error:", sessErr);
+
+      state.session = sess?.session || null;
+      state.userId = state.session?.user?.id || null;
+
+      setBadge(true);
+
+      // Company do usuário (se não veio por config)
+      if (!state.companyId && state.userId) {
+        const { data, error } = await q(
+          sb
+            .from("company_users")
+            .select("company_id")
+            .eq("user_id", state.userId)
+            .limit(1)
+        );
+
+        if (!error && data && data[0]?.company_id) {
+          state.companyId = data[0].company_id;
+        }
+      }
+
+      if ($("#infoUser")) $("#infoUser").textContent = state.userId || "-";
+      if ($("#infoCompany")) $("#infoCompany").textContent = state.companyId || "-";
+
+      bindUI();
+
+      await loadAll();
+      renderAll();
+
+      sb.auth.onAuthStateChange(async (_event, session) => {
+        state.session = session || null;
+        state.userId = session?.user?.id || null;
+        if ($("#infoUser")) $("#infoUser").textContent = state.userId || "-";
+
+        if (!state.companyId && state.userId) {
+          const { data } = await q(
+            sb.from("company_users").select("company_id").eq("user_id", state.userId).limit(1)
+          );
+          if (data && data[0]?.company_id) state.companyId = data[0].company_id;
+          if ($("#infoCompany")) $("#infoCompany").textContent = state.companyId || "-";
+        }
+
+        await loadAll();
+        renderAll();
+      });
+
+      console.log("[app] BOOT READY");
+    } catch (e) {
+      console.error(e);
+      setBadge(false);
+      setMsg("Erro no boot: " + (e?.message || e), "err");
+    }
+  }
+
+  async function loadAll() {
+    if (!state.companyId) {
+      setMsg("Company ID não definido. Verifique config.local.js (DEFAULT_COMPANY_ID) ou company_users.", "err");
+      return;
+    }
+    setMsg("", "info");
+    await loadSlaPlans();   // <-- aqui era onde seu app explodia
+    await loadTickets();
+  }
+
+  // ----------------------------
+  // Data
+  // ----------------------------
+  async function loadSlaPlans() {
+    // Se não existir tabela/colunas, só ignora sem derrubar o app
+    try {
+      const { data, error } = await q(
+        sb
+          .from("sla_plans")
+          .select("id, name, hours_to_expire, created_at")
+          .eq("company_id", state.companyId)     // ✅ encadeamento seguro
+          .order("created_at", { ascending: false })
+      );
+
+      if (error) {
+        console.warn("sla_plans load error:", error);
+        state.slaPlans = [];
+        return;
+      }
+      state.slaPlans = data || [];
+    } catch (e) {
+      console.warn("sla_plans load crashed:", e);
+      state.slaPlans = [];
+    }
+  }
+
+  async function loadTickets() {
+    try {
+      state.loading = true;
+
+      const { data, error } = await q(
+        sb
+          .from("tickets")
+          .select("id, company_id, status, created_at, description, due_date, client_name, client_phone, token")
+          .eq("company_id", state.companyId)
+          .order("created_at", { ascending: false })
+          .limit(200)
+      );
+
+      if (error) throw error;
+
+      state.tickets = data || [];
+      if ($("#ticketsCount")) $("#ticketsCount").textContent = String(state.tickets.length);
+    } catch (e) {
+      console.error(e);
+      setMsg("Erro ao carregar chamados: " + (e?.message || e), "err");
+    } finally {
+      state.loading = false;
+    }
+  }
+
+  async function loadHistory(ticketId) {
+    const { data, error } = await q(
+      sb
+        .from("ticket_history")
+        .select("id, ticket_id, company_id, action, from_status, to_status, note, created_at, actor_user_id")
+        .eq("ticket_id", ticketId)
+        .order("created_at", { ascending: false })
+        .limit(200)
+    );
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function selectTicket(ticketId) {
+    try {
+      state.selectedTicket = state.tickets.find((t) => t.id === ticketId) || null;
+      state.history = [];
+      renderDetail();
+
+      if (!state.selectedTicket) return;
+
+      const rows = await loadHistory(ticketId);
+      state.history = rows;
+      renderDetail();
+    } catch (e) {
+      console.error(e);
+      setMsg("Erro ao abrir chamado: " + (e?.message || e), "err");
+    }
+  }
+
+  async function createTicket() {
+    if (!state.companyId) {
+      setMsg("Company ID não definido.", "err");
+      return;
+    }
+    if (!state.userId) {
+      setMsg("Usuário não autenticado.", "err");
+      return;
+    }
+
+    const name = ($("#fClientName")?.value || "").trim() || null;
+    const phone = ($("#fClientPhone")?.value || "").trim() || null;
+    const desc = ($("#fDesc")?.value || "").trim();
+    const due = $("#fDueDate")?.value || null;
+    const status = $("#fStatus")?.value || "aberto";
+
+    if (!desc) {
+      setMsg("Descrição é obrigatória.", "err");
+      return;
+    }
+
+    try {
+      setMsg("", "info");
+
+      const ticketPayload = {
+        id: crypto.randomUUID(),
+        company_id: state.companyId,
+        token: crypto.randomUUID(), // nunca nulo
+        status,
+        description: desc,
+        due_date: due ? due : null,
+        client_name: name,
+        client_phone: phone,
+        created_at: new Date().toISOString(),
+      };
+
+      // cria ticket e pega id de volta
+      const ins = await q(
+        sb.from("tickets").insert(ticketPayload).select("id, status").single()
+      );
+      if (ins.error) throw ins.error;
+
+      const ticketId = ins.data.id;
+
+      // cria histórico "create" com campos que sua tabela realmente tem
+      // (pela sua imagem do schema: actor_user_id e company_id existem)
+      const histPayload = {
+        id: crypto.randomUUID(),
+        ticket_id: ticketId,
+        company_id: state.companyId,
+        actor_user_id: state.userId,
+        action: "create",
+        meta: { source: "app", kind: "ticket_create" },
+        from_status: null,
+        to_status: status,
+        note: null,
+        created_at: new Date().toISOString(),
+      };
+
+      const h = await q(sb.from("ticket_history").insert(histPayload));
+      if (h.error) {
+        console.error("[ticket_history insert] payload=", histPayload);
+        console.error("[ticket_history insert] error=", h.error);
+        throw h.error;
+      }
+
+      // limpa form
+      if ($("#fClientName")) $("#fClientName").value = "";
+      if ($("#fClientPhone")) $("#fClientPhone").value = "";
+      if ($("#fDesc")) $("#fDesc").value = "";
+      if ($("#fDueDate")) $("#fDueDate").value = "";
+
+      setMsg("Chamado criado com sucesso.", "ok");
+
+      await loadTickets();
+      renderAll();
+    } catch (e) {
+      console.error("createTicket error:", e);
+      setMsg("Erro ao criar chamado: " + (e?.message || e), "err");
+    }
+  }
+
+  // ----------------------------
+  // Render
+  // ----------------------------
+  function filteredTickets() {
+    const qtxt = state.filterText.trim().toLowerCase();
+    const st = state.filterStatus;
+
+    return state.tickets.filter((t) => {
+      const okStatus = st === "(todos)" ? true : (t.status || "") === st;
+
+      const okText =
+        !qtxt ||
+        String(t.description || "").toLowerCase().includes(qtxt) ||
+        String(t.client_name || "").toLowerCase().includes(qtxt) ||
+        String(t.client_phone || "").toLowerCase().includes(qtxt);
+
+      return okStatus && okText;
     });
-
-    right.appendChild(btnX);
-
-    row.appendChild(left);
-    row.appendChild(right);
-    listaParticipantes.appendChild(row);
-  }
-}
-
-async function reloadParticipants() {
-  await loadMediums();
-  renderParticipants();
-  renderChamada();
-}
-
-async function onAdicionarParticipante() {
-  pOk(""); pErr("");
-
-  const name = (novoNome.value || "").trim();
-  const group_type = (novoGrupo.value || "").trim();
-  const active = !!novoAtivo.checked;
-
-  if (!name) return pErr("Informe o nome.");
-  if (!group_type) return pErr("Informe o grupo.");
-
-  try {
-    await sbPost("mediums", [{
-      name,
-      group_type,
-      active,
-      mesa: novoMesa.checked ? 1 : 0,
-      psicografia: novoPsico.checked ? 1 : 0,
-      presencas: 0,
-      faltas: 0,
-      ordem_grupo: null,
-      sort_order: null
-    }], "return=minimal");
-
-    pOk("Participante adicionado.");
-    novoNome.value = "";
-    novoMesa.checked = false;
-    novoPsico.checked = false;
-    novoAtivo.checked = true;
-
-    await reloadParticipants();
-  } catch (e) {
-    pErr("Erro ao adicionar: " + e.message);
-  }
-}
-
-/* ====== TABS ====== */
-function showTab(which) {
-  const isChamada = which === "chamada";
-  viewChamada.style.display = isChamada ? "" : "none";
-  viewParticipantes.style.display = isChamada ? "none" : "";
-  tabChamada.classList.toggle("active", isChamada);
-  tabParticipantes.classList.toggle("active", !isChamada);
-  if (!isChamada) renderParticipants();
-}
-
-/* ====== INIT ====== */
-(async function init() {
-  try {
-    setConn(false, "Conectando...");
-    await sbGet("rotacao?select=group_type,last_medium_id&limit=1");
-    setConn(true, "Supabase OK");
-
-    await loadMediums();
-    await loadRotacao();
-
-    setOk("Selecione a data e clique em Verificar data.");
-    renderChamada();
-    renderParticipants();
-  } catch (e) {
-    setConn(false, "Erro");
-    setErro("Falha ao conectar: " + e.message);
   }
 
-  btnVerificar.addEventListener("click", onVerificar);
-  btnSalvar.addEventListener("click", onSalvarTudo);
-  btnImprimirProxima.addEventListener("click", onImprimirProxima);
+  function renderTable() {
+    const tbody = $("#ticketsTbody");
+    if (!tbody) return;
 
-  tabChamada.addEventListener("click", () => showTab("chamada"));
-  tabParticipantes.addEventListener("click", () => showTab("participantes"));
+    const list = filteredTickets();
+    tbody.innerHTML = "";
 
-  btnRecarregarParticipantes.addEventListener("click", async () => {
-    try { await reloadParticipants(); pOk("Recarregado."); }
-    catch (e) { pErr("Erro ao recarregar: " + e.message); }
-  });
+    for (const t of list) {
+      const tr = document.createElement("tr");
+      const created = fmtDateISO(t.created_at);
+      const prazo = t.due_date ? fmtDateBR(t.due_date) : "";
+      tr.innerHTML = `
+        <td class="cell">${escapeHtml(created)}</td>
+        <td class="cell">${escapeHtml(t.status || "")}</td>
+        <td class="cell">${escapeHtml(prazo)}</td>
+        <td class="cell">${escapeHtml(t.description || "")}</td>
+        <td class="cell actions">
+          <button class="btn small" data-open="${escapeHtml(t.id)}">Abrir</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
 
-  partFiltroGrupo.addEventListener("change", renderParticipants);
-  partBusca.addEventListener("input", renderParticipants);
+    tbody.querySelectorAll("button[data-open]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-open");
+        selectTicket(id);
+      });
+    });
+  }
 
-  btnAdicionarParticipante.addEventListener("click", onAdicionarParticipante);
+  function renderDetail() {
+    const box = $("#detailBox");
+    if (!box) return;
+
+    if (!state.selectedTicket) {
+      box.innerHTML = `
+        <div class="detailEmpty">
+          <div class="detailTitle">Detalhe do chamado</div>
+          <div class="muted">Selecione um chamado ou clique em Novo.</div>
+        </div>
+      `;
+      return;
+    }
+
+    const t = state.selectedTicket;
+    const hist = state.history || [];
+
+    box.innerHTML = `
+      <div class="detailHeader">
+        <div>
+          <div class="detailTitle">Chamado</div>
+          <div class="muted">${escapeHtml(t.id)}</div>
+        </div>
+        <div class="pill">${escapeHtml(t.status || "")}</div>
+      </div>
+
+      <div class="detailSection">
+        <div class="label">Descrição</div>
+        <div class="detailText">${escapeHtml(t.description || "")}</div>
+      </div>
+
+      <div class="detailSection grid2">
+        <div>
+          <div class="label">Criado</div>
+          <div class="detailText">${escapeHtml(fmtDateBR(t.created_at))}</div>
+        </div>
+        <div>
+          <div class="label">Prazo</div>
+          <div class="detailText">${escapeHtml(t.due_date ? fmtDateBR(t.due_date) : "-")}</div>
+        </div>
+      </div>
+
+      <div class="detailSection">
+        <div class="label">Histórico</div>
+        <div class="history">
+          ${
+            hist.length
+              ? hist
+                  .map(
+                    (h) => `
+                      <div class="historyItem">
+                        <div class="historyTop">
+                          <span class="tag">${escapeHtml(h.action || "")}</span>
+                          <span class="muted">${escapeHtml(new Date(h.created_at).toLocaleString())}</span>
+                        </div>
+                        <div class="historyBody">
+                          <span class="muted">de</span> <b>${escapeHtml(h.from_status || "-")}</b>
+                          <span class="muted">para</span> <b>${escapeHtml(h.to_status || "-")}</b>
+                        </div>
+                        ${
+                          h.note
+                            ? `<div class="muted" style="margin-top:6px;">${escapeHtml(h.note)}</div>`
+                            : ``
+                        }
+                      </div>
+                    `
+                  )
+                  .join("")
+              : `<div class="muted">Sem histórico (ou ainda carregando)...</div>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAll() {
+    renderTable();
+    renderDetail();
+  }
+
+  // ----------------------------
+  // Bind
+  // ----------------------------
+  function bindUI() {
+    const ft = $("#filterText");
+    const fs = $("#filterStatus");
+    const br = $("#btnReload");
+    const bn = $("#btnNew");
+    const bc = $("#btnCreateTicket");
+    const bl = $("#btnLogout");
+
+    if (ft) {
+      ft.addEventListener("input", (e) => {
+        state.filterText = e.target.value;
+        renderTable();
+      });
+    }
+
+    if (fs) {
+      fs.addEventListener("change", (e) => {
+        state.filterStatus = e.target.value;
+        renderTable();
+      });
+    }
+
+    if (br) {
+      br.addEventListener("click", async () => {
+        await loadAll();
+        renderAll();
+      });
+    }
+
+    if (bn) {
+      bn.addEventListener("click", () => {
+        const form = $("#newTicketBox");
+        if (form) form.classList.toggle("hidden");
+      });
+    }
+
+    if (bc) {
+      bc.addEventListener("click", async () => {
+        await createTicket();
+      });
+    }
+
+    if (bl) {
+      bl.addEventListener("click", async () => {
+        try {
+          await sb.auth.signOut();
+          location.reload();
+        } catch (e) {
+          console.error(e);
+          setMsg("Erro ao sair: " + (e?.message || e), "err");
+        }
+      });
+    }
+
+    const bl2 = $("#btnLogout2");
+    if (bl2 && bl) bl2.addEventListener("click", () => bl.click());
+  }
+
+  // ----------------------------
+  // DOM base (só cria se não existir)
+  // ----------------------------
+  function ensureBaseDOM() {
+    if ($("#appRoot")) return;
+
+    document.body.innerHTML = `
+      <div id="appRoot" class="app">
+        <aside class="sidebar">
+          <div class="logoBox">
+            <img src="logo.png" class="logo" alt="Logo" />
+            <div class="muted">Módulos</div>
+          </div>
+
+          <nav class="nav">
+            <button class="navItem active">Chamados</button>
+          </nav>
+
+          <div class="sidebarFooter">
+            <div class="kv"><span class="muted">user:</span> <span id="infoUser">-</span></div>
+            <div class="kv"><span class="muted">company:</span> <span id="infoCompany">-</span></div>
+            <button id="btnLogout" class="btn danger ghost">Sair</button>
+          </div>
+        </aside>
+
+        <main class="main">
+          <header class="topbar">
+            <div class="title">Chamados</div>
+            <div class="right">
+              <span id="connBadge" class="conn ok">Conectado</span>
+              <button id="btnLogout2" class="btn danger">Sair</button>
+            </div>
+          </header>
+
+          <div id="topMessage" class="message hidden"></div>
+
+          <section class="panel">
+            <div class="panelTop">
+              <div class="muted">Chamados carregados: <b id="ticketsCount">0</b></div>
+
+              <div class="filters">
+                <input id="filterText" class="input" placeholder="nome, telefone ou descrição" />
+                <select id="filterStatus" class="select">
+                  <option>(todos)</option>
+                  <option>aberto</option>
+                  <option>em_andamento</option>
+                  <option>finalizado</option>
+                  <option>cancelado</option>
+                  <option>aguardando_cliente</option>
+                  <option>em_analise</option>
+                </select>
+
+                <button id="btnNew" class="btn">Novo chamado</button>
+                <button id="btnReload" class="btn ghost">Aplicar / Recarregar</button>
+              </div>
+            </div>
+
+            <div id="newTicketBox" class="newBox hidden">
+              <div class="newTitle">Criar ticket</div>
+
+              <div class="grid2">
+                <div>
+                  <div class="label">Nome do cliente</div>
+                  <input id="fClientName" class="input" placeholder="Nome" />
+                </div>
+                <div>
+                  <div class="label">Telefone</div>
+                  <input id="fClientPhone" class="input" placeholder="DDD + número" />
+                </div>
+              </div>
+
+              <div>
+                <div class="label">Descrição</div>
+                <textarea id="fDesc" class="textarea" placeholder="Descreva o problema"></textarea>
+              </div>
+
+              <div class="grid2">
+                <div>
+                  <div class="label">Status inicial</div>
+                  <select id="fStatus" class="select">
+                    <option value="aberto">Aberto</option>
+                    <option value="em_andamento">Em andamento</option>
+                    <option value="em_analise">Em análise</option>
+                    <option value="aguardando_cliente">Aguardando cliente</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="label">Prazo (opcional)</div>
+                  <input id="fDueDate" type="date" class="input" />
+                </div>
+              </div>
+
+              <button id="btnCreateTicket" class="btn">Criar ticket</button>
+            </div>
+
+            <div class="contentGrid">
+              <div class="card">
+                <div class="cardTitle">Lista de chamados</div>
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Criado</th>
+                      <th>Status</th>
+                      <th>Prazo</th>
+                      <th>Descrição</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ticketsTbody"></tbody>
+                </table>
+              </div>
+
+              <div class="card" id="detailBox"></div>
+            </div>
+          </section>
+        </main>
+      </div>
+    `;
+  }
+
+  ensureBaseDOM();
+  boot();
 })();
