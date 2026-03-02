@@ -311,14 +311,38 @@
         from_status: null,
         to_status: status,
         note: null,
-        meta: {},
-      created_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       };
 
-      const h = await q(sb.from("ticket_history").insert(histPayload));
-      if (h.error) throw h.error;
+// ticket_history: existe trigger no banco; este insert é complementar.
 
-      // limpa form
+
+// Para não travar a criação do ticket por RLS/validação, não interrompemos o fluxo se falhar.
+
+
+try {
+
+
+  const h = await q(sb.from("ticket_history").insert(histPayload));
+
+
+  if (h.error) {
+
+
+    console.warn("[ticket_history] insert falhou (não bloqueia ticket):", h.error);
+
+
+  }
+
+
+} catch (e) {
+
+
+  console.warn("[ticket_history] exception (não bloqueia ticket):", e);
+
+
+}
+// limpa form
       if ($("#fClientName")) $("#fClientName").value = "";
       if ($("#fClientPhone")) $("#fClientPhone").value = "";
       if ($("#fDesc")) $("#fDesc").value = "";
