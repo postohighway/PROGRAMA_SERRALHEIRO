@@ -1,45 +1,36 @@
 // app.js
-// Módulo Chamados (Tickets) + Histórico
-// ✅ Compatível com Supabase JS v2
-// ✅ Corrige o bug: sb.from(...).select(...).eq is not a function (encadeamento errado)
-// ✅ Insere histórico com campos corretos (company_id + actor_user_id)
-// ✅ Não usa fetch manual, só window.sb
+// Módulo "Chamados" (Tickets) + Histórico
+// REGRA: não usa fetch direto em /rest/v1. Usa SEMPRE window.sb (Supabase client).
 
 (function () {
-  "use strict";
-
   const sb = window.sb;
-
-  // tenta pegar companyId de qualquer lugar comum (config.local.js / sbConfig / etc.)
-  const cfg = window.sbConfig || window.CONFIG || {};
-  const FALLBACK_COMPANY_ID =
-    cfg.defaultCompanyId ||
-    cfg.DEFAULT_COMPANY_ID ||
-    window.DEFAULT_COMPANY_ID ||
-    null;
+  const sbCfg = window.sbConfig || {};
 
   const $ = (sel) => document.querySelector(sel);
 
+  // ----------------------------
+  // Estado
+  // ----------------------------
   const state = {
-    companyId: FALLBACK_COMPANY_ID,
+    companyId: sbCfg.defaultCompanyId || null,
     userId: null,
     session: null,
 
     tickets: [],
     selectedTicket: null,
-    history: [],
+    ticketHistory: [],
 
-    slaPlans: [],
     loading: false,
+    error: null,
 
     filterText: "",
     filterStatus: "(todos)",
   };
 
   // ----------------------------
-  // UI helpers
+  // Helpers UI
   // ----------------------------
-  function setBadge(ok) {
+  function setStatusBadge(ok) {
     const el = $("#connBadge");
     if (!el) return;
     el.textContent = ok ? "Conectado" : "Desconectado";
@@ -47,7 +38,7 @@
     el.classList.toggle("bad", !ok);
   }
 
-  function setMsg(msg, type = "info") {
+  function setTopMessage(msg, type = "info") {
     const box = $("#topMessage");
     if (!box) return;
     if (!msg) {
@@ -61,13 +52,13 @@
     box.textContent = msg;
   }
 
-  function escapeHtml(s) {
-    return String(s ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+  function fmtDate(dt) {
+    if (!dt) return "";
+    const d = new Date(dt);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   }
 
   function fmtDateBR(dt) {
@@ -79,162 +70,184 @@
     return `${day}/${m}/${y}`;
   }
 
-  function fmtDateISO(dt) {
-    if (!dt) return "";
-    const d = new Date(dt);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   // ----------------------------
-  // Supabase safe-query builder
-  // (evita o erro select().eq não existir)
+  // Guardas de sessão/empresa
   // ----------------------------
-  async function q(builder) {
-    // o segredo é: montar o builder inteiro (com eq/order/limit)
-    // e só depois await no final
-    return await builder;
+  function ensureAuthReady() {
+    if (!sb) {
+      setStatusBadge(false);
+      setTopMessage("Supabase não inicializado. Verifique supabaseClient.js e config.local.js", "err");
+      return false;
+    }
+    if (!state.userId) {
+      setTopMessage("Sessão não carregou. Recarregue (Ctrl+Shift+R) e faça login.", "err");
+      return false;
+    }
+    if (!state.companyId) {
+      setTopMessage("Company ID não definido. Confira DEFAULT_COMPANY_ID ou company_users.", "err");
+      return false;
+    }
+    return true;
+  }
+
+  // Espera a sessão estar disponível (fix principal do GH Pages)
+  async function waitForSession(maxTries = 30, delayMs = 200) {
+    for (let i = 0; i < maxTries; i++) {
+      const { data, error } = await sb.auth.getSession();
+      if (!error && data?.session?.user?.id) return data.session;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+    return null;
+  }
+
+  async function loadCompanyIdFromCompanyUsers() {
+    if (!state.userId) return null;
+    const { data, error } = await sb
+      .from("company_users")
+      .select("company_id")
+      .eq("user_id", state.userId)
+      .limit(1);
+
+    if (error) return null;
+    const cid = data?.[0]?.company_id || null;
+    return cid;
+  }
+
+  function syncSidebarInfo() {
+    const u = $("#infoUser");
+    const c = $("#infoCompany");
+    if (u) u.textContent = state.userId || "-";
+    if (c) c.textContent = state.companyId || "-";
   }
 
   // ----------------------------
-  // Boot/Auth
+  // BOOT
   // ----------------------------
   async function boot() {
     try {
       if (!sb) {
-        setBadge(false);
-        setMsg("Supabase não inicializado (window.sb). Confira supabaseClient.js.", "err");
+        setStatusBadge(false);
+        setTopMessage("Supabase não inicializado. Verifique supabaseClient.js e config.local.js", "err");
         return;
       }
 
-      const { data: sess, error: sessErr } = await sb.auth.getSession();
-      if (sessErr) console.warn("getSession error:", sessErr);
+      setTopMessage("", "info");
+      setStatusBadge(true);
 
-      state.session = sess?.session || null;
-      state.userId = state.session?.user?.id || null;
+      // FIX: aguarda sessão de verdade (GH Pages muitas vezes abre com hasSession false no primeiro tick)
+      const session = await waitForSession();
+      state.session = session;
+      state.userId = session?.user?.id || null;
 
-      setBadge(true);
-
-      // Company do usuário (se não veio por config)
-      if (!state.companyId && state.userId) {
-        const { data, error } = await q(
-          sb
-            .from("company_users")
-            .select("company_id")
-            .eq("user_id", state.userId)
-            .limit(1)
-        );
-
-        if (!error && data && data[0]?.company_id) {
-          state.companyId = data[0].company_id;
-        }
+      // Se ainda não tiver sessão, não executa queries (evita companyId null e RLS quebrando)
+      if (!state.userId) {
+        syncSidebarInfo();
+        setTopMessage("Sem sessão ativa. Faça login ou recarregue a página.", "err");
+        return;
       }
 
-      if ($("#infoUser")) $("#infoUser").textContent = state.userId || "-";
-      if ($("#infoCompany")) $("#infoCompany").textContent = state.companyId || "-";
+      // CompanyId: primeiro config, senão busca company_users
+      if (!state.companyId) {
+        const cid = await loadCompanyIdFromCompanyUsers();
+        if (cid) state.companyId = cid;
+      }
 
+      syncSidebarInfo();
       bindUI();
 
-      await loadAll();
-      renderAll();
-
-      sb.auth.onAuthStateChange(async (_event, session) => {
-        state.session = session || null;
-        state.userId = session?.user?.id || null;
-        if ($("#infoUser")) $("#infoUser").textContent = state.userId || "-";
-
-        if (!state.companyId && state.userId) {
-          const { data } = await q(
-            sb.from("company_users").select("company_id").eq("user_id", state.userId).limit(1)
-          );
-          if (data && data[0]?.company_id) state.companyId = data[0].company_id;
-          if ($("#infoCompany")) $("#infoCompany").textContent = state.companyId || "-";
-        }
-
-        await loadAll();
-        renderAll();
-      });
-
-      console.log("[app] BOOT READY");
-    } catch (e) {
-      console.error(e);
-      setBadge(false);
-      setMsg("Erro no boot: " + (e?.message || e), "err");
-    }
-  }
-
-  async function loadAll() {
-    if (!state.companyId) {
-      setMsg("Company ID não definido. Verifique config.local.js (DEFAULT_COMPANY_ID) ou company_users.", "err");
-      return;
-    }
-    setMsg("", "info");
-    await loadSlaPlans();   // <-- aqui era onde seu app explodia
-    await loadTickets();
-  }
-
-  // ----------------------------
-  // Data
-  // ----------------------------
-  async function loadSlaPlans() {
-    // Se não existir tabela/colunas, só ignora sem derrubar o app
-    try {
-      const { data, error } = await q(
-        sb
-          .from("sla_plans")
-          .select("id, name, hours_to_expire, created_at")
-          .eq("company_id", state.companyId)     // ✅ encadeamento seguro
-          .order("created_at", { ascending: false })
-      );
-
-      if (error) {
-        console.warn("sla_plans load error:", error);
-        state.slaPlans = [];
+      if (!state.companyId) {
+        setTopMessage("Company ID não definido. Confira DEFAULT_COMPANY_ID ou company_users.", "err");
         return;
       }
-      state.slaPlans = data || [];
+
+      await loadTickets();
+      render();
+
+      // Reagir a mudanças de auth
+      sb.auth.onAuthStateChange(async (_event, newSession) => {
+        state.session = newSession || null;
+        state.userId = newSession?.user?.id || null;
+
+        if (!state.userId) {
+          state.companyId = sbCfg.defaultCompanyId || null;
+          state.tickets = [];
+          state.selectedTicket = null;
+          state.ticketHistory = [];
+          syncSidebarInfo();
+          render();
+          return;
+        }
+
+        if (!state.companyId) {
+          const cid = await loadCompanyIdFromCompanyUsers();
+          if (cid) state.companyId = cid;
+        }
+
+        syncSidebarInfo();
+        if (state.companyId) {
+          await loadTickets();
+          render();
+        }
+      });
     } catch (e) {
-      console.warn("sla_plans load crashed:", e);
-      state.slaPlans = [];
+      console.error(e);
+      setStatusBadge(false);
+      setTopMessage("Erro no boot: " + (e?.message || e), "err");
     }
   }
 
+  // ----------------------------
+  // Data: Tickets / History
+  // ----------------------------
   async function loadTickets() {
-    try {
-      state.loading = true;
+    if (!ensureAuthReady()) return;
 
-      const { data, error } = await q(
-        sb
-          .from("tickets")
-          .select("id, company_id, status, created_at, description, due_date, client_name, client_phone, token")
-          .eq("company_id", state.companyId)
-          .order("created_at", { ascending: false })
-          .limit(200)
-      );
+    state.loading = true;
+    state.error = null;
+    setTopMessage("", "info");
+
+    try {
+      // Ajuste se seu schema tiver mais campos; estes são os essenciais
+      const { data, error } = await sb
+        .from("tickets")
+        .select("id, company_id, status, created_at, description, due_date")
+        .eq("company_id", state.companyId)
+        .order("created_at", { ascending: false })
+        .limit(50);
 
       if (error) throw error;
 
       state.tickets = data || [];
-      if ($("#ticketsCount")) $("#ticketsCount").textContent = String(state.tickets.length);
+      const countEl = $("#ticketsCount");
+      if (countEl) countEl.textContent = String(state.tickets.length);
     } catch (e) {
-      console.error(e);
-      setMsg("Erro ao carregar chamados: " + (e?.message || e), "err");
+      state.error = e?.message || String(e);
+      setTopMessage("Erro ao carregar chamados: " + state.error, "err");
     } finally {
       state.loading = false;
     }
   }
 
-  async function loadHistory(ticketId) {
-    const { data, error } = await q(
-      sb
-        .from("ticket_history")
-        .select("id, ticket_id, company_id, action, from_status, to_status, note, created_at, actor_user_id")
-        .eq("ticket_id", ticketId)
-        .order("created_at", { ascending: false })
-        .limit(200)
-    );
+  async function loadTicketHistory(ticketId) {
+    if (!ensureAuthReady()) return [];
+    if (!ticketId) return [];
+
+    const { data, error } = await sb
+      .from("ticket_history")
+      .select("id, ticket_id, company_id, action, from_status, to_status, created_at")
+      .eq("ticket_id", ticketId)
+      .order("created_at", { ascending: false })
+      .limit(200);
+
     if (error) throw error;
     return data || [];
   }
@@ -242,94 +255,71 @@
   async function selectTicket(ticketId) {
     try {
       state.selectedTicket = state.tickets.find((t) => t.id === ticketId) || null;
-      state.history = [];
+      state.ticketHistory = [];
       renderDetail();
 
       if (!state.selectedTicket) return;
 
-      const rows = await loadHistory(ticketId);
-      state.history = rows;
+      const hist = await loadTicketHistory(ticketId);
+      state.ticketHistory = hist;
       renderDetail();
     } catch (e) {
       console.error(e);
-      setMsg("Erro ao abrir chamado: " + (e?.message || e), "err");
+      setTopMessage("Erro ao abrir chamado: " + (e?.message || e), "err");
     }
   }
 
-  async function createTicket() {
-    if (!state.companyId) {
-      setMsg("Company ID não definido.", "err");
-      return;
-    }
-    if (!state.userId) {
-      setMsg("Usuário não autenticado.", "err");
-      return;
-    }
+  async function createTicketFromForm() {
+    if (!ensureAuthReady()) return;
 
-    const name = ($("#fClientName")?.value || "").trim() || null;
-    const phone = ($("#fClientPhone")?.value || "").trim() || null;
-    const desc = ($("#fDesc")?.value || "").trim();
-    const due = $("#fDueDate")?.value || null;
+    const name = $("#fClientName")?.value?.trim() || "";
+    const phone = $("#fClientPhone")?.value?.trim() || "";
+    const desc = $("#fDesc")?.value?.trim() || "";
+    const due = $("#fDueDate")?.value || "";
     const status = $("#fStatus")?.value || "aberto";
 
     if (!desc) {
-      setMsg("Descrição é obrigatória.", "err");
+      setTopMessage("Descrição é obrigatória.", "err");
       return;
     }
 
     try {
-      setMsg("", "info");
+      setTopMessage("", "info");
 
-      const ticketPayload = {
+      // Token obrigatório no seu schema (você já pegou erro de token null)
+      const payload = {
         id: crypto.randomUUID(),
         company_id: state.companyId,
-        token: crypto.randomUUID(), // nunca nulo
+        token: crypto.randomUUID(),
         status,
         description: desc,
         due_date: due ? due : null,
-        client_name: name,
-        client_phone: phone,
+        client_name: name || null,
+        client_phone: phone || null,
         created_at: new Date().toISOString(),
       };
 
-      // cria ticket e pega id de volta
-      const ins = await q(
-        sb.from("tickets").insert(ticketPayload).select("id, status").single()
-      );
+      const ins = await sb.from("tickets").insert(payload).select("id").single();
       if (ins.error) throw ins.error;
 
-      const ticketId = ins.data.id;
-
-      // cria histórico "create" com campos que sua tabela realmente tem
-      // (pela sua imagem do schema: actor_user_id e company_id existem)
-      const histPayload = {
-        id: crypto.randomUUID(),
-        ticket_id: ticketId,
-        company_id: state.companyId,
-        actor_user_id: state.userId,
-        action: "create",
-        from_status: null,
-        to_status: status,
-        note: null,
-        created_at: new Date().toISOString(),
-      };
-
-      const h = await q(sb.from("ticket_history").insert(histPayload));
-      if (h.error) throw h.error;
-
-      // limpa form
+      // Limpa form
       if ($("#fClientName")) $("#fClientName").value = "";
       if ($("#fClientPhone")) $("#fClientPhone").value = "";
       if ($("#fDesc")) $("#fDesc").value = "";
       if ($("#fDueDate")) $("#fDueDate").value = "";
 
-      setMsg("Chamado criado com sucesso.", "ok");
+      setTopMessage("Chamado criado com sucesso.", "ok");
 
       await loadTickets();
-      renderAll();
+      render();
+
+      // Seleciona o ticket criado (pra você ver detalhe e histórico)
+      if (ins.data?.id) {
+        await selectTicket(ins.data.id);
+      }
     } catch (e) {
-      console.error("createTicket error:", e);
-      setMsg("Erro ao criar chamado: " + (e?.message || e), "err");
+      console.error(e);
+      setTopMessage("Erro ao criar chamado: " + (e?.message || e), "err");
     }
   }
 
@@ -337,23 +327,21 @@
   // Render
   // ----------------------------
   function filteredTickets() {
-    const qtxt = state.filterText.trim().toLowerCase();
+    const q = state.filterText.trim().toLowerCase();
     const st = state.filterStatus;
 
-    return state.tickets.filter((t) => {
+    return (state.tickets || []).filter((t) => {
       const okStatus = st === "(todos)" ? true : (t.status || "") === st;
-
       const okText =
-        !qtxt ||
-        String(t.description || "").toLowerCase().includes(qtxt) ||
-        String(t.client_name || "").toLowerCase().includes(qtxt) ||
-        String(t.client_phone || "").toLowerCase().includes(qtxt);
-
+        !q ||
+        String(t.description || "").toLowerCase().includes(q) ||
+        String(t.client_name || "").toLowerCase().includes(q) ||
+        String(t.client_phone || "").toLowerCase().includes(q);
       return okStatus && okText;
     });
   }
 
-  function renderTable() {
+  function renderTicketsTable() {
     const tbody = $("#ticketsTbody");
     if (!tbody) return;
 
@@ -362,13 +350,18 @@
 
     for (const t of list) {
       const tr = document.createElement("tr");
-      const created = fmtDateISO(t.created_at);
+      tr.className = "row";
+
+      const created = fmtDate(t.created_at);
       const prazo = t.due_date ? fmtDateBR(t.due_date) : "";
+      const status = t.status || "";
+      const desc = t.description || "";
+
       tr.innerHTML = `
         <td class="cell">${escapeHtml(created)}</td>
-        <td class="cell">${escapeHtml(t.status || "")}</td>
+        <td class="cell">${escapeHtml(status)}</td>
         <td class="cell">${escapeHtml(prazo)}</td>
-        <td class="cell">${escapeHtml(t.description || "")}</td>
+        <td class="cell">${escapeHtml(desc)}</td>
         <td class="cell actions">
           <button class="btn small" data-open="${escapeHtml(t.id)}">Abrir</button>
         </td>
@@ -399,7 +392,7 @@
     }
 
     const t = state.selectedTicket;
-    const hist = state.history || [];
+    const hist = state.ticketHistory || [];
 
     box.innerHTML = `
       <div class="detailHeader">
@@ -443,29 +436,24 @@
                           <span class="muted">de</span> <b>${escapeHtml(h.from_status || "-")}</b>
                           <span class="muted">para</span> <b>${escapeHtml(h.to_status || "-")}</b>
                         </div>
-                        ${
-                          h.note
-                            ? `<div class="muted" style="margin-top:6px;">${escapeHtml(h.note)}</div>`
-                            : ``
-                        }
                       </div>
                     `
                   )
                   .join("")
-              : `<div class="muted">Sem histórico (ou ainda carregando)...</div>`
+              : `<div class="muted">Sem histórico.</div>`
           }
         </div>
       </div>
     `;
   }
 
-  function renderAll() {
-    renderTable();
+  function render() {
+    renderTicketsTable();
     renderDetail();
   }
 
   // ----------------------------
-  // Bind
+  // UI / Bind
   // ----------------------------
   function bindUI() {
     const ft = $("#filterText");
@@ -473,26 +461,27 @@
     const br = $("#btnReload");
     const bn = $("#btnNew");
     const bc = $("#btnCreateTicket");
-    const bl = $("#btnLogout");
+    const lo = $("#btnLogout");
+    const lo2 = $("#btnLogout2");
 
     if (ft) {
       ft.addEventListener("input", (e) => {
         state.filterText = e.target.value;
-        renderTable();
+        renderTicketsTable();
       });
     }
 
     if (fs) {
       fs.addEventListener("change", (e) => {
         state.filterStatus = e.target.value;
-        renderTable();
+        renderTicketsTable();
       });
     }
 
     if (br) {
       br.addEventListener("click", async () => {
-        await loadAll();
-        renderAll();
+        await loadTickets();
+        render();
       });
     }
 
@@ -505,24 +494,22 @@
 
     if (bc) {
       bc.addEventListener("click", async () => {
-        await createTicket();
+        await createTicketFromForm();
       });
     }
 
-    if (bl) {
-      bl.addEventListener("click", async () => {
-        try {
-          await sb.auth.signOut();
-          location.reload();
-        } catch (e) {
-          console.error(e);
-          setMsg("Erro ao sair: " + (e?.message || e), "err");
-        }
-      });
-    }
+    const doLogout = async () => {
+      try {
+        await sb.auth.signOut();
+        location.reload();
+      } catch (e) {
+        console.error(e);
+        setTopMessage("Erro ao sair: " + (e?.message || e), "err");
+      }
+    };
 
-    const bl2 = $("#btnLogout2");
-    if (bl2 && bl) bl2.addEventListener("click", () => bl.click());
+    if (lo) lo.addEventListener("click", doLogout);
+    if (lo2) lo2.addEventListener("click", doLogout);
   }
 
   // ----------------------------
@@ -573,8 +560,6 @@
                   <option>em_andamento</option>
                   <option>finalizado</option>
                   <option>cancelado</option>
-                  <option>aguardando_cliente</option>
-                  <option>em_analise</option>
                 </select>
 
                 <button id="btnNew" class="btn">Novo chamado</button>
@@ -607,8 +592,6 @@
                   <select id="fStatus" class="select">
                     <option value="aberto">Aberto</option>
                     <option value="em_andamento">Em andamento</option>
-                    <option value="em_analise">Em análise</option>
-                    <option value="aguardando_cliente">Aguardando cliente</option>
                   </select>
                 </div>
                 <div>
