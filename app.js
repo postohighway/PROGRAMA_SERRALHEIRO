@@ -8,9 +8,21 @@
 (function () {
   "use strict";
 
-  const sb = window.sb;
+  let sb = null;
+  function refreshSb(){
+    sb = window.sb || window.supabaseClient || null;
+    return sb;
+  }
+  async function waitForSb(timeoutMs=3000){
+    const t0 = Date.now();
+    while (Date.now() - t0 < timeoutMs) {
+      if (refreshSb()) return sb;
+      await new Promise(r => setTimeout(r, 50));
+    }
+    return null;
+  }
 
-  // tenta pegar companyId de qualquer lugar comum (config.local.js / sbConfig / etc.)
+// tenta pegar companyId de qualquer lugar comum (config.local.js / sbConfig / etc.)
   const cfg = window.sbConfig || window.CONFIG || {};
   const FALLBACK_COMPANY_ID =
     cfg.defaultCompanyId ||
@@ -103,13 +115,14 @@
   // ----------------------------
   async function boot() {
     try {
+      await waitForSb();
       if (!sb) {
         setBadge(false);
-        setMsg("Supabase não inicializado (window.sb). Confira supabaseClient.js.", "err");
+        setMsg("Supabase não inicializado (window.sb). Verifique a ordem dos scripts (config.js → supabaseClient.js → app.js).");
         return;
       }
 
-      const { data: sess, error: sessErr } = await sb.auth.getSession();
+const { data: sess, error: sessErr } = await sb.auth.getSession();
       if (sessErr) console.warn("getSession error:", sessErr);
 
       state.session = sess?.session || null;
@@ -311,7 +324,6 @@
         from_status: null,
         to_status: status,
         note: null,
-        meta: {},
         created_at: new Date().toISOString(),
       };
 
