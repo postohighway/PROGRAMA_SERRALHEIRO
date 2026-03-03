@@ -8,21 +8,9 @@
 (function () {
   "use strict";
 
-  let sb = null;
-  function refreshSb(){
-    sb = window.sb || window.supabaseClient || null;
-    return sb;
-  }
-  async function waitForSb(timeoutMs=3000){
-    const t0 = Date.now();
-    while (Date.now() - t0 < timeoutMs) {
-      if (refreshSb()) return sb;
-      await new Promise(r => setTimeout(r, 50));
-    }
-    return null;
-  }
+  const sb = window.sb;
 
-// tenta pegar companyId de qualquer lugar comum (config.local.js / sbConfig / etc.)
+  // tenta pegar companyId de qualquer lugar comum (config.local.js / sbConfig / etc.)
   const cfg = window.sbConfig || window.CONFIG || {};
   const FALLBACK_COMPANY_ID =
     cfg.defaultCompanyId ||
@@ -115,14 +103,13 @@
   // ----------------------------
   async function boot() {
     try {
-      await waitForSb();
       if (!sb) {
         setBadge(false);
-        setMsg("Supabase não inicializado (window.sb). Verifique a ordem dos scripts (config.js → supabaseClient.js → app.js).");
+        setMsg("Supabase não inicializado (window.sb). Confira supabaseClient.js.", "err");
         return;
       }
 
-const { data: sess, error: sessErr } = await sb.auth.getSession();
+      const { data: sess, error: sessErr } = await sb.auth.getSession();
       if (sessErr) console.warn("getSession error:", sessErr);
 
       state.session = sess?.session || null;
@@ -317,19 +304,23 @@ const { data: sess, error: sessErr } = await sb.auth.getSession();
       // (pela sua imagem do schema: actor_user_id e company_id existem)
       const histPayload = {
         id: crypto.randomUUID(),
-        ticket_id: ticketId,
+        ticket_id: id,
         company_id: state.companyId,
         actor_user_id: state.userId,
-        action: "create",
-        from_status: null,
+        action: "ticket_create",
+        // alguns schemas exigem NOT NULL em from_status/to_status/note
+        from_status: "novo",
         to_status: status,
-        note: null,
+        note: note || "",
         created_at: new Date().toISOString(),
       };
 
+      // Não pode derrubar o app por causa do histórico.
+      // Se a tabela tiver alguma exigência diferente (NOT NULL/coluna), vamos ajustar vendo o erro no Response.
       const h = await q(sb.from("ticket_history").insert(histPayload));
-      if (h.error) throw h.error;
-
+      if (h.error) {
+        console.warn("[ticket_history] insert falhou (não bloqueando):", h.error);
+      }
       // limpa form
       if ($("#fClientName")) $("#fClientName").value = "";
       if ($("#fClientPhone")) $("#fClientPhone").value = "";
