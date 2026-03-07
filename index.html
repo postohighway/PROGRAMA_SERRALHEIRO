@@ -1,62 +1,20 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SGB Serralheria</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="favicom.ico">
-
-  <script src="config.js"></script>
-  <script src="config.local.js"></script>
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-  <script src="supabaseClient.js"></script>
-  <script src="utils.js"></script>
-  <script src="data.js"></script>
-  <script src="modules/chamados.js"></script>
-  <script defer src="app.js"></script>
+  <link rel="icon" href="./favicom.ico" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div class="layout">
-    <aside class="menu-lateral">
-      <div class="logo-box">
-        <div class="logo-titulo">SGB</div>
-        <div class="logo-subtitulo">Serralheria</div>
-      </div>
+  <div id="app"></div>
 
-      <nav class="menu-nav">
-        <button class="menu-item ativo" data-tela="dashboard">Dashboard</button>
-        <button class="menu-item" data-tela="clientes">Clientes</button>
-        <button class="menu-item" data-tela="chamados">Chamados</button>
-        <button class="menu-item" data-tela="orcamentos">Orçamentos</button>
-        <button class="menu-item" data-tela="ordens">Ordens de Serviço</button>
-        <button class="menu-item" data-tela="compras">Compras</button>
-        <button class="menu-item" data-tela="financeiro">Financeiro</button>
-        <button class="menu-item" data-tela="agenda">Agenda</button>
-        <button class="menu-item" data-tela="config">Configurações</button>
-      </nav>
-
-      <div class="menu-rodape">
-        <div class="info-linha"><span>Usuário</span><strong id="infoUsuario">-</strong></div>
-        <div class="info-linha"><span>Empresa</span><strong id="infoEmpresa">-</strong></div>
-        <button id="btnAtualizarSistema" class="botao-secundario largura-total">Atualizar</button>
-      </div>
-    </aside>
-
-    <main class="conteudo-principal">
-      <header class="topo-sistema">
-        <div>
-          <div id="tituloTela" class="titulo-tela">Dashboard</div>
-          <div id="subtituloTela" class="subtitulo-tela">Visão geral do sistema</div>
-        </div>
-        <div class="topo-direita">
-          <div id="statusConexao" class="badge-conexao">Conectando...</div>
-        </div>
-      </header>
-
-      <section id="boxMensagem" class="box-mensagem oculto"></section>
-      <section id="areaConteudo" class="area-conteudo"></section>
-    </main>
-  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="./config.js"></script>
+  <script src="./config.local.js"></script>
+  <script src="./supabaseClient.js"></script>
+  <script src="./chamados.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
