@@ -1,15 +1,16 @@
-// config.local.js (NÃO COMMITAR)
-(function () {
-  window.CONFIG = {
-    SUPABASE_URL: 'https://lnfaukysiiflparrciwz.supabase.co',
-    SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuZmF1a3lzaWlmbHBhcnJjaXd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4Njk4NDEsImV4cCI6MjA4MDQ0NTg0MX0.mFBYdGIsdI00cWeou_NgBx8nNejZJeKEwK84JVKafTI',
-    // opcional: se quiser forçar um company default
-    DEFAULT_COMPANY_ID: "4e44632d-15b0-484d-bc01-ec8bff2e2189",
-  };
+// config.local.js
+// IMPORTANTE: este arquivo PRECISA estar no GitHub Pages (mesma pasta do index.html).
+// O ANON KEY é público (client-side). NÃO coloque SERVICE_ROLE aqui.
 
-  console.log("[config.local] OK", {
-    hasUrl: !!window.CONFIG.SUPABASE_URL,
-    anonLen: (window.CONFIG.SUPABASE_KEY || "").length,
-    defaultCompany: window.CONFIG.DEFAULT_COMPANY_ID || null,
-  });
-})();
+window.sbConfig = window.sbConfig || {};
+
+window.sbConfig.url = window.sbConfig.url || "COLOQUE_SUA_SUPABASE_URL";
+window.sbConfig.anon = window.sbConfig.anon || "COLOQUE_SUA_SUPABASE_ANON_KEY";
+
+// Opcional (mas recomendado)
+window.sbConfig.defaultCompanyId = window.sbConfig.defaultCompanyId || "COLOQUE_SEU_COMPANY_ID_AQUI";
+window.sbConfig.portalToken = window.sbConfig.portalToken || "COLOQUE_SEU_PORTAL_TOKEN_AQUI";
+
+// Base path do GitHub Pages (se você hospeda em /NOME_REPO/)
+// Ex: https://usuario.github.io/PROGRAMA_SERRALHEIRO/  -> basePath="/PROGRAMA_SERRALHEIRO"
+window.sbConfig.basePath = window.sbConfig.basePath || "";

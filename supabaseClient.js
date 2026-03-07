@@ -1,51 +1,43 @@
-// supabaseClient.js (SEM MODULES)
-// Requer: script UMD do supabase carregado antes (supabase.min.js)
-// Requer: window.CONFIG definido antes (config.local.js)
+// supabaseClient.js
+// Inicializa window.sb (Supabase client) usando as chaves do config.local.js.
+// Se der "No API key found in request", 99% é porque este arquivo OU o config.local.js
+// não está carregando no GitHub Pages (404 / nome errado / path errado).
 
 (function () {
-  const cfg = window.CONFIG || {};
-  const url = cfg.SUPABASE_URL;
-  const key = cfg.SUPABASE_KEY;
+  try {
+    const cfg = window.sbConfig || {};
+    const url = cfg.url;
+    const anon = cfg.anon;
 
-  // O UMD expõe um objeto global "supabase" com createClient
-  const lib = window.supabase;
+    if (!url || !anon || /COLOQUE_/i.test(url) || /COLOQUE_/i.test(anon)) {
+      console.warn("[supabaseClient] URL/ANON não configurados. Verifique config.local.js");
+      window.sb = null;
+      return;
+    }
 
-  if (!lib || typeof lib.createClient !== "function") {
-    console.error("[supabaseClient] ERRO: biblioteca UMD do Supabase não carregou.");
-    window.sb = null;
-    window.supabaseClient = null;
-    return;
-  }
+    if (!window.supabase || !window.supabase.createClient) {
+      console.error("[supabaseClient] supabase UMD não carregou (cdn).");
+      window.sb = null;
+      return;
+    }
 
-  if (!url || !key || String(key).length < 30) {
-    console.warn("[supabaseClient] Aviso: SUPABASE_URL/KEY ausentes. (rodará em mock se seu Data permitir)");
-    window.sb = null;
-    window.supabaseClient = null;
-    return;
-  }
-
-  // Evita “Multiple GoTrueClient instances” reaproveitando se já existir
-  if (window.supabaseClient) {
-    window.sb = window.supabaseClient;
-    console.log("[supabaseClient] Reuso: window.supabaseClient já existe.");
-    return;
-  }
-
-  const client = lib.createClient(url, key, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-    global: {
-      headers: {
-        "X-Client-Info": "serralheria-front",
+    window.sb = window.supabase.createClient(url, anon, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
       },
-    },
-  });
+      global: {
+        headers: {
+          // defensivo: apikey sempre presente
+          apikey: anon,
+        },
+      },
+    });
 
-  window.supabaseClient = client;
-  window.sb = client; // apelido curto pro console
-
-  console.log("[supabaseClient] OK: window.sb pronto");
+    console.log("[supabaseClient] OK. window.sb pronto");
+  } catch (e) {
+    console.error("[supabaseClient] ERRO:", e);
+    window.sb = null;
+  }
 })();

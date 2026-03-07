@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Abrir Chamado</title>
+  <link rel="stylesheet" href="portal.css" />
+</head>
+<body>
+
+<div class="container">
+
+  <div class="logo-area">
+    <img src="../logo.png" class="logo" />
+    <h1>Abertura de Chamado</h1>
+  </div>
+
+  <form id="ticketForm">
+
+    <div class="input-group">
+      <label>Nome</label>
+      <input type="text" id="client_name" required />
+    </div>
+
+    <div class="input-group">
+      <label>Telefone</label>
+      <input type="text" id="client_phone" required />
+    </div>
+
+    <div class="input-group">
+      <label>Descreva o problema</label>
+      <textarea id="description" required></textarea>
+    </div>
+
+    <div class="media-area">
+      <h3>Envie até 5 fotos</h3>
+      <input type="file" id="photos" accept="image/*" capture="environment" multiple />
+
+      <h3>Envie 1 vídeo (até 1 minuto)</h3>
+      <input type="file" id="video" accept="video/*" capture="environment" />
+    </div>
+
+    <button type="submit" class="btn-primary">
+      Enviar Chamado
+    </button>
+
+  </form>
+
+  <div id="successBox" class="success-box hidden">
+    Chamado enviado com sucesso!
+  </div>
+
+</div>
+
+<script src="portal.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+[
+  {
+    "conname": "ticket_sla_sla_hours_check",
+    "definition": "CHECK (sla_hours >= 0)"
+  },
+  {
+    "conname": "ticket_sla_status_check",
+    "definition": "CHECK (status = ANY (ARRAY['active'::text, 'paused'::text, 'met'::text, 'breached'::text, 'canceled'::text]))"
+  }
+]
+
+[
+  {
+    "table_name": "ticket_sla",
+    "trigger_name": "trg_ticket_sla_compute_deadline",
+    "trigger_def": "CREATE TRIGGER trg_ticket_sla_compute_deadline BEFORE INSERT OR UPDATE ON ticket_sla FOR EACH ROW EXECUTE FUNCTION fn_ticket_sla_compute_deadline()"
+  },
+  {
+    "table_name": "ticket_sla",
+    "trigger_name": "trg_ticket_sla_fill_company_id",
+    "trigger_def": "CREATE TRIGGER trg_ticket_sla_fill_company_id BEFORE INSERT ON ticket_sla FOR EACH ROW EXECUTE FUNCTION fn_ticket_sla_fill_company_id()"
+  },
+  {
+    "table_name": "tickets",
+    "trigger_name": "trg_ticket_history",
+    "trigger_def": "CREATE TRIGGER trg_ticket_history AFTER INSERT OR DELETE OR UPDATE ON tickets FOR EACH ROW EXECUTE FUNCTION fn_ticket_history()"
+  }
+]
