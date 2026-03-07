@@ -1,23 +1,99 @@
-<!doctype html>
-<html lang="pt-br">
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SEG - PORTÕES | Sistema</title>
-  <link rel="stylesheet" href="./styles.css" />
-  <link rel="icon" href="./favicom.ico" />
+<meta charset="UTF-8">
+<title>SGB Serralheria</title>
+
+<link rel="stylesheet" href="styles.css">
+
+<script src="config.js"></script>
+<script src="config.local.js"></script>
+
+<script src="supabaseClient.js"></script>
+<script src="utils.js"></script>
+<script src="data.js"></script>
+
+<script defer src="app.js"></script>
 </head>
+
 <body>
-  <div id="app"></div>
 
-  <!-- Supabase UMD (sem módulos) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<div class="layout">
 
-  <!-- Ordem IMPORTA -->
-  <script src="./config.js"></script>
-  <script src="./utils.js"></script>
-  <script src="./supabaseClient.js"></script>
-  <script src="./data.js"></script>
-  <script src="./app.js"></script>
+    <aside class="menu">
+
+        <div class="logo">
+            SGB<br>
+            <span>Serralheria</span>
+        </div>
+
+        <nav>
+
+            <button class="menu-item" data-tela="dashboard">
+                Dashboard
+            </button>
+
+            <button class="menu-item" data-tela="clientes">
+                Clientes
+            </button>
+
+            <button class="menu-item" data-tela="chamados">
+                Chamados
+            </button>
+
+            <button class="menu-item" data-tela="orcamentos">
+                Orçamentos
+            </button>
+
+            <button class="menu-item" data-tela="ordens">
+                Ordens de Serviço
+            </button>
+
+            <button class="menu-item" data-tela="compras">
+                Compras
+            </button>
+
+            <button class="menu-item" data-tela="financeiro">
+                Financeiro
+            </button>
+
+            <button class="menu-item" data-tela="agenda">
+                Agenda
+            </button>
+
+            <button class="menu-item" data-tela="config">
+                Configurações
+            </button>
+
+        </nav>
+
+        <div class="rodape-menu">
+            <button id="btnSair">Sair</button>
+        </div>
+
+    </aside>
+
+    <main class="conteudo">
+
+        <header class="topo">
+
+            <div id="tituloTela">
+                Dashboard
+            </div>
+
+            <div class="usuario">
+                Conectado
+            </div>
+
+        </header>
+
+        <section id="areaConteudo">
+
+        </section>
+
+    </main>
+
+</div>
+
 </body>
 </html>
