@@ -1,263 +1,223 @@
-const areaConteudo = document.getElementById("areaConteudo");
-const tituloTela = document.getElementById("tituloTela");
+(function () {
+  "use strict";
 
-const estadoApp = {
-  telaAtual: "dashboard",
-  chamadoSelecionadoId: null
-};
-
-document.querySelectorAll(".menu-item").forEach((botao) => {
-  botao.addEventListener("click", async () => {
-    const tela = botao.dataset.tela;
-    await carregarTela(tela);
-  });
-});
-
-async function carregarTela(tela) {
-  estadoApp.telaAtual = tela;
-
-  if (tela === "dashboard") {
-    await renderizarDashboard();
-    return;
-  }
-
-  if (tela === "clientes") {
-    renderizarTelaSimples("Clientes", "Cadastro e consulta de clientes.");
-    return;
-  }
-
-  if (tela === "chamados") {
-    await renderizarChamados();
-    return;
-  }
-
-  if (tela === "orcamentos") {
-    renderizarTelaSimples("Orçamentos", "Gestão de orçamentos.");
-    return;
-  }
-
-  if (tela === "ordens") {
-    renderizarTelaSimples("Ordens de Serviço", "Gestão das ordens de serviço.");
-    return;
-  }
-
-  if (tela === "compras") {
-    renderizarTelaSimples("Compras", "Controle de compras e materiais.");
-    return;
-  }
-
-  if (tela === "financeiro") {
-    renderizarTelaSimples("Financeiro", "Painel financeiro.");
-    return;
-  }
-
-  if (tela === "agenda") {
-    renderizarTelaSimples("Agenda", "Agenda de visitas e instalações.");
-    return;
-  }
-
-  if (tela === "config") {
-    renderizarTelaSimples("Configurações", "Configurações do sistema.");
-    return;
-  }
-}
-
-function renderizarTelaSimples(titulo, descricao) {
-  tituloTela.textContent = titulo;
-  areaConteudo.innerHTML = `
-    <div class="painel">
-      <div class="painel-cabecalho">
-        <h2>${titulo}</h2>
-        <p>${descricao}</p>
-      </div>
-      <div class="painel-corpo">
-        <p>Módulo em preparação.</p>
-      </div>
-    </div>
-  `;
-}
-
-async function renderizarDashboard() {
-  tituloTela.textContent = "Dashboard";
-
-  const resumo = {
-    chamadosAbertos: 0,
-    orcamentosPendentes: 0,
-    ordensEmProducao: 0,
-    receitaMes: 0
+  const state = {
+    tela: "dashboard",
+    chamadoSelecionadoId: null,
   };
 
-  try {
-    if (window.sb && window.sb.db && typeof window.sb.db.from === "function") {
-      const hoje = new Date();
-      const inicioMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-01`;
+  function escapeHtml(texto) {
+    return String(texto || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+  function formatarMoeda(valor) {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor || 0));
+  }
+  function formatarMesAtualInicio() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  }
+  function qs(sel, root) { return (root || document).querySelector(sel); }
 
-      const [
-        ticketsResp,
-        quotesResp,
-        workordersResp,
-        receivablesResp
-      ] = await Promise.all([
-        window.sb.db
-          .from("tickets")
-          .select("id,status", { count: "exact", head: false })
-          .eq("company_id", window.sb.companyId),
+  function montarShell() {
+    const app = document.getElementById("app");
+    app.innerHTML = `
+      <div class="layout">
+        <aside class="sidebar">
+          <div class="brand-box">
+            <div class="brand-title">SGB</div>
+            <div class="brand-sub">Serralheria</div>
+          </div>
+          <nav class="nav">
+            <a href="#dashboard" data-route="dashboard">Dashboard</a>
+            <a href="#clientes" data-route="clientes">Clientes</a>
+            <a href="#chamados" data-route="chamados">Chamados</a>
+            <a href="#orcamentos" data-route="orcamentos">Orçamentos</a>
+            <a href="#ordens" data-route="ordens">Ordens de Serviço</a>
+            <a href="#compras" data-route="compras">Compras</a>
+            <a href="#financeiro" data-route="financeiro">Financeiro</a>
+            <a href="#agenda" data-route="agenda">Agenda</a>
+            <a href="#configuracoes" data-route="configuracoes">Configurações</a>
+          </nav>
+        </aside>
+        <main class="main">
+          <div class="topbar">
+            <div>
+              <div class="page-title" id="tituloTela">Dashboard</div>
+              <div class="hero-sub" id="subtituloTela">Visão geral do sistema</div>
+            </div>
+            <div class="badge-status" id="badgeConexao">Conectando...</div>
+          </div>
+          <div class="content">
+            <div class="alert error" id="erroGlobal"></div>
+            <div class="alert info" id="infoGlobal"></div>
+            <div id="conteudoTela"></div>
+          </div>
+        </main>
+      </div>
+    `;
 
-        window.sb.db
-          .from("quotes")
-          .select("id,status", { count: "exact", head: false })
-          .eq("company_id", window.sb.companyId)
-          .in("status", ["draft", "sent", "rascunho", "enviado"]),
-
-        window.sb.db
-          .from("workorders")
-          .select("id,status", { count: "exact", head: false })
-          .eq("company_id", window.sb.companyId)
-          .in("status", ["aberta", "em_andamento", "producao", "produção"]),
-
-        window.sb.db
-          .from("receivables")
-          .select("amount,paid,created_at")
-          .eq("company_id", window.sb.companyId)
-          .gte("created_at", `${inicioMes}T00:00:00`)
-      ]);
-
-      if (!ticketsResp.error) {
-        resumo.chamadosAbertos = Array.isArray(ticketsResp.data)
-          ? ticketsResp.data.filter((x) => ["aberto", "open", "aguardando_analise"].includes(String(x.status || "").toLowerCase())).length
-          : 0;
-      }
-
-      if (!quotesResp.error) {
-        resumo.orcamentosPendentes = Array.isArray(quotesResp.data) ? quotesResp.data.length : 0;
-      }
-
-      if (!workordersResp.error) {
-        resumo.ordensEmProducao = Array.isArray(workordersResp.data) ? workordersResp.data.length : 0;
-      }
-
-      if (!receivablesResp.error && Array.isArray(receivablesResp.data)) {
-        resumo.receitaMes = receivablesResp.data
-          .filter((x) => x && x.paid)
-          .reduce((acc, item) => acc + Number(item.amount || 0), 0);
-      }
-    }
-  } catch (erro) {
-    console.error("Erro ao montar dashboard:", erro);
+    document.querySelectorAll(".nav a").forEach((a) => {
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        const rota = a.getAttribute("data-route");
+        location.hash = rota;
+      });
+    });
   }
 
-  areaConteudo.innerHTML = `
-    <div class="cards">
-      <div class="card">
-        <div class="card-titulo">Chamados Abertos</div>
-        <div class="card-valor">${resumo.chamadosAbertos}</div>
-      </div>
-
-      <div class="card">
-        <div class="card-titulo">Orçamentos Pendentes</div>
-        <div class="card-valor">${resumo.orcamentosPendentes}</div>
-      </div>
-
-      <div class="card">
-        <div class="card-titulo">Ordens em Produção</div>
-        <div class="card-valor">${resumo.ordensEmProducao}</div>
-      </div>
-
-      <div class="card">
-        <div class="card-titulo">Receita do Mês</div>
-        <div class="card-valor">${formatarMoeda(resumo.receitaMes)}</div>
-      </div>
-    </div>
-  `;
-}
-
-async function renderizarChamados() {
-  tituloTela.textContent = "Chamados";
-
-  areaConteudo.innerHTML = `
-    <div class="painel">
-      <div class="painel-cabecalho">
-        <h2>Chamados</h2>
-        <p>Controle de tickets e atendimento</p>
-      </div>
-
-      <div id="chamadosArea">
-        <div class="painel-corpo">Carregando módulo de chamados...</div>
-      </div>
-    </div>
-  `;
-
-  try {
-    if (!window.ModuloChamados) {
-      await carregarScriptDinamico("./chamados.js");
+  function atualizarBadgeConexao() {
+    const badge = document.getElementById("badgeConexao");
+    if (!badge) return;
+    if (window.sb && window.sb.db) {
+      badge.textContent = window.sb.hasSession ? "Conectado" : "Conectado";
+    } else {
+      badge.textContent = "Sem conexão";
     }
+  }
 
-    if (!window.ModuloChamados || typeof window.ModuloChamados.listarChamados !== "function") {
-      throw new Error("Módulo de chamados não disponível.");
-    }
+  function setErro(msg) {
+    const box = document.getElementById("erroGlobal");
+    box.textContent = msg || "";
+    box.classList.toggle("show", !!msg);
+  }
 
-    await window.ModuloChamados.listarChamados({
-      areaId: "chamadosArea",
-      companyId: window.sb?.companyId || null,
-      sb: window.sb,
-      onSelecionarChamado: (id) => {
-        estadoApp.chamadoSelecionadoId = id;
-      }
+  function setInfo(msg) {
+    const box = document.getElementById("infoGlobal");
+    box.textContent = msg || "";
+    box.classList.toggle("show", !!msg);
+  }
+
+  function setTitulo(titulo, subtitulo) {
+    document.getElementById("tituloTela").textContent = titulo;
+    document.getElementById("subtituloTela").textContent = subtitulo || "";
+  }
+
+  function rotaAtual() {
+    const rota = (location.hash || "#dashboard").replace("#", "").trim();
+    const validas = ["dashboard", "clientes", "chamados", "orcamentos", "ordens", "compras", "financeiro", "agenda", "configuracoes"];
+    return validas.includes(rota) ? rota : "dashboard";
+  }
+
+  function marcarMenuAtivo() {
+    const rota = rotaAtual();
+    document.querySelectorAll(".nav a").forEach((a) => {
+      a.classList.toggle("active", a.getAttribute("data-route") === rota);
     });
-  } catch (erro) {
-    console.error("Erro ao carregar chamados:", erro);
-    const alvo = document.getElementById("chamadosArea");
-    if (alvo) {
+  }
+
+  async function renderizarTelaAtual() {
+    marcarMenuAtivo();
+    atualizarBadgeConexao();
+    setErro("");
+    setInfo("");
+    state.tela = rotaAtual();
+
+    if (state.tela === "dashboard") return renderizarDashboard();
+    if (state.tela === "chamados") return renderizarChamados();
+    if (state.tela === "clientes") return renderizarPlaceholder("Clientes", "Cadastro e consulta de clientes.");
+    if (state.tela === "orcamentos") return renderizarPlaceholder("Orçamentos", "Gestão de orçamentos.");
+    if (state.tela === "ordens") return renderizarPlaceholder("Ordens de Serviço", "Acompanhamento das ordens de serviço.");
+    if (state.tela === "compras") return renderizarPlaceholder("Compras", "Controle de compras e materiais.");
+    if (state.tela === "financeiro") return renderizarPlaceholder("Financeiro", "Painel financeiro em construção.");
+    if (state.tela === "agenda") return renderizarPlaceholder("Agenda", "Agenda operacional.");
+    if (state.tela === "configuracoes") return renderizarPlaceholder("Configurações", "Ajustes do sistema.");
+  }
+
+  async function renderizarDashboard() {
+    setTitulo("Dashboard", "Visão geral do sistema");
+    const alvo = document.getElementById("conteudoTela");
+    alvo.innerHTML = `<div class="cards"><div class="card"><div class="card-label">Carregando...</div><div class="card-value">...</div></div></div>`;
+
+    const resumo = {
+      chamadosAbertos: 0,
+      orcamentosPendentes: 0,
+      ordensEmProducao: 0,
+      receitaMes: 0,
+    };
+
+    try {
+      if (!window.sb || !window.sb.db || !window.sb.companyId) throw new Error("Conexão ou companyId ausente.");
+      const inicioMes = formatarMesAtualInicio();
+
+      const [ticketsResp, quotesResp, osResp, pagamentosResp] = await Promise.all([
+        window.sb.db.from("tickets").select("status").eq("company_id", window.sb.companyId),
+        window.sb.db.from("quotes").select("status").eq("company_id", window.sb.companyId),
+        window.sb.db.from("workorders").select("status").eq("company_id", window.sb.companyId),
+        window.sb.db.from("payments").select("amount, paid_at").eq("company_id", window.sb.companyId).gte("created_at", `${inicioMes}T00:00:00`),
+      ]);
+
+      if (ticketsResp.error) throw ticketsResp.error;
+      if (quotesResp.error) throw quotesResp.error;
+      if (osResp.error) throw osResp.error;
+      if (pagamentosResp.error) throw pagamentosResp.error;
+
+      resumo.chamadosAbertos = (ticketsResp.data || []).filter((x) => ["aberto", "open", "aguardando_analise"].includes(String(x.status || "").toLowerCase())).length;
+      resumo.orcamentosPendentes = (quotesResp.data || []).filter((x) => ["draft", "sent", "rascunho", "enviado"].includes(String(x.status || "").toLowerCase())).length;
+      resumo.ordensEmProducao = (osResp.data || []).filter((x) => ["aberta", "em_andamento", "produção", "producao"].includes(String(x.status || "").toLowerCase())).length;
+      resumo.receitaMes = (pagamentosResp.data || []).reduce((acc, item) => acc + Number(item.amount || 0), 0);
+    } catch (erro) {
+      setErro(`Falha ao carregar dashboard: ${erro.message || erro}`);
+    }
+
+    alvo.innerHTML = `
+      <div class="cards">
+        <div class="card"><div class="card-label">Chamados Abertos</div><div class="card-value">${resumo.chamadosAbertos}</div></div>
+        <div class="card"><div class="card-label">Orçamentos Pendentes</div><div class="card-value">${resumo.orcamentosPendentes}</div></div>
+        <div class="card"><div class="card-label">Ordens em Produção</div><div class="card-value">${resumo.ordensEmProducao}</div></div>
+        <div class="card"><div class="card-label">Receita do Mês</div><div class="card-value">${formatarMoeda(resumo.receitaMes)}</div></div>
+      </div>
+    `;
+  }
+
+  async function renderizarChamados() {
+    setTitulo("Chamados", "Controle de tickets e atendimento");
+    const alvo = document.getElementById("conteudoTela");
+    alvo.innerHTML = `<div class="panel"><h2>Chamados</h2><div class="panel-sub">Preparando módulo...</div></div>`;
+
+    try {
+      if (!window.ModuloChamados || typeof window.ModuloChamados.listarChamados !== "function") {
+        throw new Error("Módulo de chamados não disponível.");
+      }
+      await window.ModuloChamados.listarChamados({
+        areaId: "conteudoTela",
+        sb: window.sb,
+        companyId: window.sb && window.sb.companyId,
+        onSelecionarChamado: function (id) {
+          state.chamadoSelecionadoId = id;
+        }
+      });
+    } catch (erro) {
+      console.error("Erro ao carregar chamados:", erro);
       alvo.innerHTML = `
-        <div class="erro-box">
-          <strong>Falha ao carregar chamados.</strong><br>
-          ${escapeHtml(erro.message || String(erro))}
+        <div class="panel">
+          <h2>Chamados</h2>
+          <div class="panel-sub">Controle de tickets e atendimento</div>
+          <div class="alert error show">Falha ao carregar chamados.<br>${escapeHtml(erro.message || String(erro))}</div>
         </div>
       `;
     }
   }
-}
 
-function carregarScriptDinamico(src) {
-  return new Promise((resolve, reject) => {
-    const existente = document.querySelector(`script[data-src="${src}"]`);
-    if (existente) {
-      existente.addEventListener("load", () => resolve());
-      existente.addEventListener("error", () => reject(new Error(`Falha ao carregar ${src}`)));
-      if (window.ModuloChamados) {
-        resolve();
-      }
-      return;
-    }
+  function renderizarPlaceholder(titulo, descricao) {
+    setTitulo(titulo, "Visão geral do sistema");
+    const alvo = document.getElementById("conteudoTela");
+    alvo.innerHTML = `
+      <div class="panel">
+        <h2>${escapeHtml(titulo)}</h2>
+        <div class="panel-sub">${escapeHtml(descricao)}</div>
+        <div class="placeholder-big">Módulo em preparação.</div>
+      </div>
+    `;
+  }
 
-    const script = document.createElement("script");
-    script.src = src;
-    script.defer = true;
-    script.dataset.src = src;
-
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Falha ao carregar ${src}`));
-
-    document.body.appendChild(script);
+  document.addEventListener("DOMContentLoaded", function () {
+    montarShell();
+    renderizarTelaAtual();
+    window.addEventListener("hashchange", renderizarTelaAtual);
   });
-}
-
-function formatarMoeda(valor) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  }).format(Number(valor || 0));
-}
-
-function escapeHtml(texto) {
-  return String(texto || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-window.addEventListener("DOMContentLoaded", async () => {
-  await carregarTela("dashboard");
-});
+})();
