@@ -1,11 +1,21 @@
 (function () {
-  var cfg = window.sbConfig || {};
-  var url = cfg.url || cfg.supabaseUrl || "";
-  var anon = cfg.anon || cfg.supabaseAnonKey || "";
-  var lib = window.supabase;
+  "use strict";
 
-  if (!lib || typeof lib.createClient !== "function") {
-    console.error("[supabaseClient] biblioteca do Supabase não carregou.");
+  function firstNonEmpty() {
+    for (const value of arguments) {
+      if (value != null && String(value).trim() !== "") return value;
+    }
+    return null;
+  }
+
+  const cfg = window.sbConfig || window.CONFIG || {};
+  const url = firstNonEmpty(cfg.url, cfg.supabaseUrl, cfg.SUPABASE_URL);
+  const anon = firstNonEmpty(cfg.anon, cfg.supabaseAnonKey, cfg.SUPABASE_KEY, cfg.supabaseKey);
+  const companyId = firstNonEmpty(cfg.defaultCompanyId, cfg.companyId, cfg.COMPANY_ID);
+  const portalToken = firstNonEmpty(cfg.portalToken, cfg.PORTAL_TOKEN);
+
+  if (!window.supabase || typeof window.supabase.createClient !== "function") {
+    console.error("[supabaseClient] Biblioteca do Supabase não carregou.");
     window.sb = null;
     return;
   }
@@ -16,12 +26,7 @@
     return;
   }
 
-  if (window.sb) {
-    console.log("[supabaseClient] cliente reaproveitado.");
-    return;
-  }
-
-  window.sb = lib.createClient(url, anon, {
+  const client = window.supabase.createClient(url, anon, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
@@ -29,10 +34,28 @@
     },
     global: {
       headers: {
-        "X-Client-Info": "sgb-serralheria-front"
-      }
-    }
+        "X-Client-Info": "sgb-serralheria-front",
+      },
+    },
   });
 
-  console.log("[supabaseClient] OK. window.sb pronto");
+  window.sb = {
+    db: client,
+    client,
+    url,
+    companyId,
+    portalToken,
+    hasSession: false,
+  };
+
+  client.auth.getSession().then(({ data }) => {
+    window.sb.hasSession = !!data.session;
+    console.log("[supabaseClient] OK. window.sb pronto", {
+      url: window.sb.url,
+      companyId: window.sb.companyId,
+      hasSession: window.sb.hasSession,
+    });
+  }).catch(() => {
+    console.log("[supabaseClient] OK. window.sb pronto");
+  });
 })();
