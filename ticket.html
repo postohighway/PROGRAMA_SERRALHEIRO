@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Abrir Chamado</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<link rel="stylesheet" href="styles.css">
+
+<script src="config.local.js"></script>
+<script src="supabaseClient.js"></script>
+<script src="ticket.js"></script>
+</head>
+<body>
+
+<div class="portal">
+  <h1>Abrir Chamado</h1>
+
+  <input id="clientName" placeholder="Seu nome">
+  <input id="clientPhone" placeholder="Telefone">
+  <textarea id="description" placeholder="Descreva o problema"></textarea>
+
+  <input type="file" id="photo1">
+  <input type="file" id="photo2">
+  <input type="file" id="photo3">
+
+  <button onclick="TicketPortal.submit()">Enviar</button>
+
+  <div id="msg"></div>
+</div>
+
+</body>
+</html>
