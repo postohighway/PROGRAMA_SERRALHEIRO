@@ -1,0 +1,5478 @@
+[
+  {
+    "table_name": "companies"
+  },
+  {
+    "table_name": "company_users"
+  },
+  {
+    "table_name": "contracts"
+  },
+  {
+    "table_name": "customers"
+  },
+  {
+    "table_name": "media"
+  },
+  {
+    "table_name": "media_files"
+  },
+  {
+    "table_name": "payments"
+  },
+  {
+    "table_name": "purchase_items"
+  },
+  {
+    "table_name": "purchases"
+  },
+  {
+    "table_name": "quote_items"
+  },
+  {
+    "table_name": "quotes"
+  },
+  {
+    "table_name": "quotes_front"
+  },
+  {
+    "table_name": "receivables"
+  },
+  {
+    "table_name": "schedule_events"
+  },
+  {
+    "table_name": "sla_plans"
+  },
+  {
+    "table_name": "ticket_checklist"
+  },
+  {
+    "table_name": "ticket_history"
+  },
+  {
+    "table_name": "ticket_messages"
+  },
+  {
+    "table_name": "ticket_portal_tokens"
+  },
+  {
+    "table_name": "ticket_sla"
+  },
+  {
+    "table_name": "ticket_timeline"
+  },
+  {
+    "table_name": "tickets"
+  },
+  {
+    "table_name": "txs"
+  },
+  {
+    "table_name": "txs_view"
+  },
+  {
+    "table_name": "workorder_history"
+  },
+  {
+    "table_name": "workorders"
+  },
+  {
+    "table_name": "workorders_view_backup"
+  }
+]
+
+[
+  {
+    "table_name": "companies",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "companies",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "companies",
+    "column_name": "trade_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "companies",
+    "column_name": "cnpj",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "companies",
+    "column_name": "owner_email",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "companies",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "companies",
+    "column_name": "default_sla_plan_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "company_users",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "company_users",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "company_users",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "company_users",
+    "column_name": "role",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "company_users",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "customer_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "sla_plan_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "start_date",
+    "data_type": "date",
+    "is_nullable": "NO",
+    "column_default": "CURRENT_DATE"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "next_billing_date",
+    "data_type": "date",
+    "is_nullable": "NO",
+    "column_default": "(CURRENT_DATE + '30 days'::interval)"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'ativo'::text"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "customers",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "customers",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "customers",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "customers",
+    "column_name": "phone",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "customers",
+    "column_name": "email",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "customers",
+    "column_name": "address",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "customers",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "customers",
+    "column_name": "notes",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "media",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "media",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "media",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "media",
+    "column_name": "kind",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "media",
+    "column_name": "stage",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'other'::text"
+  },
+  {
+    "table_name": "media",
+    "column_name": "path",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "media",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "media_files",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "media_files",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "media_files",
+    "column_name": "media_type",
+    "data_type": "USER-DEFINED",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "media_files",
+    "column_name": "file_path",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "media_files",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "media_files",
+    "column_name": "expires_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "media_files",
+    "column_name": "deleted_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "payments",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "payments",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "payments",
+    "column_name": "quote_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "payments",
+    "column_name": "amount",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "payments",
+    "column_name": "method",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'pix'::text"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "paid_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "payments",
+    "column_name": "note",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "payments",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "purchase_items",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "purchase_items",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "purchase_items",
+    "column_name": "purchase_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "purchase_items",
+    "column_name": "item_type",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'material'::text"
+  },
+  {
+    "table_name": "purchase_items",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "purchase_items",
+    "column_name": "unit",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "purchase_items",
+    "column_name": "qty",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "1"
+  },
+  {
+    "table_name": "purchase_items",
+    "column_name": "unit_cost",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "purchase_items",
+    "column_name": "line_total",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "purchase_items",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "value",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "invoice_number",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "date",
+    "data_type": "date",
+    "is_nullable": "NO",
+    "column_default": "CURRENT_DATE"
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "paid_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'draft'::text"
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "subtotal",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "table_name": "purchases",
+    "column_name": "total",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "quote_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "item_type",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'other'::text"
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "unit",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "qty",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "1"
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "unit_cost",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "unit_price",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "total_cost",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "total_price",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "sort_order",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "quote_items",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'draft'::text"
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "currency",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'BRL'::text"
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "subtotal",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "discount",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "surcharge",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "total",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "sent_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "approved_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "rejected_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "approval_note",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "customer_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes",
+    "column_name": "contract_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes_front",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes_front",
+    "column_name": "client_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes_front",
+    "column_name": "desc",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes_front",
+    "column_name": "total",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes_front",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes_front",
+    "column_name": "deadline_days",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "quotes_front",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "receivables",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "receivables",
+    "column_name": "contract_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "receivables",
+    "column_name": "due_date",
+    "data_type": "date",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "receivables",
+    "column_name": "amount",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "receivables",
+    "column_name": "paid",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "receivables",
+    "column_name": "paid_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "receivables",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "event_type",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'visit'::text"
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "start_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "end_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "priority",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'medium'::text"
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "estimated_minutes",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "address",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "notes",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "schedule_events",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "sla_plans",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "sla_plans",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "sla_plans",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "sla_plans",
+    "column_name": "hours_to_expire",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "sla_plans",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "ticket_checklist",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_checklist",
+    "column_name": "measured",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "ticket_checklist",
+    "column_name": "materials_bought",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "ticket_checklist",
+    "column_name": "production_started",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "ticket_checklist",
+    "column_name": "finishing_done",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "ticket_checklist",
+    "column_name": "installed",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "ticket_checklist",
+    "column_name": "final_paid",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "ticket_checklist",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "ticket_history",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "ticket_history",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_history",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "ticket_history",
+    "column_name": "actor_user_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_history",
+    "column_name": "action",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_history",
+    "column_name": "from_status",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_history",
+    "column_name": "to_status",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_history",
+    "column_name": "note",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_history",
+    "column_name": "meta",
+    "data_type": "jsonb",
+    "is_nullable": "NO",
+    "column_default": "'{}'::jsonb"
+  },
+  {
+    "table_name": "ticket_history",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "ticket_messages",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "column_name": "author_type",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "column_name": "author_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "column_name": "message",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "ticket_messages",
+    "column_name": "event_type",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'note'::text"
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "column_name": "portal_token",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "column_name": "active",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "true"
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "contract_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "sla_plan_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "sla_hours",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "starts_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "deadline_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'active'::text"
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "applied_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "ticket_sla",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "id",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "source",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "event_type",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "author_type",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "author_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "title",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "body",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "ticket_timeline",
+    "column_name": "meta",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "client_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "client_phone",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "token",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'aberto'::text"
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "photo1_path",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "photo2_path",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "photo3_path",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "photo4_path",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "photo5_path",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "video1_path",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "customer_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "due_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "tickets",
+    "column_name": "history",
+    "data_type": "jsonb",
+    "is_nullable": "NO",
+    "column_default": "'[]'::jsonb"
+  },
+  {
+    "table_name": "txs",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "txs",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "txs",
+    "column_name": "type",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "txs",
+    "column_name": "desc",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "''::text"
+  },
+  {
+    "table_name": "txs",
+    "column_name": "amount",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "txs",
+    "column_name": "due_date",
+    "data_type": "date",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "txs",
+    "column_name": "category",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "txs",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'aberto'::text"
+  },
+  {
+    "table_name": "txs",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "txs",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "txs_view",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "txs_view",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "txs_view",
+    "column_name": "type",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "txs_view",
+    "column_name": "desc",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "txs_view",
+    "column_name": "amount",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "txs_view",
+    "column_name": "due_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "txs_view",
+    "column_name": "category",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "txs_view",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "txs_view",
+    "column_name": "source_table",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "txs_view",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorder_history",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "workorder_history",
+    "column_name": "workorder_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "workorder_history",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "workorder_history",
+    "column_name": "field",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorder_history",
+    "column_name": "old_value",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorder_history",
+    "column_name": "new_value",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorder_history",
+    "column_name": "changed_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorder_history",
+    "column_name": "changed_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "workorders",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders",
+    "column_name": "company_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders",
+    "column_name": "client_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders",
+    "column_name": "desc",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "''::text"
+  },
+  {
+    "table_name": "workorders",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'aberto'::text"
+  },
+  {
+    "table_name": "workorders",
+    "column_name": "due_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "workorders",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "workorders_view_backup",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders_view_backup",
+    "column_name": "client_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders_view_backup",
+    "column_name": "desc",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders_view_backup",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders_view_backup",
+    "column_name": "due_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders_view_backup",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "workorders_view_backup",
+    "column_name": "history",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": null
+  }
+]
+
+
+[
+  {
+    "table_name": "companies",
+    "constraint_name": "companies_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "companies",
+    "constraint_name": "2200_17488_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "companies",
+    "constraint_name": "2200_17488_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "companies",
+    "constraint_name": "companies_default_sla_plan_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "default_sla_plan_id",
+    "foreign_table": "sla_plans",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "2200_20505_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "company_users_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "2200_20505_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "2200_20505_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "2200_20505_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "company_users_user_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "user_id",
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "company_users_user_id_company_id_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "company_id",
+    "foreign_table": "company_users",
+    "foreign_column": "user_id"
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "company_users_user_id_company_id_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "company_id",
+    "foreign_table": "company_users",
+    "foreign_column": "company_id"
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "company_users_user_id_company_id_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "user_id",
+    "foreign_table": "company_users",
+    "foreign_column": "user_id"
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "company_users_user_id_company_id_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "user_id",
+    "foreign_table": "company_users",
+    "foreign_column": "company_id"
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "company_users_role_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "company_users",
+    "foreign_column": "role"
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "company_users_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "company_users",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "contracts",
+    "constraint_name": "contracts_customer_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "customer_id",
+    "foreign_table": "customers",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "contracts",
+    "constraint_name": "2200_17608_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "contracts",
+    "constraint_name": "2200_17608_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "contracts",
+    "constraint_name": "2200_17608_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "contracts",
+    "constraint_name": "contracts_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "contracts",
+    "constraint_name": "contracts_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "contracts",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "contracts",
+    "constraint_name": "2200_17608_7_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "contracts",
+    "constraint_name": "2200_17608_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "contracts",
+    "constraint_name": "2200_17608_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "contracts",
+    "constraint_name": "2200_17608_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "customers",
+    "constraint_name": "customers_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "customers",
+    "constraint_name": "customers_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "customers",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "customers",
+    "constraint_name": "2200_17497_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "customers",
+    "constraint_name": "2200_17497_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "customers",
+    "constraint_name": "2200_17497_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "media_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "2200_35617_7_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "2200_35617_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "2200_35617_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "2200_35617_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "2200_35617_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "media_kind_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "media",
+    "foreign_column": "kind"
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "media_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "media",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "media_stage_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "media",
+    "foreign_column": "stage"
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "media_ticket_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "ticket_id",
+    "foreign_table": "tickets",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "2200_35617_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media_files",
+    "constraint_name": "2200_17571_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media_files",
+    "constraint_name": "2200_17571_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media_files",
+    "constraint_name": "2200_17571_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media_files",
+    "constraint_name": "2200_17571_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "media_files",
+    "constraint_name": "media_files_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "media_files",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "media_files",
+    "constraint_name": "media_files_ticket_file_path_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "ticket_id",
+    "foreign_table": "media_files",
+    "foreign_column": "file_path"
+  },
+  {
+    "table_name": "media_files",
+    "constraint_name": "media_files_ticket_file_path_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "ticket_id",
+    "foreign_table": "media_files",
+    "foreign_column": "ticket_id"
+  },
+  {
+    "table_name": "media_files",
+    "constraint_name": "media_files_ticket_file_path_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "file_path",
+    "foreign_table": "media_files",
+    "foreign_column": "file_path"
+  },
+  {
+    "table_name": "media_files",
+    "constraint_name": "media_files_ticket_file_path_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "file_path",
+    "foreign_table": "media_files",
+    "foreign_column": "ticket_id"
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "payments_quote_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "quote_id",
+    "foreign_table": "quotes",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "payments_ticket_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "ticket_id",
+    "foreign_table": "tickets",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "2200_35697_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "2200_35697_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "2200_35697_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "2200_35697_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "2200_35697_10_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "2200_35697_9_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "payments_amount_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "payments",
+    "foreign_column": "amount"
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "payments_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "payments_method_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "payments",
+    "foreign_column": "method"
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "payments_note_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "payments",
+    "foreign_column": "note"
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "payments_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "payments",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "2200_56094_10_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "purchase_items_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "purchase_items_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "purchase_items",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "purchase_items_purchase_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "purchase_id",
+    "foreign_table": "purchases",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "2200_56094_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "2200_56094_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "2200_56094_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "2200_56094_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "2200_56094_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "2200_56094_7_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchase_items",
+    "constraint_name": "2200_56094_8_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "purchases_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "purchases",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "2200_17648_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "purchases_description_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "purchases",
+    "foreign_column": "description"
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "purchases_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "2200_17648_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "2200_17648_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "2200_17648_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "2200_17648_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "2200_17648_8_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "2200_17648_10_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "purchases_value_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "purchases",
+    "foreign_column": "value"
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "purchases_value_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "purchases",
+    "foreign_column": "status"
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "quote_items_quote_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "quote_id",
+    "foreign_table": "quotes",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "quote_items_item_type_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "quote_items",
+    "foreign_column": "item_type"
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_12_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_11_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_10_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_9_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_8_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_7_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "2200_35674_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "quote_items_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "quote_items",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "quotes_ticket_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "ticket_id",
+    "foreign_table": "tickets",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "2200_35642_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "2200_35642_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "2200_35642_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "2200_35642_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "2200_35642_7_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "2200_35642_8_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "2200_35642_9_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "2200_35642_14_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "2200_35642_15_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "quotes_status_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "quotes",
+    "foreign_column": "status"
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "quotes_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "quotes",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "quotes_customer_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "customer_id",
+    "foreign_table": "customers",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "quotes_contract_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "contract_id",
+    "foreign_table": "contracts",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "quotes_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "2200_35642_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "receivables",
+    "constraint_name": "2200_17635_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "receivables",
+    "constraint_name": "receivables_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "receivables",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "receivables",
+    "constraint_name": "receivables_contract_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "contract_id",
+    "foreign_table": "contracts",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "receivables",
+    "constraint_name": "2200_17635_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "receivables",
+    "constraint_name": "2200_17635_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "receivables",
+    "constraint_name": "2200_17635_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "schedule_events_priority_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "schedule_events",
+    "foreign_column": "priority"
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "2200_35727_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "schedule_events_event_type_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "schedule_events",
+    "foreign_column": "event_type"
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "schedule_events_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "schedule_events",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "2200_35727_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "2200_35727_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "2200_35727_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "2200_35727_7_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "2200_35727_11_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "schedule_events_ticket_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "ticket_id",
+    "foreign_table": "tickets",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "schedule_events_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "schedule_events_estimated_minutes_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "schedule_events",
+    "foreign_column": "estimated_minutes"
+  },
+  {
+    "table_name": "sla_plans",
+    "constraint_name": "2200_17800_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "sla_plans",
+    "constraint_name": "2200_17800_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "sla_plans",
+    "constraint_name": "sla_plans_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "sla_plans",
+    "constraint_name": "sla_plans_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "sla_plans",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "sla_plans",
+    "constraint_name": "2200_17800_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "sla_plans",
+    "constraint_name": "2200_17800_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_checklist",
+    "constraint_name": "2200_35754_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_checklist",
+    "constraint_name": "2200_35754_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_checklist",
+    "constraint_name": "2200_35754_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_checklist",
+    "constraint_name": "2200_35754_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_checklist",
+    "constraint_name": "2200_35754_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_checklist",
+    "constraint_name": "2200_35754_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_checklist",
+    "constraint_name": "2200_35754_7_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_checklist",
+    "constraint_name": "2200_35754_8_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_checklist",
+    "constraint_name": "ticket_checklist_ticket_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "ticket_id",
+    "foreign_table": "tickets",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "ticket_checklist",
+    "constraint_name": "ticket_checklist_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "ticket_id",
+    "foreign_table": "ticket_checklist",
+    "foreign_column": "ticket_id"
+  },
+  {
+    "table_name": "ticket_history",
+    "constraint_name": "ticket_history_actor_user_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "actor_user_id",
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_history",
+    "constraint_name": "2200_38069_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_history",
+    "constraint_name": "ticket_history_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "ticket_history",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "ticket_history",
+    "constraint_name": "2200_38069_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_history",
+    "constraint_name": "2200_38069_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_history",
+    "constraint_name": "2200_38069_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_history",
+    "constraint_name": "2200_38069_9_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_history",
+    "constraint_name": "ticket_history_ticket_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "ticket_id",
+    "foreign_table": "tickets",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "2200_18512_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "2200_18512_7_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "ticket_messages_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "ticket_messages",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "ticket_messages_event_type_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "ticket_messages",
+    "foreign_column": "event_type"
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "2200_18512_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "ticket_messages_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "2200_18512_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "2200_18512_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "ticket_messages_author_type_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "ticket_messages",
+    "foreign_column": "author_type"
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "2200_18512_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "constraint_name": "2200_56064_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "constraint_name": "ticket_portal_tokens_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "constraint_name": "ticket_portal_tokens_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "company_id",
+    "foreign_table": "ticket_portal_tokens",
+    "foreign_column": "company_id"
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "constraint_name": "ticket_portal_tokens_portal_token_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "portal_token",
+    "foreign_table": "ticket_portal_tokens",
+    "foreign_column": "portal_token"
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "constraint_name": "2200_56064_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "constraint_name": "2200_56064_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_portal_tokens",
+    "constraint_name": "2200_56064_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "2200_35771_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "2200_35771_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "2200_35771_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "2200_35771_9_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "2200_35771_10_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "2200_35771_11_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "ticket_sla_contract_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "contract_id",
+    "foreign_table": "contracts",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "ticket_sla_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "ticket_sla",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "ticket_sla_sla_hours_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "ticket_sla",
+    "foreign_column": "sla_hours"
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "ticket_sla_sla_plan_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "sla_plan_id",
+    "foreign_table": "sla_plans",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "ticket_sla_status_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "ticket_sla",
+    "foreign_column": "status"
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "ticket_sla_ticket_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "ticket_id",
+    "foreign_table": "tickets",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "ticket_sla_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "tickets_token_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "token",
+    "foreign_table": "tickets",
+    "foreign_column": "token"
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "2200_31176_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "tickets_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "tickets_customer_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "customer_id",
+    "foreign_table": "customers",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "tickets_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "tickets",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "tickets_status_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "tickets",
+    "foreign_column": "status"
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "2200_31176_14_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "2200_31176_17_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "2200_31176_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "2200_31176_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "2200_31176_7_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "2200_42663_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "2200_42663_10_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "2200_42663_9_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "2200_42663_8_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "2200_42663_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "2200_42663_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "2200_42663_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "2200_42663_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "2200_42663_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_amount_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "txs",
+    "foreign_column": "amount"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "txs",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_desc_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "txs",
+    "foreign_column": "desc"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_company_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "company_id",
+    "foreign_table": "companies",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_category_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "txs",
+    "foreign_column": "category"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_type_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "txs",
+    "foreign_column": "type"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_status_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "txs",
+    "foreign_column": "status"
+  },
+  {
+    "table_name": "workorder_history",
+    "constraint_name": "2200_38140_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "workorder_history",
+    "constraint_name": "workorder_history_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "workorder_history",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "workorder_history",
+    "constraint_name": "workorder_history_workorder_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "workorder_id",
+    "foreign_table": "workorders",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "workorder_history",
+    "constraint_name": "2200_38140_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "workorder_history",
+    "constraint_name": "2200_38140_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "workorders_client_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "client_id",
+    "foreign_table": "customers",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "2200_38097_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "workorders_ticket_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": "ticket_id",
+    "foreign_table": "tickets",
+    "foreign_column": "id"
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "workorders_ticket_id_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "ticket_id",
+    "foreign_table": "workorders",
+    "foreign_column": "ticket_id"
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "2200_38097_6_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "2200_38097_9_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "2200_38097_8_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "2200_38097_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "2200_38097_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": null,
+    "foreign_column": null
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "workorders_status_check",
+    "constraint_type": "CHECK",
+    "column_name": null,
+    "foreign_table": "workorders",
+    "foreign_column": "status"
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "workorders_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id",
+    "foreign_table": "workorders",
+    "foreign_column": "id"
+  }
+][
+  {
+    "table_name": "-",
+    "constraint_name": "yes_or_no_check",
+    "definition": "CHECK (((VALUE)::text = ANY ((ARRAY['YES'::character varying, 'NO'::character varying])::text[])))"
+  },
+  {
+    "table_name": "-",
+    "constraint_name": "cardinal_number_domain_check",
+    "definition": "CHECK ((VALUE >= 0))"
+  },
+  {
+    "table_name": "auth.users",
+    "constraint_name": "users_email_change_confirm_status_check",
+    "definition": "CHECK (((email_change_confirm_status >= 0) AND (email_change_confirm_status <= 2)))"
+  },
+  {
+    "table_name": "auth.sessions",
+    "constraint_name": "sessions_scopes_length",
+    "definition": "CHECK ((char_length(scopes) <= 4096))"
+  },
+  {
+    "table_name": "auth.sso_providers",
+    "constraint_name": "resource_id not empty",
+    "definition": "CHECK (((resource_id = NULL::text) OR (char_length(resource_id) > 0)))"
+  },
+  {
+    "table_name": "auth.sso_domains",
+    "constraint_name": "domain not empty",
+    "definition": "CHECK ((char_length(domain) > 0))"
+  },
+  {
+    "table_name": "auth.saml_providers",
+    "constraint_name": "metadata_xml not empty",
+    "definition": "CHECK ((char_length(metadata_xml) > 0))"
+  },
+  {
+    "table_name": "auth.saml_providers",
+    "constraint_name": "metadata_url not empty",
+    "definition": "CHECK (((metadata_url = NULL::text) OR (char_length(metadata_url) > 0)))"
+  },
+  {
+    "table_name": "auth.saml_providers",
+    "constraint_name": "entity_id not empty",
+    "definition": "CHECK ((char_length(entity_id) > 0))"
+  },
+  {
+    "table_name": "auth.saml_relay_states",
+    "constraint_name": "request_id not empty",
+    "definition": "CHECK ((char_length(request_id) > 0))"
+  },
+  {
+    "table_name": "auth.one_time_tokens",
+    "constraint_name": "one_time_tokens_token_hash_check",
+    "definition": "CHECK ((char_length(token_hash) > 0))"
+  },
+  {
+    "table_name": "auth.oauth_clients",
+    "constraint_name": "oauth_clients_client_name_length",
+    "definition": "CHECK ((char_length(client_name) <= 1024))"
+  },
+  {
+    "table_name": "auth.oauth_clients",
+    "constraint_name": "oauth_clients_client_uri_length",
+    "definition": "CHECK ((char_length(client_uri) <= 2048))"
+  },
+  {
+    "table_name": "auth.oauth_clients",
+    "constraint_name": "oauth_clients_logo_uri_length",
+    "definition": "CHECK ((char_length(logo_uri) <= 2048))"
+  },
+  {
+    "table_name": "auth.oauth_clients",
+    "constraint_name": "oauth_clients_token_endpoint_auth_method_check",
+    "definition": "CHECK ((token_endpoint_auth_method = ANY (ARRAY['client_secret_basic'::text, 'client_secret_post'::text, 'none'::text])))"
+  },
+  {
+    "table_name": "auth.oauth_authorizations",
+    "constraint_name": "oauth_authorizations_scope_length",
+    "definition": "CHECK ((char_length(scope) <= 4096))"
+  },
+  {
+    "table_name": "auth.oauth_authorizations",
+    "constraint_name": "oauth_authorizations_redirect_uri_length",
+    "definition": "CHECK ((char_length(redirect_uri) <= 2048))"
+  },
+  {
+    "table_name": "auth.oauth_authorizations",
+    "constraint_name": "oauth_authorizations_state_length",
+    "definition": "CHECK ((char_length(state) <= 4096))"
+  },
+  {
+    "table_name": "auth.oauth_authorizations",
+    "constraint_name": "oauth_authorizations_resource_length",
+    "definition": "CHECK ((char_length(resource) <= 2048))"
+  },
+  {
+    "table_name": "auth.oauth_authorizations",
+    "constraint_name": "oauth_authorizations_code_challenge_length",
+    "definition": "CHECK ((char_length(code_challenge) <= 128))"
+  },
+  {
+    "table_name": "auth.oauth_authorizations",
+    "constraint_name": "oauth_authorizations_authorization_code_length",
+    "definition": "CHECK ((char_length(authorization_code) <= 255))"
+  },
+  {
+    "table_name": "auth.oauth_authorizations",
+    "constraint_name": "oauth_authorizations_expires_at_future",
+    "definition": "CHECK ((expires_at > created_at))"
+  },
+  {
+    "table_name": "auth.oauth_authorizations",
+    "constraint_name": "oauth_authorizations_nonce_length",
+    "definition": "CHECK ((char_length(nonce) <= 255))"
+  },
+  {
+    "table_name": "auth.oauth_consents",
+    "constraint_name": "oauth_consents_scopes_not_empty",
+    "definition": "CHECK ((char_length(TRIM(BOTH FROM scopes)) > 0))"
+  },
+  {
+    "table_name": "auth.oauth_consents",
+    "constraint_name": "oauth_consents_scopes_length",
+    "definition": "CHECK ((char_length(scopes) <= 2048))"
+  },
+  {
+    "table_name": "auth.oauth_consents",
+    "constraint_name": "oauth_consents_revoked_after_granted",
+    "definition": "CHECK (((revoked_at IS NULL) OR (revoked_at >= granted_at)))"
+  },
+  {
+    "table_name": "realtime.subscription",
+    "constraint_name": "subscription_action_filter_check",
+    "definition": "CHECK ((action_filter = ANY (ARRAY['*'::text, 'INSERT'::text, 'UPDATE'::text, 'DELETE'::text])))"
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "purchases_description_check",
+    "definition": "CHECK (((description IS NULL) OR (length(btrim(description)) >= 2)))"
+  },
+  {
+    "table_name": "purchases",
+    "constraint_name": "purchases_value_check",
+    "definition": "CHECK ((((status = 'draft'::text) AND (value >= (0)::numeric)) OR ((status <> 'draft'::text) AND (value > (0)::numeric))))"
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "ticket_messages_event_type_check",
+    "definition": "CHECK ((event_type = ANY (ARRAY['note'::text, 'status_change'::text, 'attachment'::text, 'system'::text])))"
+  },
+  {
+    "table_name": "ticket_messages",
+    "constraint_name": "ticket_messages_author_type_check",
+    "definition": "CHECK ((author_type = ANY (ARRAY['cliente'::text, 'usuario'::text, 'sistema'::text])))"
+  },
+  {
+    "table_name": "company_users",
+    "constraint_name": "company_users_role_check",
+    "definition": "CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'agent'::text])))"
+  },
+  {
+    "table_name": "tickets",
+    "constraint_name": "tickets_status_check",
+    "definition": "CHECK ((status = ANY (ARRAY['aberto'::text, 'recebido'::text, 'em_analise'::text, 'concluido'::text])))"
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "media_kind_check",
+    "definition": "CHECK ((kind = ANY (ARRAY['foto'::text, 'video'::text])))"
+  },
+  {
+    "table_name": "media",
+    "constraint_name": "media_stage_check",
+    "definition": "CHECK ((stage = ANY (ARRAY['before'::text, 'during'::text, 'after'::text, 'other'::text])))"
+  },
+  {
+    "table_name": "quotes",
+    "constraint_name": "quotes_status_check",
+    "definition": "CHECK ((status = ANY (ARRAY['draft'::text, 'sent'::text, 'approved'::text, 'rejected'::text, 'canceled'::text])))"
+  },
+  {
+    "table_name": "quote_items",
+    "constraint_name": "quote_items_item_type_check",
+    "definition": "CHECK ((item_type = ANY (ARRAY['material'::text, 'labor'::text, 'travel'::text, 'third_party'::text, 'other'::text])))"
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "payments_amount_check",
+    "definition": "CHECK ((amount > (0)::numeric))"
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "payments_method_check",
+    "definition": "CHECK ((method = ANY (ARRAY['pix'::text, 'cash'::text, 'card'::text, 'transfer'::text, 'other'::text])))"
+  },
+  {
+    "table_name": "payments",
+    "constraint_name": "payments_note_check",
+    "definition": "CHECK (((note IS NULL) OR (length(btrim(note)) >= 2)))"
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "schedule_events_priority_check",
+    "definition": "CHECK ((priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'urgent'::text])))"
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "schedule_events_estimated_minutes_check",
+    "definition": "CHECK (((estimated_minutes IS NULL) OR (estimated_minutes >= 0)))"
+  },
+  {
+    "table_name": "schedule_events",
+    "constraint_name": "schedule_events_event_type_check",
+    "definition": "CHECK ((event_type = ANY (ARRAY['visit'::text, 'install'::text, 'other'::text])))"
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "ticket_sla_status_check",
+    "definition": "CHECK ((status = ANY (ARRAY['active'::text, 'paused'::text, 'met'::text, 'breached'::text, 'canceled'::text])))"
+  },
+  {
+    "table_name": "ticket_sla",
+    "constraint_name": "ticket_sla_sla_hours_check",
+    "definition": "CHECK ((sla_hours >= 0))"
+  },
+  {
+    "table_name": "workorders",
+    "constraint_name": "workorders_status_check",
+    "definition": "CHECK ((status = ANY (ARRAY['aberta'::text, 'em_execucao'::text, 'aguardando'::text, 'finalizada'::text])))"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_type_check",
+    "definition": "CHECK ((type = ANY (ARRAY['receber'::text, 'pagar'::text])))"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_category_check",
+    "definition": "CHECK (((category IS NULL) OR (length(btrim(category)) >= 2)))"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_desc_check",
+    "definition": "CHECK ((length(btrim(\"desc\")) >= 2))"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_amount_check",
+    "definition": "CHECK ((amount > (0)::numeric))"
+  },
+  {
+    "table_name": "txs",
+    "constraint_name": "txs_status_check",
+    "definition": "CHECK ((status = ANY (ARRAY['aberto'::text, 'quitado'::text, 'cancelado'::text])))"
+  }
+]
+
+[
+  {
+    "tablename": "companies",
+    "indexname": "companies_pkey",
+    "indexdef": "CREATE UNIQUE INDEX companies_pkey ON public.companies USING btree (id)"
+  },
+  {
+    "tablename": "company_users",
+    "indexname": "company_users_pkey",
+    "indexdef": "CREATE UNIQUE INDEX company_users_pkey ON public.company_users USING btree (id)"
+  },
+  {
+    "tablename": "company_users",
+    "indexname": "company_users_user_id_company_id_key",
+    "indexdef": "CREATE UNIQUE INDEX company_users_user_id_company_id_key ON public.company_users USING btree (user_id, company_id)"
+  },
+  {
+    "tablename": "contracts",
+    "indexname": "contracts_pkey",
+    "indexdef": "CREATE UNIQUE INDEX contracts_pkey ON public.contracts USING btree (id)"
+  },
+  {
+    "tablename": "customers",
+    "indexname": "customers_name_idx",
+    "indexdef": "CREATE INDEX customers_name_idx ON public.customers USING btree (name)"
+  },
+  {
+    "tablename": "customers",
+    "indexname": "customers_company_id_idx",
+    "indexdef": "CREATE INDEX customers_company_id_idx ON public.customers USING btree (company_id)"
+  },
+  {
+    "tablename": "customers",
+    "indexname": "customers_pkey",
+    "indexdef": "CREATE UNIQUE INDEX customers_pkey ON public.customers USING btree (id)"
+  },
+  {
+    "tablename": "media",
+    "indexname": "media_pkey",
+    "indexdef": "CREATE UNIQUE INDEX media_pkey ON public.media USING btree (id)"
+  },
+  {
+    "tablename": "media",
+    "indexname": "idx_media_ticket_id",
+    "indexdef": "CREATE INDEX idx_media_ticket_id ON public.media USING btree (ticket_id)"
+  },
+  {
+    "tablename": "media",
+    "indexname": "idx_media_ticket_created_at",
+    "indexdef": "CREATE INDEX idx_media_ticket_created_at ON public.media USING btree (ticket_id, created_at)"
+  },
+  {
+    "tablename": "media",
+    "indexname": "idx_media_ticket_stage",
+    "indexdef": "CREATE INDEX idx_media_ticket_stage ON public.media USING btree (ticket_id, stage)"
+  },
+  {
+    "tablename": "media",
+    "indexname": "idx_media_company_id",
+    "indexdef": "CREATE INDEX idx_media_company_id ON public.media USING btree (company_id)"
+  },
+  {
+    "tablename": "media_files",
+    "indexname": "media_files_ticket_file_path_key",
+    "indexdef": "CREATE UNIQUE INDEX media_files_ticket_file_path_key ON public.media_files USING btree (ticket_id, file_path)"
+  },
+  {
+    "tablename": "media_files",
+    "indexname": "idx_media_files_ticket_created_at",
+    "indexdef": "CREATE INDEX idx_media_files_ticket_created_at ON public.media_files USING btree (ticket_id, created_at)"
+  },
+  {
+    "tablename": "media_files",
+    "indexname": "media_files_pkey",
+    "indexdef": "CREATE UNIQUE INDEX media_files_pkey ON public.media_files USING btree (id)"
+  },
+  {
+    "tablename": "payments",
+    "indexname": "idx_payments_quote_id",
+    "indexdef": "CREATE INDEX idx_payments_quote_id ON public.payments USING btree (quote_id)"
+  },
+  {
+    "tablename": "payments",
+    "indexname": "idx_payments_company_created",
+    "indexdef": "CREATE INDEX idx_payments_company_created ON public.payments USING btree (company_id, created_at DESC)"
+  },
+  {
+    "tablename": "payments",
+    "indexname": "idx_payments_company_paid",
+    "indexdef": "CREATE INDEX idx_payments_company_paid ON public.payments USING btree (company_id, paid_at DESC)"
+  },
+  {
+    "tablename": "payments",
+    "indexname": "payments_pkey",
+    "indexdef": "CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (id)"
+  },
+  {
+    "tablename": "payments",
+    "indexname": "idx_payments_ticket_id",
+    "indexdef": "CREATE INDEX idx_payments_ticket_id ON public.payments USING btree (ticket_id)"
+  },
+  {
+    "tablename": "payments",
+    "indexname": "idx_payments_company_id",
+    "indexdef": "CREATE INDEX idx_payments_company_id ON public.payments USING btree (company_id)"
+  },
+  {
+    "tablename": "purchase_items",
+    "indexname": "purchase_items_pkey",
+    "indexdef": "CREATE UNIQUE INDEX purchase_items_pkey ON public.purchase_items USING btree (id)"
+  },
+  {
+    "tablename": "purchase_items",
+    "indexname": "idx_purchase_items_purchase_id",
+    "indexdef": "CREATE INDEX idx_purchase_items_purchase_id ON public.purchase_items USING btree (purchase_id)"
+  },
+  {
+    "tablename": "purchase_items",
+    "indexname": "idx_purchase_items_company_id",
+    "indexdef": "CREATE INDEX idx_purchase_items_company_id ON public.purchase_items USING btree (company_id)"
+  },
+  {
+    "tablename": "purchases",
+    "indexname": "idx_purchases_company_created",
+    "indexdef": "CREATE INDEX idx_purchases_company_created ON public.purchases USING btree (company_id, created_at DESC)"
+  },
+  {
+    "tablename": "purchases",
+    "indexname": "purchases_pkey",
+    "indexdef": "CREATE UNIQUE INDEX purchases_pkey ON public.purchases USING btree (id)"
+  },
+  {
+    "tablename": "purchases",
+    "indexname": "idx_purchases_company_date",
+    "indexdef": "CREATE INDEX idx_purchases_company_date ON public.purchases USING btree (company_id, date DESC)"
+  },
+  {
+    "tablename": "purchases",
+    "indexname": "idx_purchases_status",
+    "indexdef": "CREATE INDEX idx_purchases_status ON public.purchases USING btree (status)"
+  },
+  {
+    "tablename": "quote_items",
+    "indexname": "idx_quote_items_quote_id",
+    "indexdef": "CREATE INDEX idx_quote_items_quote_id ON public.quote_items USING btree (quote_id)"
+  },
+  {
+    "tablename": "quote_items",
+    "indexname": "quote_items_pkey",
+    "indexdef": "CREATE UNIQUE INDEX quote_items_pkey ON public.quote_items USING btree (id)"
+  },
+  {
+    "tablename": "quotes",
+    "indexname": "idx_quotes_created_at",
+    "indexdef": "CREATE INDEX idx_quotes_created_at ON public.quotes USING btree (created_at DESC)"
+  },
+  {
+    "tablename": "quotes",
+    "indexname": "uq_quotes_one_active_per_ticket",
+    "indexdef": "CREATE UNIQUE INDEX uq_quotes_one_active_per_ticket ON public.quotes USING btree (ticket_id) WHERE (status = ANY (ARRAY['draft'::text, 'sent'::text, 'approved'::text]))"
+  },
+  {
+    "tablename": "quotes",
+    "indexname": "idx_quotes_company_customer",
+    "indexdef": "CREATE INDEX idx_quotes_company_customer ON public.quotes USING btree (company_id, customer_id)"
+  },
+  {
+    "tablename": "quotes",
+    "indexname": "quotes_contract_id_idx",
+    "indexdef": "CREATE INDEX quotes_contract_id_idx ON public.quotes USING btree (contract_id)"
+  },
+  {
+    "tablename": "quotes",
+    "indexname": "quotes_customer_id_idx",
+    "indexdef": "CREATE INDEX quotes_customer_id_idx ON public.quotes USING btree (customer_id)"
+  },
+  {
+    "tablename": "quotes",
+    "indexname": "quotes_pkey",
+    "indexdef": "CREATE UNIQUE INDEX quotes_pkey ON public.quotes USING btree (id)"
+  },
+  {
+    "tablename": "quotes",
+    "indexname": "idx_quotes_ticket_id",
+    "indexdef": "CREATE INDEX idx_quotes_ticket_id ON public.quotes USING btree (ticket_id)"
+  },
+  {
+    "tablename": "quotes",
+    "indexname": "idx_quotes_company_id",
+    "indexdef": "CREATE INDEX idx_quotes_company_id ON public.quotes USING btree (company_id)"
+  },
+  {
+    "tablename": "quotes",
+    "indexname": "idx_quotes_status",
+    "indexdef": "CREATE INDEX idx_quotes_status ON public.quotes USING btree (status)"
+  },
+  {
+    "tablename": "receivables",
+    "indexname": "receivables_pkey",
+    "indexdef": "CREATE UNIQUE INDEX receivables_pkey ON public.receivables USING btree (id)"
+  },
+  {
+    "tablename": "schedule_events",
+    "indexname": "idx_schedule_events_start_at",
+    "indexdef": "CREATE INDEX idx_schedule_events_start_at ON public.schedule_events USING btree (start_at)"
+  },
+  {
+    "tablename": "schedule_events",
+    "indexname": "schedule_events_pkey",
+    "indexdef": "CREATE UNIQUE INDEX schedule_events_pkey ON public.schedule_events USING btree (id)"
+  },
+  {
+    "tablename": "schedule_events",
+    "indexname": "idx_schedule_events_ticket_id",
+    "indexdef": "CREATE INDEX idx_schedule_events_ticket_id ON public.schedule_events USING btree (ticket_id)"
+  },
+  {
+    "tablename": "schedule_events",
+    "indexname": "idx_schedule_events_company_id",
+    "indexdef": "CREATE INDEX idx_schedule_events_company_id ON public.schedule_events USING btree (company_id)"
+  },
+  {
+    "tablename": "schedule_events",
+    "indexname": "idx_schedule_events_ticket_start_at",
+    "indexdef": "CREATE INDEX idx_schedule_events_ticket_start_at ON public.schedule_events USING btree (ticket_id, start_at)"
+  },
+  {
+    "tablename": "sla_plans",
+    "indexname": "sla_plans_pkey",
+    "indexdef": "CREATE UNIQUE INDEX sla_plans_pkey ON public.sla_plans USING btree (id)"
+  },
+  {
+    "tablename": "sla_plans",
+    "indexname": "idx_sla_plans_company_id",
+    "indexdef": "CREATE INDEX idx_sla_plans_company_id ON public.sla_plans USING btree (company_id)"
+  },
+  {
+    "tablename": "ticket_checklist",
+    "indexname": "ticket_checklist_pkey",
+    "indexdef": "CREATE UNIQUE INDEX ticket_checklist_pkey ON public.ticket_checklist USING btree (ticket_id)"
+  },
+  {
+    "tablename": "ticket_history",
+    "indexname": "ticket_history_ticket_id_created_at_idx",
+    "indexdef": "CREATE INDEX ticket_history_ticket_id_created_at_idx ON public.ticket_history USING btree (ticket_id, created_at DESC)"
+  },
+  {
+    "tablename": "ticket_history",
+    "indexname": "ticket_history_pkey",
+    "indexdef": "CREATE UNIQUE INDEX ticket_history_pkey ON public.ticket_history USING btree (id)"
+  },
+  {
+    "tablename": "ticket_history",
+    "indexname": "ticket_history_company_id_idx",
+    "indexdef": "CREATE INDEX ticket_history_company_id_idx ON public.ticket_history USING btree (company_id)"
+  },
+  {
+    "tablename": "ticket_history",
+    "indexname": "idx_ticket_history_ticket_id",
+    "indexdef": "CREATE INDEX idx_ticket_history_ticket_id ON public.ticket_history USING btree (ticket_id)"
+  },
+  {
+    "tablename": "ticket_history",
+    "indexname": "idx_ticket_history_created_at",
+    "indexdef": "CREATE INDEX idx_ticket_history_created_at ON public.ticket_history USING btree (created_at)"
+  },
+  {
+    "tablename": "ticket_messages",
+    "indexname": "idx_ticket_messages_ticket_created_at",
+    "indexdef": "CREATE INDEX idx_ticket_messages_ticket_created_at ON public.ticket_messages USING btree (ticket_id, created_at)"
+  },
+  {
+    "tablename": "ticket_messages",
+    "indexname": "ticket_messages_pkey",
+    "indexdef": "CREATE UNIQUE INDEX ticket_messages_pkey ON public.ticket_messages USING btree (id)"
+  },
+  {
+    "tablename": "ticket_portal_tokens",
+    "indexname": "ticket_portal_tokens_pkey",
+    "indexdef": "CREATE UNIQUE INDEX ticket_portal_tokens_pkey ON public.ticket_portal_tokens USING btree (company_id)"
+  },
+  {
+    "tablename": "ticket_portal_tokens",
+    "indexname": "ticket_portal_tokens_portal_token_key",
+    "indexdef": "CREATE UNIQUE INDEX ticket_portal_tokens_portal_token_key ON public.ticket_portal_tokens USING btree (portal_token)"
+  },
+  {
+    "tablename": "ticket_sla",
+    "indexname": "idx_ticket_sla_deadline_at",
+    "indexdef": "CREATE INDEX idx_ticket_sla_deadline_at ON public.ticket_sla USING btree (deadline_at)"
+  },
+  {
+    "tablename": "ticket_sla",
+    "indexname": "idx_ticket_sla_company_id",
+    "indexdef": "CREATE INDEX idx_ticket_sla_company_id ON public.ticket_sla USING btree (company_id)"
+  },
+  {
+    "tablename": "ticket_sla",
+    "indexname": "ticket_sla_pkey",
+    "indexdef": "CREATE UNIQUE INDEX ticket_sla_pkey ON public.ticket_sla USING btree (id)"
+  },
+  {
+    "tablename": "ticket_sla",
+    "indexname": "idx_ticket_sla_ticket_id",
+    "indexdef": "CREATE INDEX idx_ticket_sla_ticket_id ON public.ticket_sla USING btree (ticket_id)"
+  },
+  {
+    "tablename": "ticket_sla",
+    "indexname": "idx_ticket_sla_status_deadline",
+    "indexdef": "CREATE INDEX idx_ticket_sla_status_deadline ON public.ticket_sla USING btree (status, deadline_at)"
+  },
+  {
+    "tablename": "tickets",
+    "indexname": "tickets_token_key",
+    "indexdef": "CREATE UNIQUE INDEX tickets_token_key ON public.tickets USING btree (token)"
+  },
+  {
+    "tablename": "tickets",
+    "indexname": "tickets_pkey",
+    "indexdef": "CREATE UNIQUE INDEX tickets_pkey ON public.tickets USING btree (id)"
+  },
+  {
+    "tablename": "tickets",
+    "indexname": "idx_tickets_created_at",
+    "indexdef": "CREATE INDEX idx_tickets_created_at ON public.tickets USING btree (created_at DESC)"
+  },
+  {
+    "tablename": "tickets",
+    "indexname": "idx_tickets_status",
+    "indexdef": "CREATE INDEX idx_tickets_status ON public.tickets USING btree (status)"
+  },
+  {
+    "tablename": "tickets",
+    "indexname": "uq_tickets_token",
+    "indexdef": "CREATE UNIQUE INDEX uq_tickets_token ON public.tickets USING btree (token)"
+  },
+  {
+    "tablename": "tickets",
+    "indexname": "idx_tickets_customer_id",
+    "indexdef": "CREATE INDEX idx_tickets_customer_id ON public.tickets USING btree (customer_id)"
+  },
+  {
+    "tablename": "tickets",
+    "indexname": "idx_tickets_company_id",
+    "indexdef": "CREATE INDEX idx_tickets_company_id ON public.tickets USING btree (company_id)"
+  },
+  {
+    "tablename": "tickets",
+    "indexname": "idx_tickets_token",
+    "indexdef": "CREATE INDEX idx_tickets_token ON public.tickets USING btree (token)"
+  },
+  {
+    "tablename": "txs",
+    "indexname": "txs_pkey",
+    "indexdef": "CREATE UNIQUE INDEX txs_pkey ON public.txs USING btree (id)"
+  },
+  {
+    "tablename": "txs",
+    "indexname": "txs_company_id_idx",
+    "indexdef": "CREATE INDEX txs_company_id_idx ON public.txs USING btree (company_id)"
+  },
+  {
+    "tablename": "txs",
+    "indexname": "idx_txs_company_type",
+    "indexdef": "CREATE INDEX idx_txs_company_type ON public.txs USING btree (company_id, type)"
+  },
+  {
+    "tablename": "txs",
+    "indexname": "idx_txs_company_status",
+    "indexdef": "CREATE INDEX idx_txs_company_status ON public.txs USING btree (company_id, status)"
+  },
+  {
+    "tablename": "txs",
+    "indexname": "idx_txs_company_due",
+    "indexdef": "CREATE INDEX idx_txs_company_due ON public.txs USING btree (company_id, due_date DESC)"
+  },
+  {
+    "tablename": "txs",
+    "indexname": "txs_company_type_status_idx",
+    "indexdef": "CREATE INDEX txs_company_type_status_idx ON public.txs USING btree (company_id, type, status)"
+  },
+  {
+    "tablename": "txs",
+    "indexname": "txs_company_due_idx",
+    "indexdef": "CREATE INDEX txs_company_due_idx ON public.txs USING btree (company_id, due_date)"
+  },
+  {
+    "tablename": "workorder_history",
+    "indexname": "idx_workorder_history_workorder_id",
+    "indexdef": "CREATE INDEX idx_workorder_history_workorder_id ON public.workorder_history USING btree (workorder_id)"
+  },
+  {
+    "tablename": "workorder_history",
+    "indexname": "workorder_history_pkey",
+    "indexdef": "CREATE UNIQUE INDEX workorder_history_pkey ON public.workorder_history USING btree (id)"
+  },
+  {
+    "tablename": "workorder_history",
+    "indexname": "idx_workorder_history_workorder",
+    "indexdef": "CREATE INDEX idx_workorder_history_workorder ON public.workorder_history USING btree (workorder_id)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "idx_workorders_created_at",
+    "indexdef": "CREATE INDEX idx_workorders_created_at ON public.workorders USING btree (created_at)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "idx_workorders_status",
+    "indexdef": "CREATE INDEX idx_workorders_status ON public.workorders USING btree (status)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "idx_workorders_company_id",
+    "indexdef": "CREATE INDEX idx_workorders_company_id ON public.workorders USING btree (company_id)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "workorders_ticket_id_key",
+    "indexdef": "CREATE UNIQUE INDEX workorders_ticket_id_key ON public.workorders USING btree (ticket_id)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "workorders_pkey",
+    "indexdef": "CREATE UNIQUE INDEX workorders_pkey ON public.workorders USING btree (id)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "idx_workorders_ticket_id",
+    "indexdef": "CREATE INDEX idx_workorders_ticket_id ON public.workorders USING btree (ticket_id)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "idx_workorders_ticket",
+    "indexdef": "CREATE INDEX idx_workorders_ticket ON public.workorders USING btree (ticket_id)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "idx_workorders_company",
+    "indexdef": "CREATE INDEX idx_workorders_company ON public.workorders USING btree (company_id)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "workorders_status_idx",
+    "indexdef": "CREATE INDEX workorders_status_idx ON public.workorders USING btree (status)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "workorders_created_at_idx",
+    "indexdef": "CREATE INDEX workorders_created_at_idx ON public.workorders USING btree (created_at DESC)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "workorders_client_id_idx",
+    "indexdef": "CREATE INDEX workorders_client_id_idx ON public.workorders USING btree (client_id)"
+  },
+  {
+    "tablename": "workorders",
+    "indexname": "workorders_company_id_idx",
+    "indexdef": "CREATE INDEX workorders_company_id_idx ON public.workorders USING btree (company_id)"
+  }
+]
+
+[
+  {
+    "table_name": "payments",
+    "trigger_name": "trg_payments_set_updated_at",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "action_statement": "EXECUTE FUNCTION set_updated_at()"
+  },
+  {
+    "table_name": "purchase_items",
+    "trigger_name": "purchase_items_recalc",
+    "action_timing": "AFTER",
+    "event_manipulation": "UPDATE",
+    "action_statement": "EXECUTE FUNCTION trg_purchase_items_recalc()"
+  },
+  {
+    "table_name": "purchase_items",
+    "trigger_name": "purchase_items_recalc",
+    "action_timing": "AFTER",
+    "event_manipulation": "DELETE",
+    "action_statement": "EXECUTE FUNCTION trg_purchase_items_recalc()"
+  },
+  {
+    "table_name": "purchase_items",
+    "trigger_name": "purchase_items_recalc_upd",
+    "action_timing": "AFTER",
+    "event_manipulation": "UPDATE",
+    "action_statement": "EXECUTE FUNCTION trg_purchase_items_recalc()"
+  },
+  {
+    "table_name": "purchase_items",
+    "trigger_name": "purchase_items_recalc_del",
+    "action_timing": "AFTER",
+    "event_manipulation": "DELETE",
+    "action_statement": "EXECUTE FUNCTION trg_purchase_items_recalc()"
+  },
+  {
+    "table_name": "purchase_items",
+    "trigger_name": "purchase_items_recalc_ins",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "action_statement": "EXECUTE FUNCTION trg_purchase_items_recalc()"
+  },
+  {
+    "table_name": "purchase_items",
+    "trigger_name": "purchase_items_recalc",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "action_statement": "EXECUTE FUNCTION trg_purchase_items_recalc()"
+  },
+  {
+    "table_name": "purchases",
+    "trigger_name": "trg_purchases_set_updated_at",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "action_statement": "EXECUTE FUNCTION set_updated_at()"
+  },
+  {
+    "table_name": "quotes",
+    "trigger_name": "trg_quotes_updated_at",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "action_statement": "EXECUTE FUNCTION set_updated_at()"
+  },
+  {
+    "table_name": "quotes_front",
+    "trigger_name": "quotes_front_iud",
+    "action_timing": "INSTEAD OF",
+    "event_manipulation": "DELETE",
+    "action_statement": "EXECUTE FUNCTION trg_quotes_front_ins_upd_del()"
+  },
+  {
+    "table_name": "quotes_front",
+    "trigger_name": "quotes_front_iud",
+    "action_timing": "INSTEAD OF",
+    "event_manipulation": "INSERT",
+    "action_statement": "EXECUTE FUNCTION trg_quotes_front_ins_upd_del()"
+  },
+  {
+    "table_name": "quotes_front",
+    "trigger_name": "quotes_front_iud",
+    "action_timing": "INSTEAD OF",
+    "event_manipulation": "UPDATE",
+    "action_statement": "EXECUTE FUNCTION trg_quotes_front_ins_upd_del()"
+  },
+  {
+    "table_name": "schedule_events",
+    "trigger_name": "trg_schedule_events_fill_company_id",
+    "action_timing": "BEFORE",
+    "event_manipulation": "INSERT",
+    "action_statement": "EXECUTE FUNCTION fn_schedule_events_fill_company_id()"
+  },
+  {
+    "table_name": "ticket_history",
+    "trigger_name": "trg_ticket_history_fill_company_id",
+    "action_timing": "BEFORE",
+    "event_manipulation": "INSERT",
+    "action_statement": "EXECUTE FUNCTION fn_ticket_history_fill_company_id()"
+  },
+  {
+    "table_name": "ticket_sla",
+    "trigger_name": "trg_ticket_sla_fill_company_id",
+    "action_timing": "BEFORE",
+    "event_manipulation": "INSERT",
+    "action_statement": "EXECUTE FUNCTION fn_ticket_sla_fill_company_id()"
+  },
+  {
+    "table_name": "ticket_sla",
+    "trigger_name": "trg_ticket_sla_compute_deadline",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "action_statement": "EXECUTE FUNCTION fn_ticket_sla_compute_deadline()"
+  },
+  {
+    "table_name": "ticket_sla",
+    "trigger_name": "trg_ticket_sla_compute_deadline",
+    "action_timing": "BEFORE",
+    "event_manipulation": "INSERT",
+    "action_statement": "EXECUTE FUNCTION fn_ticket_sla_compute_deadline()"
+  },
+  {
+    "table_name": "tickets",
+    "trigger_name": "trg_ticket_history",
+    "action_timing": "AFTER",
+    "event_manipulation": "DELETE",
+    "action_statement": "EXECUTE FUNCTION fn_ticket_history()"
+  },
+  {
+    "table_name": "tickets",
+    "trigger_name": "trg_ticket_history",
+    "action_timing": "AFTER",
+    "event_manipulation": "UPDATE",
+    "action_statement": "EXECUTE FUNCTION fn_ticket_history()"
+  },
+  {
+    "table_name": "tickets",
+    "trigger_name": "trg_ticket_history",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "action_statement": "EXECUTE FUNCTION fn_ticket_history()"
+  },
+  {
+    "table_name": "txs",
+    "trigger_name": "trg_txs_set_updated_at",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "action_statement": "EXECUTE FUNCTION set_updated_at()"
+  },
+  {
+    "table_name": "workorders",
+    "trigger_name": "trg_workorders_updated_at",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "action_statement": "EXECUTE FUNCTION set_updated_at()"
+  }
+]
+
+[
+  {
+    "routine_name": "add_ticket_message",
+    "routine_type": "FUNCTION",
+    "data_type": "record"
+  },
+  {
+    "routine_name": "create_contract_with_first_receivable",
+    "routine_type": "FUNCTION",
+    "data_type": "uuid"
+  },
+  {
+    "routine_name": "create_quote_from_ticket",
+    "routine_type": "FUNCTION",
+    "data_type": "uuid"
+  },
+  {
+    "routine_name": "create_ticket",
+    "routine_type": "FUNCTION",
+    "data_type": "record"
+  },
+  {
+    "routine_name": "create_ticket",
+    "routine_type": "FUNCTION",
+    "data_type": "record"
+  },
+  {
+    "routine_name": "current_company_id",
+    "routine_type": "FUNCTION",
+    "data_type": "uuid"
+  },
+  {
+    "routine_name": "delete_expired_videos",
+    "routine_type": "FUNCTION",
+    "data_type": "void"
+  },
+  {
+    "routine_name": "fn_schedule_events_fill_company_id",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "fn_ticket_history",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "fn_ticket_history_fill_company_id",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "fn_ticket_sla_compute_deadline",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "fn_ticket_sla_fill_company_id",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "get_my_company_id",
+    "routine_type": "FUNCTION",
+    "data_type": "uuid"
+  },
+  {
+    "routine_name": "get_ticket_status_counts",
+    "routine_type": "FUNCTION",
+    "data_type": "record"
+  },
+  {
+    "routine_name": "get_ticket_with_details",
+    "routine_type": "FUNCTION",
+    "data_type": "record"
+  },
+  {
+    "routine_name": "is_company_admin",
+    "routine_type": "FUNCTION",
+    "data_type": "boolean"
+  },
+  {
+    "routine_name": "is_company_member",
+    "routine_type": "FUNCTION",
+    "data_type": "boolean"
+  },
+  {
+    "routine_name": "list_ticket_messages",
+    "routine_type": "FUNCTION",
+    "data_type": "record"
+  },
+  {
+    "routine_name": "list_tickets_by_sla_status",
+    "routine_type": "FUNCTION",
+    "data_type": "record"
+  },
+  {
+    "routine_name": "list_tickets_by_status",
+    "routine_type": "FUNCTION",
+    "data_type": "record"
+  },
+  {
+    "routine_name": "list_tickets_with_details",
+    "routine_type": "FUNCTION",
+    "data_type": "record"
+  },
+  {
+    "routine_name": "log_ticket_history",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "log_workorder_changes",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "public_create_ticket_via_portal",
+    "routine_type": "FUNCTION",
+    "data_type": "jsonb"
+  },
+  {
+    "routine_name": "public_update_ticket_media_via_portal",
+    "routine_type": "FUNCTION",
+    "data_type": "boolean"
+  },
+  {
+    "routine_name": "recalc_purchase_totals",
+    "routine_type": "FUNCTION",
+    "data_type": "void"
+  },
+  {
+    "routine_name": "set_default_sla_on_ticket",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "set_updated_at",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "trg_clients_ins_upd_del",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "trg_purchase_items_recalc",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "trg_quotes_front_ins_upd_del",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "trg_ticket_history",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "trg_ticket_history_status",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "trg_txs_ins_upd_del",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "trg_workorders_ins_upd_del",
+    "routine_type": "FUNCTION",
+    "data_type": "trigger"
+  },
+  {
+    "routine_name": "update_ticket_status",
+    "routine_type": "FUNCTION",
+    "data_type": "record"
+  }
+]
+
+
+[
+  {
+    "tablename": "companies",
+    "policyname": "companies_update_admin_only",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "is_company_admin(id)",
+    "with_check": "is_company_admin(id)"
+  },
+  {
+    "tablename": "companies",
+    "policyname": "companies_select_by_membership",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = companies.id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "companies",
+    "policyname": "companies_update_owner",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = companies.id) AND (cu.user_id = auth.uid()) AND (cu.role = ANY (ARRAY['owner'::text, 'admin'::text])))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = companies.id) AND (cu.user_id = auth.uid()) AND (cu.role = ANY (ARRAY['owner'::text, 'admin'::text])))))"
+  },
+  {
+    "tablename": "companies",
+    "policyname": "companies_select_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = companies.id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "company_users",
+    "policyname": "company_users_select_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "tablename": "company_users",
+    "policyname": "cu_delete_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "tablename": "company_users",
+    "policyname": "company_users_delete_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "tablename": "company_users",
+    "policyname": "company_users_update_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "tablename": "company_users",
+    "policyname": "company_users_insert_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "tablename": "company_users",
+    "policyname": "company_users_insert_owner",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "tablename": "company_users",
+    "policyname": "cu_select_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "tablename": "company_users",
+    "policyname": "cu_insert_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "tablename": "company_users",
+    "policyname": "cu_update_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "tablename": "contracts",
+    "policyname": "Contratos da minha empresa",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.user_id = auth.uid()) AND (cu.company_id = contracts.company_id))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.user_id = auth.uid()) AND (cu.company_id = contracts.company_id))))"
+  },
+  {
+    "tablename": "customers",
+    "policyname": "customers_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = customers.company_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "customers",
+    "policyname": "customers_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = customers.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "customers",
+    "policyname": "customers_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = customers.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "customers",
+    "policyname": "customers_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = customers.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "customers",
+    "policyname": "customers_crud_own_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "with_check": "(company_id = current_company_id())"
+  },
+  {
+    "tablename": "media",
+    "policyname": "media_delete_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "media",
+    "policyname": "media_insert_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "media",
+    "policyname": "media_select_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "media",
+    "policyname": "media_update_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "is_company_member(company_id)",
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "payments",
+    "policyname": "payments_update_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = payments.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = payments.company_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "payments",
+    "policyname": "payments_delete_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = payments.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "payments",
+    "policyname": "payments_insert_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = payments.company_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "payments",
+    "policyname": "payments_select_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = payments.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "payments",
+    "policyname": "payments_company_del",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(company_id IN ( SELECT company_users.company_id\n   FROM company_users\n  WHERE (company_users.user_id = auth.uid())))",
+    "with_check": null
+  },
+  {
+    "tablename": "payments",
+    "policyname": "payments_company_upd",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(company_id IN ( SELECT company_users.company_id\n   FROM company_users\n  WHERE (company_users.user_id = auth.uid())))",
+    "with_check": "(company_id IN ( SELECT company_users.company_id\n   FROM company_users\n  WHERE (company_users.user_id = auth.uid())))"
+  },
+  {
+    "tablename": "payments",
+    "policyname": "payments_company_ins",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(company_id IN ( SELECT company_users.company_id\n   FROM company_users\n  WHERE (company_users.user_id = auth.uid())))"
+  },
+  {
+    "tablename": "payments",
+    "policyname": "payments_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(company_id IN ( SELECT company_users.company_id\n   FROM company_users\n  WHERE (company_users.user_id = auth.uid())))",
+    "with_check": null
+  },
+  {
+    "tablename": "payments",
+    "policyname": "payments_crud_own_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "with_check": "(company_id = current_company_id())"
+  },
+  {
+    "tablename": "purchase_items",
+    "policyname": "purchase_items_crud_own_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "with_check": "(company_id = current_company_id())"
+  },
+  {
+    "tablename": "purchases",
+    "policyname": "purchases_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(company_id IN ( SELECT company_users.company_id\n   FROM company_users\n  WHERE (company_users.user_id = auth.uid())))",
+    "with_check": null
+  },
+  {
+    "tablename": "purchases",
+    "policyname": "purchases_select_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = purchases.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "purchases",
+    "policyname": "purchases_company_del",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(company_id IN ( SELECT company_users.company_id\n   FROM company_users\n  WHERE (company_users.user_id = auth.uid())))",
+    "with_check": null
+  },
+  {
+    "tablename": "purchases",
+    "policyname": "purchases_crud_own_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "with_check": "(company_id = current_company_id())"
+  },
+  {
+    "tablename": "purchases",
+    "policyname": "Compras da minha empresa",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.user_id = auth.uid()) AND (cu.company_id = purchases.company_id))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.user_id = auth.uid()) AND (cu.company_id = purchases.company_id))))"
+  },
+  {
+    "tablename": "purchases",
+    "policyname": "purchases_company_upd",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(company_id IN ( SELECT company_users.company_id\n   FROM company_users\n  WHERE (company_users.user_id = auth.uid())))",
+    "with_check": "(company_id IN ( SELECT company_users.company_id\n   FROM company_users\n  WHERE (company_users.user_id = auth.uid())))"
+  },
+  {
+    "tablename": "purchases",
+    "policyname": "purchases_company_ins",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(company_id IN ( SELECT company_users.company_id\n   FROM company_users\n  WHERE (company_users.user_id = auth.uid())))"
+  },
+  {
+    "tablename": "purchases",
+    "policyname": "purchases_delete_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = purchases.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "purchases",
+    "policyname": "purchases_insert_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = purchases.company_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "purchases",
+    "policyname": "purchases_update_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = purchases.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = purchases.company_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "quotes",
+    "policyname": "quotes_crud_own_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "with_check": "(company_id = current_company_id())"
+  },
+  {
+    "tablename": "receivables",
+    "policyname": "Recebíveis da minha empresa",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(EXISTS ( SELECT 1\n   FROM (contracts c\n     JOIN company_users cu ON ((cu.company_id = c.company_id)))\n  WHERE ((c.id = receivables.contract_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM (contracts c\n     JOIN company_users cu ON ((cu.company_id = c.company_id)))\n  WHERE ((c.id = receivables.contract_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "schedule_events",
+    "policyname": "schedule_events_update_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "is_company_member(company_id)",
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "schedule_events",
+    "policyname": "schedule_events_insert_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "schedule_events",
+    "policyname": "schedule_events_select_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "schedule_events",
+    "policyname": "schedule_events_delete_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "sla_plans",
+    "policyname": "Planos de SLA da minha empresa",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.user_id = auth.uid()) AND (cu.company_id = sla_plans.company_id))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.user_id = auth.uid()) AND (cu.company_id = sla_plans.company_id))))"
+  },
+  {
+    "tablename": "ticket_history",
+    "policyname": "ticket_history_insert_same_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM (tickets t\n     JOIN company_users cu ON ((cu.company_id = t.company_id)))\n  WHERE ((t.id = ticket_history.ticket_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "ticket_history",
+    "policyname": "ticket_history_select_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "ticket_messages",
+    "policyname": "ticket_messages_select_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "ticket_messages",
+    "policyname": "ticket_messages_insert_test",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "tablename": "ticket_messages",
+    "policyname": "ticket_messages_delete_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "ticket_messages",
+    "policyname": "ticket_messages_update_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "is_company_member(company_id)",
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "ticket_messages",
+    "policyname": "ticket_messages_insert_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "ticket_portal_tokens",
+    "policyname": "ticket_portal_tokens_member_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = ticket_portal_tokens.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "ticket_portal_tokens",
+    "policyname": "ticket_portal_tokens_admin_all",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = ticket_portal_tokens.company_id) AND (cu.user_id = auth.uid()) AND (cu.role = ANY (ARRAY['owner'::text, 'admin'::text])))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = ticket_portal_tokens.company_id) AND (cu.user_id = auth.uid()) AND (cu.role = ANY (ARRAY['owner'::text, 'admin'::text])))))"
+  },
+  {
+    "tablename": "ticket_sla",
+    "policyname": "ticket_sla_delete_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "ticket_sla",
+    "policyname": "ticket_sla_select_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "ticket_sla",
+    "policyname": "ticket_sla_update_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "is_company_member(company_id)",
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "ticket_sla",
+    "policyname": "ticket_sla_insert_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "tickets",
+    "policyname": "tickets_insert_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "tickets",
+    "policyname": "tickets_select_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "tickets",
+    "policyname": "tickets_update_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "is_company_member(company_id)",
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "txs",
+    "policyname": "txs_insert_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = txs.company_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "txs",
+    "policyname": "txs_insert_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = txs.company_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "txs",
+    "policyname": "txs_update_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = txs.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = txs.company_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "txs",
+    "policyname": "txs_delete_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = txs.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "txs",
+    "policyname": "txs_select_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = txs.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "txs",
+    "policyname": "txs_select_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = txs.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "txs",
+    "policyname": "txs_update_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = txs.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = txs.company_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "txs",
+    "policyname": "txs_delete_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = txs.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "workorder_history",
+    "policyname": "same_company_history",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = workorder_history.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "workorders",
+    "policyname": "workorders_select_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "workorders",
+    "policyname": "workorders_delete_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "is_company_member(company_id)",
+    "with_check": null
+  },
+  {
+    "tablename": "workorders",
+    "policyname": "workorders_select_same_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = workorders.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "workorders",
+    "policyname": "workorders_update_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "is_company_member(company_id)",
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "workorders",
+    "policyname": "workorders_update_same_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = workorders.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = workorders.company_id) AND (cu.user_id = auth.uid()))))"
+  },
+  {
+    "tablename": "workorders",
+    "policyname": "workorders_insert_by_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "is_company_member(company_id)"
+  },
+  {
+    "tablename": "workorders",
+    "policyname": "workorders_delete_same_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = workorders.company_id) AND (cu.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "tablename": "workorders",
+    "policyname": "workorders_insert_same_company",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM company_users cu\n  WHERE ((cu.company_id = workorders.company_id) AND (cu.user_id = auth.uid()))))"
+  }
+]
