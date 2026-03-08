@@ -3,13 +3,6 @@
 
   function $(sel, root) { return (root || document).querySelector(sel); }
 
-  function setTitulo(titulo, subtitulo) {
-    const t = $("#tituloTela");
-    const s = $("#subtituloTela");
-    if (t) t.textContent = titulo || "";
-    if (s) s.textContent = subtitulo || "";
-  }
-
   function setErro(msg) {
     const box = $("#erroGlobal");
     if (!box) return;
@@ -22,6 +15,13 @@
     if (!box) return;
     box.textContent = msg || "";
     box.classList.toggle("show", !!msg);
+  }
+
+  function setTitulo(titulo, subtitulo) {
+    const t = $("#tituloTela");
+    const s = $("#subtituloTela");
+    if (t) t.textContent = titulo || "";
+    if (s) s.textContent = subtitulo || "";
   }
 
   function rotaAtual() {
@@ -41,7 +41,6 @@
             <div class="brand-title">SGB</div>
             <div class="brand-sub">Serralheria</div>
           </div>
-
           <nav class="nav">
             <a href="#dashboard" data-route="dashboard">Dashboard</a>
             <a href="#clientes" data-route="clientes">Clientes</a>
@@ -54,7 +53,6 @@
             <a href="#configuracoes" data-route="configuracoes">Configurações</a>
           </nav>
         </aside>
-
         <main class="main">
           <div class="topbar">
             <div>
@@ -63,7 +61,6 @@
             </div>
             <div class="badge-status" id="badgeConexao">Conectando...</div>
           </div>
-
           <div class="content">
             <div class="alert error" id="erroGlobal"></div>
             <div class="alert info" id="infoGlobal"></div>
@@ -74,7 +71,7 @@
     `;
 
     document.querySelectorAll(".nav a").forEach((a) => {
-      a.addEventListener("click", function (e) {
+      a.addEventListener("click", (e) => {
         e.preventDefault();
         location.hash = a.getAttribute("data-route");
       });
@@ -84,8 +81,7 @@
   function atualizarBadgeConexao() {
     const badge = $("#badgeConexao");
     if (!badge) return;
-    const ok = !!(window.sb && window.sb.db);
-    badge.textContent = ok ? "Conectado" : "Sem conexão";
+    badge.textContent = window.sb && window.sb.db ? "Conectado" : "Sem conexão";
   }
 
   function marcarMenuAtivo() {
@@ -95,24 +91,13 @@
     });
   }
 
-  function placeholder(titulo, desc) {
-    setTitulo(titulo, desc);
-    const alvo = $("#conteudoTela");
-    if (!alvo) return;
-    alvo.innerHTML = `
-      <div class="panel">
-        <h2>${titulo}</h2>
-        <div class="panel-sub">${desc || ""}</div>
-        <div class="placeholder-big">Módulo em preparação.</div>
-      </div>
-    `;
+  function formatarMoeda(valor) {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor || 0));
   }
 
-  function formatarMoeda(valor) {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL"
-    }).format(Number(valor || 0));
+  function formatarMesAtualInicio() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
   }
 
   async function renderizarDashboard() {
@@ -135,16 +120,13 @@
     }
 
     try {
-      const inicioMes = new Date();
-      inicioMes.setDate(1);
-      inicioMes.setHours(0, 0, 0, 0);
-      const isoMes = inicioMes.toISOString();
+      const inicioMes = formatarMesAtualInicio();
 
       const [ticketsResp, quotesResp, osResp, pagamentosResp] = await Promise.all([
         window.sb.db.from("tickets").select("status").eq("company_id", window.sb.companyId),
         window.sb.db.from("quotes").select("status").eq("company_id", window.sb.companyId),
         window.sb.db.from("workorders").select("status").eq("company_id", window.sb.companyId),
-        window.sb.db.from("payments").select("amount, created_at").eq("company_id", window.sb.companyId).gte("created_at", isoMes)
+        window.sb.db.from("payments").select("amount, created_at").eq("company_id", window.sb.companyId).gte("created_at", `${inicioMes}T00:00:00`)
       ]);
 
       if (ticketsResp.error) throw ticketsResp.error;
@@ -154,7 +136,7 @@
 
       const chamadosAbertos = (ticketsResp.data || []).filter((x) => ["aberto", "open", "aguardando_analise"].includes(String(x.status || "").toLowerCase())).length;
       const orcamentosPendentes = (quotesResp.data || []).filter((x) => ["draft", "sent", "rascunho", "enviado"].includes(String(x.status || "").toLowerCase())).length;
-      const ordensEmProducao = (osResp.data || []).filter((x) => ["aberta", "em_andamento", "producao", "produção"].includes(String(x.status || "").toLowerCase())).length;
+      const ordensEmProducao = (osResp.data || []).filter((x) => ["aberta", "em_andamento", "produção", "producao"].includes(String(x.status || "").toLowerCase())).length;
       const receitaMes = (pagamentosResp.data || []).reduce((acc, item) => acc + Number(item.amount || 0), 0);
 
       alvo.innerHTML = `
@@ -170,6 +152,11 @@
     }
   }
 
+  function placeholder(titulo, desc) {
+    setTitulo(titulo, desc);
+    $("#conteudoTela").innerHTML = `<div class="panel"><h2>${titulo}</h2><div class="panel-sub">${desc}</div><div class="placeholder-big">Módulo em preparação.</div></div>`;
+  }
+
   async function renderizarTelaAtual() {
     setErro("");
     setInfo("");
@@ -182,8 +169,7 @@
 
     if (rota === "chamados") {
       setTitulo("Chamados", "Controle de tickets e atendimento");
-      if (!(window.sb && window.sb.db && window.sb.companyId)) return placeholder("Chamados", "Conexão ou companyId não disponível.");
-      if (window.ModuloChamados && typeof window.ModuloChamados.listarChamados === "function") {
+      if (window.ModuloChamados && typeof window.ModuloChamados.listarChamados === "function" && window.sb && window.sb.db && window.sb.companyId) {
         return window.ModuloChamados.listarChamados({
           areaId: "conteudoTela",
           sb: window.sb,
@@ -196,8 +182,7 @@
 
     if (rota === "orcamentos") {
       setTitulo("Orçamentos", "Lista, edição de itens e aprovação");
-      if (!(window.sb && window.sb.db && window.sb.companyId)) return placeholder("Orçamentos", "Conexão ou companyId não disponível.");
-      if (window.ModuloOrcamentos && typeof window.ModuloOrcamentos.listarOrcamentos === "function") {
+      if (window.ModuloOrcamentos && typeof window.ModuloOrcamentos.listarOrcamentos === "function" && window.sb && window.sb.db && window.sb.companyId) {
         return window.ModuloOrcamentos.listarOrcamentos({
           areaId: "conteudoTela",
           sb: window.sb,
@@ -219,8 +204,6 @@
     montarShell();
     renderizarTelaAtual();
     window.addEventListener("hashchange", renderizarTelaAtual);
-
-    setTimeout(renderizarTelaAtual, 600);
-    setTimeout(renderizarTelaAtual, 1500);
+    setTimeout(renderizarTelaAtual, 500);
   });
 })();
