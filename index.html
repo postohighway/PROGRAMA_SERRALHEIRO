@@ -1,36 +1,20 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-  />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SGB Serralheria</title>
-  <link rel="icon" href="favicon.ico" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="./favicom.ico" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div id="app"></div>
 
-  <!-- CDN do Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- Configuração -->
-  <script src="config.js"></script>
-
-  <!-- Cliente Supabase -->
-  <script src="supabaseClient.js"></script>
-
-  <!-- Dados auxiliares -->
-  <script src="data.js"></script>
-  <script src="data.customers.js"></script>
-
-  <!-- Módulos -->
-  <script src="chamados.js"></script>
-  <script src="orcamentos.js"></script>
-
-  <!-- Sistema principal -->
-  <script src="app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="./config.js"></script>
+  <script src="./config.local.js"></script>
+  <script src="./supabaseClient.js"></script>
+  <script src="./chamados.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
