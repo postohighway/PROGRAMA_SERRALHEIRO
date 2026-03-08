@@ -39,9 +39,9 @@
   }
 
   function injetarCss() {
-    if (document.getElementById("css-ordens-pro")) return;
+    if (document.getElementById("css-ordens-pro-v2")) return;
     const st = document.createElement("style");
-    st.id = "css-ordens-pro";
+    st.id = "css-ordens-pro-v2";
     st.textContent = `
       .os-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:18px}
       .os-list-item{border:1px solid rgba(108,152,232,.14);background:rgba(255,255,255,.02);border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer}
@@ -57,6 +57,8 @@
       .os-kpi{border:1px solid rgba(108,152,232,.14);background:rgba(255,255,255,.02);border-radius:12px;padding:12px}
       .os-kpi-label{font-size:12px;color:#9db3d6;margin-bottom:6px}
       .os-kpi-value{font-size:18px;font-weight:800;color:#eff6ff}
+      .btn.btn-success{background:#14845f;color:#fff}
+      .btn.btn-warning{background:#8a6612;color:#fff}
       @media (max-width:1100px){.os-grid{grid-template-columns:1fr}.check-grid,.os-kpis{grid-template-columns:1fr}}
     `;
     document.head.appendChild(st);
@@ -70,12 +72,7 @@
     if (!ctx.sb || !ctx.sb.db) throw new Error("Supabase não disponível.");
     if (!ctx.companyId) throw new Error("Company ID não configurado.");
 
-    const state = {
-      busca: "",
-      status: "",
-      ordens: [],
-      selecionada: null
-    };
+    const state = { busca: "", status: "", ordens: [], selecionada: null };
 
     alvo.innerHTML = `
       <div class="toolbar">
@@ -105,15 +102,8 @@
       </div>
     `;
 
-    $("#filtroBuscaOS", alvo).addEventListener("input", async (e) => {
-      state.busca = e.target.value || "";
-      await carregarLista();
-    });
-
-    $("#filtroStatusOS", alvo).addEventListener("change", async (e) => {
-      state.status = e.target.value || "";
-      await carregarLista();
-    });
+    $("#filtroBuscaOS", alvo).addEventListener("input", async (e) => { state.busca = e.target.value || ""; await carregarLista(); });
+    $("#filtroStatusOS", alvo).addEventListener("change", async (e) => { state.status = e.target.value || ""; await carregarLista(); });
 
     await carregarLista();
 
@@ -121,8 +111,7 @@
       const wrap = $("#listaOrdensWrap", alvo);
       wrap.innerHTML = `<div class="empty">Carregando ordens...</div>`;
 
-      let query = ctx.sb.db
-        .from("workorders")
+      let query = ctx.sb.db.from("workorders")
         .select("id, quote_id, ticket_id, desc, status, due_date, created_at, updated_at, priority, notes")
         .eq("company_id", ctx.companyId)
         .order("created_at", { ascending: false });
@@ -136,11 +125,7 @@
       }
 
       const busca = state.busca.trim().toLowerCase();
-      state.ordens = (data || []).filter((o) => {
-        if (!busca) return true;
-        const texto = [o.id, o.quote_id, o.ticket_id, o.desc, o.status].join(" ").toLowerCase();
-        return texto.includes(busca);
-      });
+      state.ordens = (data || []).filter((o) => !busca || [o.id, o.quote_id, o.ticket_id, o.desc, o.status].join(" ").toLowerCase().includes(busca));
 
       if (!state.ordens.length) {
         wrap.innerHTML = `<div class="empty">Nenhuma ordem encontrada.</div>`;
@@ -183,6 +168,7 @@
         return;
       }
 
+      window.__osSelecionadaId = state.selecionada.id;
       wrap.innerHTML = `<div class="empty">Carregando detalhe...</div>`;
 
       const [ticketResp, quoteResp, checklistResp, comprasResp] = await Promise.all([
@@ -195,12 +181,8 @@
       const ticket = ticketResp.data || null;
       const quote = quoteResp.data || null;
       const checklist = checklistResp.data || {
-        measured: false,
-        materials_bought: false,
-        production_started: false,
-        finishing_done: false,
-        installed: false,
-        final_paid: false
+        measured: false, materials_bought: false, production_started: false,
+        finishing_done: false, installed: false, final_paid: false
       };
       const compras = comprasResp.data || [];
 
@@ -211,6 +193,7 @@
           <button id="btnStatusProducao" class="btn btn-primary">Em Produção</button>
           <button id="btnStatusInstalacao" class="btn btn-success">Em Instalação</button>
           <button id="btnStatusConcluida" class="btn btn-success">Concluir</button>
+          <button id="btnIrCompras" class="btn btn-secondary">Nova Compra Vinculada</button>
         </div>
 
         <div class="os-kpis">
@@ -252,10 +235,10 @@
         <div class="os-info-box">
           <div class="os-title">Compras vinculadas</div>
           ${compras.length ? compras.map((c) => `
-            <div class="mini-muted" style="margin-top:8px">
+            <div class="os-meta" style="margin-top:8px">
               ${escapeHtml(c.description || "Compra")} • ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(c.total || 0))} • ${escapeHtml(c.status || "draft")}
             </div>
-          `).join("") : `<div class="mini-muted" style="margin-top:8px">Nenhuma compra vinculada a esta ordem.</div>`}
+          `).join("") : `<div class="os-meta" style="margin-top:8px">Nenhuma compra vinculada a esta ordem.</div>`}
         </div>
       `;
 
@@ -265,6 +248,10 @@
       $("#btnStatusInstalacao", wrap).addEventListener("click", () => atualizarStatus("em_instalacao"));
       $("#btnStatusConcluida", wrap).addEventListener("click", () => atualizarStatus("concluida"));
       $("#btnSalvarChecklist", wrap).addEventListener("click", salvarChecklist);
+      $("#btnIrCompras", wrap).addEventListener("click", () => {
+        window.__osSelecionadaId = state.selecionada.id;
+        location.hash = "#compras";
+      });
 
       async function atualizarStatus(novoStatus) {
         const r = await ctx.sb.db.from("workorders").update({
@@ -307,7 +294,5 @@
     }
   }
 
-  window.ModuloOrdens = {
-    listarOrdens
-  };
+  window.ModuloOrdens = { listarOrdens };
 })();

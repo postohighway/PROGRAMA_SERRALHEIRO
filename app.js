@@ -204,8 +204,20 @@
       return placeholder("Ordens de Serviço", "Módulo de ordens não carregado.");
     }
 
+    if (rota === "compras") {
+      setTitulo("Compras", "Compras vinculadas à Ordem de Serviço e custo real");
+      if (window.ModuloCompras && typeof window.ModuloCompras.listarCompras === "function" && window.sb && window.sb.db && window.sb.companyId) {
+        return window.ModuloCompras.listarCompras({
+          areaId: "conteudoTela",
+          sb: window.sb,
+          companyId: window.sb.companyId,
+          workorderId: window.__osSelecionadaId || null
+        });
+      }
+      return placeholder("Compras", "Módulo de compras não carregado.");
+    }
+
     if (rota === "clientes") return placeholder("Clientes", "Cadastro e consulta de clientes.");
-    if (rota === "compras") return placeholder("Compras", "Controle de compras e materiais.");
     if (rota === "financeiro") return placeholder("Financeiro", "Painel financeiro.");
     if (rota === "agenda") return placeholder("Agenda", "Agenda operacional.");
     if (rota === "configuracoes") return placeholder("Configurações", "Ajustes do sistema.");
