@@ -217,8 +217,19 @@
       return placeholder("Compras", "Módulo de compras não carregado.");
     }
 
+    if (rota === "financeiro") {
+      setTitulo("Financeiro", "Executivo, contas a receber, fluxo de caixa e resultado por obra");
+      if (window.ModuloFinanceiro && typeof window.ModuloFinanceiro.listarFinanceiro === "function" && window.sb && window.sb.db && window.sb.companyId) {
+        return window.ModuloFinanceiro.listarFinanceiro({
+          areaId: "conteudoTela",
+          sb: window.sb,
+          companyId: window.sb.companyId
+        });
+      }
+      return placeholder("Financeiro", "Módulo financeiro não carregado.");
+    }
+
     if (rota === "clientes") return placeholder("Clientes", "Cadastro e consulta de clientes.");
-    if (rota === "financeiro") return placeholder("Financeiro", "Painel financeiro.");
     if (rota === "agenda") return placeholder("Agenda", "Agenda operacional.");
     if (rota === "configuracoes") return placeholder("Configurações", "Ajustes do sistema.");
   }
