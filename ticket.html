@@ -1,33 +1,36 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Abrir Chamado</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-
-<link rel="stylesheet" href="styles.css">
-
-<script src="config.local.js"></script>
-<script src="supabaseClient.js"></script>
-<script src="ticket.js"></script>
+<link rel="stylesheet" href="./portal-upload.css">
 </head>
 <body>
+  <div class="portal-wrap">
+    <div class="portal-card">
+      <div class="portal-kicker">SGB Serralheria</div>
+      <h1>Abrir Chamado</h1>
+      <p class="portal-sub">Preencha seus dados e descreva o problema. Depois do cadastro, você será levado para a etapa de anexar fotos e vídeo.</p>
 
-<div class="portal">
-  <h1>Abrir Chamado</h1>
+      <div class="status-box" id="msgPortal"></div>
 
-  <input id="clientName" placeholder="Seu nome">
-  <input id="clientPhone" placeholder="Telefone">
-  <textarea id="description" placeholder="Descreva o problema"></textarea>
+      <label class="label">Seu nome</label>
+      <input id="clientName" class="field" placeholder="Nome do cliente">
 
-  <input type="file" id="photo1">
-  <input type="file" id="photo2">
-  <input type="file" id="photo3">
+      <label class="label">Telefone</label>
+      <input id="clientPhone" class="field" placeholder="Telefone com DDD">
 
-  <button onclick="TicketPortal.submit()">Enviar</button>
+      <label class="label">Descrição do problema</label>
+      <textarea id="description" class="textarea" placeholder="Descreva o problema, local e qualquer detalhe importante"></textarea>
 
-  <div id="msg"></div>
-</div>
+      <button id="btnEnviarPortal" class="btn-primary big">Continuar para anexos</button>
+    </div>
+  </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="./config.js"></script>
+  <script src="./config.local.js"></script>
+  <script src="./ticket.js"></script>
 </body>
 </html>

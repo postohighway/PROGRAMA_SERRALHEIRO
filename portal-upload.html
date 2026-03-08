@@ -1,40 +1,55 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Envio de Fotos do Chamado</title>
-<link rel="stylesheet" href="portal-upload.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anexar Fotos e Vídeo</title>
+<link rel="stylesheet" href="./portal-upload.css">
 </head>
 <body>
-<div class="container">
-<h2>Relatar problema</h2>
+  <div class="portal-wrap">
+    <div class="portal-card">
+      <div class="portal-kicker">SGB Serralheria</div>
+      <h1>Anexar Fotos e Vídeo</h1>
+      <p class="portal-sub">Agora envie até 5 fotos e 1 vídeo explicativo do problema.</p>
 
-<label>Nome</label>
-<input id="nome">
+      <div class="status-box" id="status"></div>
+      <div class="context-box" id="contextoChamado"></div>
 
-<label>Telefone</label>
-<input id="telefone">
+      <div class="grid-upload">
+        <div>
+          <label class="label">Foto 1</label>
+          <input type="file" id="foto1" class="field file" accept="image/*">
+        </div>
+        <div>
+          <label class="label">Foto 2</label>
+          <input type="file" id="foto2" class="field file" accept="image/*">
+        </div>
+        <div>
+          <label class="label">Foto 3</label>
+          <input type="file" id="foto3" class="field file" accept="image/*">
+        </div>
+        <div>
+          <label class="label">Foto 4</label>
+          <input type="file" id="foto4" class="field file" accept="image/*">
+        </div>
+        <div>
+          <label class="label">Foto 5</label>
+          <input type="file" id="foto5" class="field file" accept="image/*">
+        </div>
+        <div>
+          <label class="label">Vídeo explicativo</label>
+          <input type="file" id="video1" class="field file" accept="video/*">
+        </div>
+      </div>
 
-<label>Descrição do problema</label>
-<textarea id="descricao"></textarea>
+      <button id="btnEnviarMidia" class="btn-primary big">Enviar anexos</button>
+    </div>
+  </div>
 
-<h3>Fotos</h3>
-<input type="file" id="foto1" accept="image/*">
-<input type="file" id="foto2" accept="image/*">
-<input type="file" id="foto3" accept="image/*">
-<input type="file" id="foto4" accept="image/*">
-<input type="file" id="foto5" accept="image/*">
-
-<h3>Vídeo</h3>
-<input type="file" id="video1" accept="video/*">
-
-<button onclick="enviar()">Enviar</button>
-<p id="status"></p>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js"></script>
-<script src="portal-upload.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="./config.js"></script>
+  <script src="./config.local.js"></script>
+  <script src="./portal-upload.js"></script>
 </body>
 </html>

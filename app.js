@@ -21,7 +21,6 @@
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
   }
-  function qs(sel, root) { return (root || document).querySelector(sel); }
 
   function montarShell() {
     const app = document.getElementById("app");
@@ -74,7 +73,7 @@
     const badge = document.getElementById("badgeConexao");
     if (!badge) return;
     if (window.sb && window.sb.db) {
-      badge.textContent = window.sb.hasSession ? "Conectado" : "Conectado";
+      badge.textContent = "Conectado";
     } else {
       badge.textContent = "Sem conexão";
     }
@@ -148,7 +147,7 @@
         window.sb.db.from("tickets").select("status").eq("company_id", window.sb.companyId),
         window.sb.db.from("quotes").select("status").eq("company_id", window.sb.companyId),
         window.sb.db.from("workorders").select("status").eq("company_id", window.sb.companyId),
-        window.sb.db.from("payments").select("amount, paid_at").eq("company_id", window.sb.companyId).gte("created_at", `${inicioMes}T00:00:00`),
+        window.sb.db.from("payments").select("amount, paid_at, created_at").eq("company_id", window.sb.companyId).gte("created_at", `${inicioMes}T00:00:00`),
       ]);
 
       if (ticketsResp.error) throw ticketsResp.error;
@@ -187,6 +186,7 @@
         areaId: "conteudoTela",
         sb: window.sb,
         companyId: window.sb && window.sb.companyId,
+        portalToken: window.sb && window.sb.portalToken,
         onSelecionarChamado: function (id) {
           state.chamadoSelecionadoId = id;
         }
