@@ -1,79 +1,40 @@
-<!doctype html>
-<html lang="pt-br">
+
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Enviar fotos e vídeo do chamado</title>
-  <link rel="stylesheet" href="portal-upload.css" />
+<meta charset="UTF-8">
+<title>Envio de Fotos do Chamado</title>
+<link rel="stylesheet" href="portal-upload.css">
 </head>
 <body>
-  <header class="top">
-    <div class="brand">
-      <!-- Se você quiser usar a mesma logo do app, coloque um arquivo "logo.png" na mesma pasta -->
-      <img class="logo" src="logo.png" alt="Logo" onerror="this.style.display='none'; document.querySelector('.brandText').style.display='block';" />
-      <div class="brandText" style="display:none;">
-        <div class="brandName">Portal do Cliente</div>
-        <div class="brandSub">Envio de mídias do chamado</div>
-      </div>
-    </div>
-  </header>
+<div class="container">
+<h2>Relatar problema</h2>
 
-  <main class="wrap">
-    <section class="card">
-      <div class="cardHead">
-        <h1>Envie as mídias do seu chamado</h1>
-        <p class="muted">
-          Envie <b>até 5 fotos</b> e <b>1 vídeo (até 1 minuto)</b>. Quanto mais claro, melhor para resolver rápido.
-        </p>
-      </div>
+<label>Nome</label>
+<input id="nome">
 
-      <div id="statusBox" class="status info">
-        <div class="statusTitle">Carregando…</div>
-        <div class="statusBody">Validando link do chamado.</div>
-      </div>
+<label>Telefone</label>
+<input id="telefone">
 
-      <div class="grid">
-        <div class="slot">
-          <div class="slotTitle">Fotos (0/5)</div>
-          <div class="slotBody">
-            <input id="photosInput" type="file" accept="image/*" capture="environment" multiple />
-            <div class="hint">Dica: toque no botão para abrir a câmera e tirar as fotos.</div>
-            <div id="photoPreview" class="preview"></div>
-          </div>
-        </div>
+<label>Descrição do problema</label>
+<textarea id="descricao"></textarea>
 
-        <div class="slot">
-          <div class="slotTitle">Vídeo (0/1)</div>
-          <div class="slotBody">
-            <input id="videoInput" type="file" accept="video/*" capture="environment" />
-            <div class="hint">Grave um vídeo curto apontando para o problema.</div>
-            <div id="videoPreview" class="preview"></div>
-            <div id="videoMeta" class="meta muted"></div>
-          </div>
-        </div>
-      </div>
+<h3>Fotos</h3>
+<input type="file" id="foto1" accept="image/*">
+<input type="file" id="foto2" accept="image/*">
+<input type="file" id="foto3" accept="image/*">
+<input type="file" id="foto4" accept="image/*">
+<input type="file" id="foto5" accept="image/*">
 
-      <div class="actions">
-        <button id="btnClear" class="btn ghost" type="button">Limpar</button>
-        <button id="btnSend" class="btn primary" type="button">Enviar</button>
-      </div>
+<h3>Vídeo</h3>
+<input type="file" id="video1" accept="video/*">
 
-      <div id="progressWrap" class="progressWrap" style="display:none;">
-        <div class="progressBar"><div id="progressBarFill" class="progressFill"></div></div>
-        <div id="progressText" class="muted" style="margin-top:8px;">0%</div>
-      </div>
+<button onclick="enviar()">Enviar</button>
+<p id="status"></p>
+</div>
 
-      <div class="foot muted">
-        <div>Se o vídeo não anexar, tente encurtar e enviar novamente.</div>
-      </div>
-    </section>
-  </main>
-
-  <footer class="footer muted">
-    <span id="footerTicket"></span>
-    <span id="footerExpire"></span>
-  </footer>
-
-  <script type="module" src="portal-upload.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="portal-upload.js"></script>
 </body>
 </html>
