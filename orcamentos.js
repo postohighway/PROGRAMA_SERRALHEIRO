@@ -39,9 +39,9 @@
   }
 
   function injetarCss() {
-    if (document.getElementById("css-orcamentos-pro-v2")) return;
+    if (document.getElementById("css-orcamentos-pro-v3")) return;
     const st = document.createElement("style");
-    st.id = "css-orcamentos-pro-v2";
+    st.id = "css-orcamentos-pro-v3";
     st.textContent = `
       .orc-grid{display:grid;grid-template-columns:1.05fr 1.3fr;gap:18px}
       .orc-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
@@ -67,7 +67,7 @@
       .quote-edit-full{grid-column:1/-1}
       .quote-info-box{border:1px solid rgba(108,152,232,.14);background:rgba(255,255,255,.02);border-radius:12px;padding:12px;margin-top:12px}
       .quote-header-actions{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
-      .quote-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+      .quote-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
       .quote-kpi{border:1px solid rgba(108,152,232,.14);background:rgba(255,255,255,.02);border-radius:12px;padding:12px}
       .quote-kpi-label{font-size:12px;color:#9db3d6;margin-bottom:6px}
       .quote-kpi-value{font-size:18px;font-weight:800;color:#eff6ff}
@@ -129,7 +129,7 @@
         </div>
         <div class="panel">
           <h2>Detalhe do orçamento</h2>
-          <div class="panel-sub">Itens, totais e ações</div>
+          <div class="panel-sub">Itens, totais, aprovação e geração de OS</div>
           <div id="detalheOrcamentoWrap" class="empty">Selecione um orçamento.</div>
         </div>
       </div>
@@ -221,21 +221,23 @@
 
       wrap.innerHTML = `<div class="empty">Carregando detalhe...</div>`;
 
-      const [itensResp, ticketResp] = await Promise.all([
+      const [itensResp, ticketResp, workorderResp] = await Promise.all([
         ctx.sb.db
           .from("quote_items")
           .select("id, item_type, description, unit, qty, unit_cost, unit_price, total_cost, total_price, sort_order, status")
           .eq("quote_id", state.selecionado.id)
           .order("sort_order", { ascending: true }),
         state.selecionado.ticket_id
-          ? ctx.sb.db.from("tickets").select("client_name, client_phone, description").eq("id", state.selecionado.ticket_id).maybeSingle()
-          : Promise.resolve({ data: null, error: null })
+          ? ctx.sb.db.from("tickets").select("id, client_name, client_phone, description, due_date, customer_id").eq("id", state.selecionado.ticket_id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        ctx.sb.db.from("workorders").select("id, status, created_at, due_date").eq("quote_id", state.selecionado.id).maybeSingle()
       ]);
 
       if (itensResp.error) throw itensResp.error;
 
       state.itens = itensResp.data || [];
       const ticket = ticketResp.data || null;
+      const workorder = workorderResp.data || null;
       const totalCustos = state.itens.reduce((acc, item) => acc + Number(item.total_cost || 0), 0);
       const totalVendas = state.itens.reduce((acc, item) => acc + Number(item.total_price || 0), 0);
       const margem = totalVendas > 0 ? ((totalVendas - totalCustos) / totalVendas) * 100 : 0;
@@ -255,12 +257,14 @@
           <button id="btnEnviarOrc" class="btn btn-warning">Marcar como Enviado</button>
           <button id="btnAprovarOrc" class="btn btn-success">Aprovar</button>
           <button id="btnRecusarOrc" class="btn btn-danger">Recusar</button>
+          <button id="btnGerarOS" class="btn btn-success" ${workorder ? "disabled" : ""}>${workorder ? "OS já gerada" : "Gerar Ordem de Serviço"}</button>
         </div>
 
         <div class="quote-kpis">
           <div class="quote-kpi"><div class="quote-kpi-label">Total de Custos</div><div class="quote-kpi-value">${formatarMoeda(totalCustos)}</div></div>
           <div class="quote-kpi"><div class="quote-kpi-label">Total de Venda</div><div class="quote-kpi-value">${formatarMoeda(totalVendas)}</div></div>
           <div class="quote-kpi"><div class="quote-kpi-label">Margem Bruta</div><div class="quote-kpi-value">${margem.toFixed(2)}%</div></div>
+          <div class="quote-kpi"><div class="quote-kpi-label">Ordem de Serviço</div><div class="quote-kpi-value">${workorder ? "Criada" : "Pendente"}</div></div>
         </div>
 
         <div class="quote-info-box">
@@ -270,6 +274,16 @@
           <div class="mini-muted">Telefone: ${escapeHtml(ticket?.client_phone || "—")}</div>
           <div style="margin-top:8px">${escapeHtml(ticket?.description || "Sem descrição do chamado.")}</div>
         </div>
+
+        ${workorder ? `
+          <div class="quote-info-box">
+            <div class="mini-card-title">Ordem de Serviço vinculada</div>
+            <div class="mini-muted">OS: ${escapeHtml(workorder.id)}</div>
+            <div class="mini-muted">Status: ${escapeHtml(workorder.status || "aberta")}</div>
+            <div class="mini-muted">Criada em: ${escapeHtml(formatarDataHora(workorder.created_at))}</div>
+            <div class="mini-muted">Prazo: ${escapeHtml(workorder.due_date || "—")}</div>
+          </div>
+        ` : ""}
 
         <div class="table-wrap" style="margin-top:14px">
           <table class="quote-items-table">
@@ -317,6 +331,17 @@
       $("#btnEnviarOrc", wrap).addEventListener("click", () => alterarStatus("sent"));
       $("#btnAprovarOrc", wrap).addEventListener("click", () => alterarStatus("approved"));
       $("#btnRecusarOrc", wrap).addEventListener("click", () => alterarStatus("rejected"));
+
+      const btnGerarOS = $("#btnGerarOS", wrap);
+      if (btnGerarOS && !workorder) {
+        btnGerarOS.addEventListener("click", async () => {
+          if (!window.confirm("Deseja gerar a Ordem de Serviço deste orçamento?")) return;
+          const result = await gerarOrdemServico(ctx, state.selecionado, ticket);
+          if (!result.ok) return alert(result.error || "Falha ao gerar Ordem de Serviço.");
+          alert("Ordem de Serviço gerada com sucesso.");
+          await carregarDetalhe();
+        });
+      }
 
       $$(".btnEditarItem", wrap).forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -427,6 +452,40 @@
           </td>
         </tr>
       `;
+    }
+
+    async function gerarOrdemServico(ctx, quote, ticket) {
+      if (!quote || !quote.id) return { ok: false, error: "Orçamento inválido." };
+      const existente = await ctx.sb.db.from("workorders").select("id").eq("quote_id", quote.id).maybeSingle();
+      if (!existente.error && existente.data) return { ok: true, id: existente.data.id };
+
+      const payload = {
+        company_id: ctx.companyId,
+        quote_id: quote.id,
+        ticket_id: quote.ticket_id || null,
+        client_id: ticket?.customer_id || quote.customer_id || null,
+        desc: ticket?.description || "Ordem gerada a partir do orçamento.",
+        status: "aberta",
+        due_date: ticket?.due_date || null,
+        priority: "normal",
+        notes: "Gerada automaticamente a partir do orçamento aprovado."
+      };
+
+      const ins = await ctx.sb.db.from("workorders").insert(payload).select("id").maybeSingle();
+      if (ins.error) return { ok: false, error: ins.error.message || ins.error };
+
+      try {
+        await ctx.sb.db.from("ticket_messages").insert({
+          company_id: ctx.companyId,
+          ticket_id: quote.ticket_id,
+          author_type: "system",
+          author_name: "Sistema",
+          message: "Ordem de Serviço gerada a partir do orçamento.",
+          event_type: "workorder_created"
+        });
+      } catch {}
+
+      return { ok: true, id: ins.data?.id || null };
     }
 
     function abrirModalItem(ctx, item, quoteId, onSaved) {

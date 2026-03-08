@@ -192,8 +192,19 @@
       return placeholder("Orçamentos", "Módulo de orçamentos não carregado.");
     }
 
+    if (rota === "ordens") {
+      setTitulo("Ordens de Serviço", "Produção, instalação e checklist operacional");
+      if (window.ModuloOrdens && typeof window.ModuloOrdens.listarOrdens === "function" && window.sb && window.sb.db && window.sb.companyId) {
+        return window.ModuloOrdens.listarOrdens({
+          areaId: "conteudoTela",
+          sb: window.sb,
+          companyId: window.sb.companyId
+        });
+      }
+      return placeholder("Ordens de Serviço", "Módulo de ordens não carregado.");
+    }
+
     if (rota === "clientes") return placeholder("Clientes", "Cadastro e consulta de clientes.");
-    if (rota === "ordens") return placeholder("Ordens de Serviço", "Acompanhamento das ordens de serviço.");
     if (rota === "compras") return placeholder("Compras", "Controle de compras e materiais.");
     if (rota === "financeiro") return placeholder("Financeiro", "Painel financeiro.");
     if (rota === "agenda") return placeholder("Agenda", "Agenda operacional.");
