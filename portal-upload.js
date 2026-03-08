@@ -25,7 +25,6 @@
   const companyId = getParam("company_id");
   const ticketId = getParam("ticket_id");
   const ticketToken = getParam("ticket_token");
-  const uploadToken = getParam("upload_token");
 
   const statusBox = document.getElementById("status");
   const contextoBox = document.getElementById("contextoChamado");
@@ -38,40 +37,6 @@
     statusBox.className = "status-box show " + (tipo || "");
   }
 
-  async function carregarContexto() {
-    if (!companyId) {
-      setStatus("Link inválido. company_id ausente.", "error");
-      return;
-    }
-
-    if (uploadToken) {
-      const r = await sb.rpc("public_get_ticket_upload_context", {
-        p_company_id: companyId,
-        p_upload_token: uploadToken
-      });
-      if (r.error) {
-        setStatus("Erro ao validar link: " + (r.error.message || r.error), "error");
-        return;
-      }
-      const dados = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
-      if (dados) {
-        contextoBox.innerHTML = `
-          <div><strong>Cliente:</strong> ${escapeHtml(dados.client_name || "—")}</div>
-          <div><strong>Telefone:</strong> ${escapeHtml(dados.client_phone || "—")}</div>
-          <div><strong>Descrição:</strong> ${escapeHtml(dados.description || "—")}</div>
-        `;
-      }
-      return;
-    }
-
-    if (ticketId) {
-      contextoBox.innerHTML = `
-        <div><strong>Chamado:</strong> ${escapeHtml(ticketId)}</div>
-        <div class="muted">Envie as fotos e o vídeo para concluir o envio do cliente.</div>
-      `;
-    }
-  }
-
   function escapeHtml(texto) {
     return String(texto || "")
       .replaceAll("&", "&amp;")
@@ -81,26 +46,44 @@
       .replaceAll("'", "&#039;");
   }
 
-  async function enviar() {
-    if (!companyId) {
-      setStatus("Link inválido: company_id ausente.", "error");
+  async function carregarContexto() {
+    if (!companyId || !ticketId) {
+      setStatus("Link inválido. company_id ou ticket_id ausente.", "error");
       return;
     }
 
-    if (!ticketToken && !uploadToken) {
-      setStatus("Link inválido: token ausente.", "error");
+    const r = await sb
+      .from("tickets")
+      .select("client_name, client_phone, description")
+      .eq("company_id", companyId)
+      .eq("id", ticketId)
+      .single();
+
+    if (r.error) {
+      setStatus("Erro ao carregar contexto: " + (r.error.message || r.error), "error");
+      return;
+    }
+
+    const dados = r.data || {};
+    contextoBox.innerHTML = `
+      <div><strong>Cliente:</strong> ${escapeHtml(dados.client_name || "—")}</div>
+      <div><strong>Telefone:</strong> ${escapeHtml(dados.client_phone || "—")}</div>
+      <div><strong>Descrição:</strong> ${escapeHtml(dados.description || "—")}</div>
+    `;
+  }
+
+  async function enviar() {
+    if (!companyId || !ticketId || !ticketToken) {
+      setStatus("Link inválido: company_id, ticket_id ou ticket_token ausente.", "error");
       return;
     }
 
     const fd = new FormData();
     fd.append("company_id", companyId);
-    if (ticketId) fd.append("ticket_id", ticketId);
-    if (ticketToken) fd.append("ticket_token", ticketToken);
-    if (uploadToken) fd.append("upload_token", uploadToken);
-
-    // Compatibilidade com possíveis validações do edge function
-    fd.append("token", ticketToken || uploadToken || "");
-    fd.append("mode", ticketToken ? "ticket_token" : "upload_token");
+    fd.append("ticket_id", ticketId);
+    fd.append("ticket_token", ticketToken);
+    fd.append("token", ticketToken);
+    fd.append("mode", "ticket_token");
 
     for (let i = 1; i <= 5; i++) {
       const arquivo = document.getElementById("foto" + i).files[0];
@@ -129,19 +112,17 @@
         return;
       }
 
-      if (ticketToken && ticketId) {
-        const fin = await sb.rpc("public_finalize_portal_upload", {
-          p_company_id: companyId,
-          p_ticket_id: ticketId,
-          p_ticket_token: ticketToken
-        });
+      const fin = await sb.rpc("public_finalize_portal_upload", {
+        p_company_id: companyId,
+        p_ticket_id: ticketId,
+        p_ticket_token: ticketToken
+      });
 
-        if (fin.error) {
-          setStatus("Arquivos enviados, mas a finalização do chamado falhou: " + (fin.error.message || fin.error), "error");
-          btn.disabled = false;
-          btn.textContent = "Enviar anexos";
-          return;
-        }
+      if (fin.error) {
+        setStatus("Arquivos enviados, mas a finalização do chamado falhou: " + (fin.error.message || fin.error), "error");
+        btn.disabled = false;
+        btn.textContent = "Enviar anexos";
+        return;
       }
 
       setStatus("Anexos enviados com sucesso. Obrigado!", "success");

@@ -31,6 +31,7 @@
       open: "Aberto",
       aberto: "Aberto",
       aguardando_analise: "Aguardando análise",
+      em_analise: "Em análise",
       em_andamento: "Em andamento",
       finalizado: "Finalizado",
       cancelado: "Cancelado",
@@ -50,7 +51,14 @@
   }
 
   function caminhosMidia(ticket) {
-    return [ticket.photo1_path, ticket.photo2_path, ticket.photo3_path, ticket.photo4_path, ticket.photo5_path, ticket.video1_path].filter(Boolean);
+    return [
+      ticket.photo1_path,
+      ticket.photo2_path,
+      ticket.photo3_path,
+      ticket.photo4_path,
+      ticket.photo5_path,
+      ticket.video1_path
+    ].filter(Boolean);
   }
 
   function montarUrlPublica(nomeArquivo, params) {
@@ -91,6 +99,39 @@
     return Promise.resolve();
   }
 
+  function gerarTokenLocal() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    return "tk_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+  }
+
+  function extensao(path) {
+    const p = String(path || "").toLowerCase();
+    const idx = p.lastIndexOf(".");
+    return idx >= 0 ? p.slice(idx + 1) : "";
+  }
+
+  function ehVideo(path) {
+    return ["mp4", "mov", "avi", "webm", "m4v"].includes(extensao(path));
+  }
+
+  function ehImagem(path) {
+    return ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(extensao(path));
+  }
+
+  function obterUrlMidia(path, sb) {
+    if (!path) return "";
+    if (/^https?:\/\//i.test(path)) return path;
+
+    try {
+      const result = sb.db.storage.from("tickets-media").getPublicUrl(path);
+      return result?.data?.publicUrl || "";
+    } catch {
+      return "";
+    }
+  }
+
   async function listarChamados(ctx) {
     const alvo = document.getElementById(ctx.areaId);
     if (!alvo) throw new Error("Área de chamados não encontrada.");
@@ -108,8 +149,7 @@
         c: ctx.companyId,
         t: ctx.portalToken || ""
       }),
-      linkAnexosAtual: "",
-      linkAnexosExpiraEm: ""
+      linkAnexosAtual: ""
     };
 
     alvo.innerHTML = `
@@ -119,6 +159,7 @@
           <option value="">Todos os status</option>
           <option value="aberto">Aberto</option>
           <option value="open">Open</option>
+          <option value="em_analise">Em análise</option>
           <option value="aguardando_analise">Aguardando análise</option>
           <option value="em_andamento">Em andamento</option>
           <option value="finalizado">Finalizado</option>
@@ -230,15 +271,12 @@
           const id = botao.getAttribute("data-id");
           state.selecionado = state.tickets.find((t) => t.id === id) || null;
           state.linkAnexosAtual = "";
-          state.linkAnexosExpiraEm = "";
           if (typeof ctx.onSelecionarChamado === "function") ctx.onSelecionarChamado(id);
           await carregarDetalhe();
         });
       });
 
-      if (!state.selecionado) {
-        state.selecionado = state.tickets[0];
-      }
+      if (!state.selecionado) state.selecionado = state.tickets[0];
       await carregarDetalhe();
     }
 
@@ -252,16 +290,8 @@
       wrap.innerHTML = `<div class="empty">Carregando detalhe...</div>`;
 
       const [historicoResp, mensagensResp] = await Promise.all([
-        ctx.sb.db
-          .from("ticket_history")
-          .select("created_at, action, from_status, to_status, note")
-          .eq("ticket_id", state.selecionado.id)
-          .order("created_at", { ascending: false }),
-        ctx.sb.db
-          .from("ticket_messages")
-          .select("created_at, author_type, author_name, message, event_type")
-          .eq("ticket_id", state.selecionado.id)
-          .order("created_at", { ascending: false })
+        ctx.sb.db.from("ticket_history").select("created_at, action, from_status, to_status, note").eq("ticket_id", state.selecionado.id).order("created_at", { ascending: false }),
+        ctx.sb.db.from("ticket_messages").select("created_at, author_type, author_name, message, event_type").eq("ticket_id", state.selecionado.id).order("created_at", { ascending: false })
       ]);
 
       state.historico = historicoResp.data || [];
@@ -300,7 +330,6 @@
                 <button id="btnCopiarLinkAnexos" class="btn btn-secondary">Copiar Link</button>
                 <a class="btn btn-ghost" href="${escapeHtml(state.linkAnexosAtual)}" target="_blank" rel="noopener">Abrir</a>
               </div>
-              <div class="muted">Validade: ${escapeHtml(state.linkAnexosExpiraEm || "—")}</div>
             ` : `<div class="empty">Clique em "Gerar Link de Anexos" para enviar este chamado ao cliente e permitir anexar fotos e vídeo.</div>`}</div>
           </div>
         </div>
@@ -309,7 +338,7 @@
 
         <div class="detail-block">
           <h3>Mídias</h3>
-          ${midias.length ? `<div class="media-grid">${midias.map((m) => renderMidia(m)).join("")}</div>` : `<div class="empty">Nenhuma mídia registrada.</div>`}
+          ${midias.length ? `<div class="media-grid media-preview-grid">${midias.map((m) => renderMidia(m, ctx.sb)).join("")}</div>` : `<div class="empty">Nenhuma mídia registrada.</div>`}
         </div>
 
         <div class="separator"></div>
@@ -335,7 +364,27 @@
         </div>
       `;
 
-      $("#btnGerarLinkAnexos", wrap).addEventListener("click", gerarLinkDeAnexos);
+      $("#btnGerarLinkAnexos", wrap).addEventListener("click", async () => {
+        if (!state.selecionado.token) {
+          alert("Este chamado não possui token de cliente. Abra o chamado pelo portal ou crie um novo chamado pelo sistema após atualizar este arquivo.");
+          return;
+        }
+
+        state.linkAnexosAtual = montarUrlPublica("portal-upload.html", {
+          company_id: ctx.companyId,
+          ticket_id: state.selecionado.id,
+          ticket_token: state.selecionado.token
+        });
+
+        await carregarDetalhe();
+
+        abrirModalLinkPortal({
+          titulo: "Link de anexos do chamado",
+          link: state.linkAnexosAtual,
+          subtitulo: "Envie esse link para o cliente anexar fotos e vídeo deste chamado específico."
+        });
+      });
+
       $("#btnPortalGeralDetalhe", wrap).addEventListener("click", () => {
         abrirModalLinkPortal({
           titulo: "Link público para abertura de chamado",
@@ -351,49 +400,97 @@
           alert("Link copiado.");
         });
       }
-    }
 
-    async function gerarLinkDeAnexos() {
-      if (!state.selecionado) return;
-      if (!ctx.sb || !ctx.sb.db) throw new Error("Supabase não disponível.");
-
-      const resp = await ctx.sb.db.rpc("generate_ticket_upload_link", {
-        p_ticket_id: state.selecionado.id
-      });
-
-      if (resp.error) {
-        alert("Falha ao gerar link: " + (resp.error.message || resp.error));
-        return;
-      }
-
-      const dados = typeof resp.data === "string" ? JSON.parse(resp.data) : resp.data;
-      if (!dados || !dados.upload_token) {
-        alert("A função não retornou upload_token.");
-        return;
-      }
-
-      state.linkAnexosAtual = montarUrlPublica("portal-upload.html", {
-        company_id: dados.company_id || ctx.companyId,
-        upload_token: dados.upload_token
-      });
-      state.linkAnexosExpiraEm = formatarDataHora(dados.expires_at);
-
-      await carregarDetalhe();
-      abrirModalLinkPortal({
-        titulo: "Link de anexos do chamado",
-        link: state.linkAnexosAtual,
-        subtitulo: "Envie esse link para o cliente anexar fotos e vídeo deste chamado específico."
+      wrap.querySelectorAll(".midia-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          const tipo = card.getAttribute("data-tipo");
+          const url = card.getAttribute("data-url");
+          if (!url) return;
+          abrirVisualizadorMidia(url, tipo === "video");
+        });
       });
     }
   }
 
-  function renderMidia(path) {
-    const texto = escapeHtml(path);
-    const ehLink = /^https?:\/\//i.test(path || "");
-    if (ehLink) {
-      return `<a class="media-path link-inline" href="${texto}" target="_blank" rel="noopener">${texto}</a>`;
+  function renderMidia(path, sb) {
+    const url = obterUrlMidia(path, sb);
+    const nome = String(path || "").split("/").pop() || "arquivo";
+    const tipo = ehVideo(path) ? "video" : (ehImagem(path) ? "imagem" : "arquivo");
+
+    if (!url) {
+      return `
+        <div class="midia-card midia-erro">
+          <div class="midia-meta">
+            <div class="midia-nome">${escapeHtml(nome)}</div>
+            <div class="muted">Não foi possível gerar a URL da mídia.</div>
+          </div>
+        </div>
+      `;
     }
-    return `<div class="media-path">${texto}</div>`;
+
+    if (tipo === "imagem") {
+      return `
+        <div class="midia-card" data-tipo="imagem" data-url="${escapeHtml(url)}" title="Clique para ampliar">
+          <div class="midia-thumb"><img src="${escapeHtml(url)}" alt="${escapeHtml(nome)}" loading="lazy"></div>
+          <div class="midia-meta">
+            <div class="midia-nome">${escapeHtml(nome)}</div>
+            <a class="link-inline" href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir imagem</a>
+          </div>
+        </div>
+      `;
+    }
+
+    if (tipo === "video") {
+      return `
+        <div class="midia-card" data-tipo="video" data-url="${escapeHtml(url)}" title="Clique para abrir vídeo">
+          <div class="midia-thumb video">
+            <video src="${escapeHtml(url)}" muted preload="metadata"></video>
+          </div>
+          <div class="midia-meta">
+            <div class="midia-nome">${escapeHtml(nome)}</div>
+            <a class="link-inline" href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir vídeo</a>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="midia-card" data-tipo="arquivo" data-url="${escapeHtml(url)}">
+        <div class="midia-thumb arquivo">ARQ</div>
+        <div class="midia-meta">
+          <div class="midia-nome">${escapeHtml(nome)}</div>
+          <a class="link-inline" href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir arquivo</a>
+        </div>
+      </div>
+    `;
+  }
+
+  function abrirVisualizadorMidia(url, isVideo) {
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    backdrop.innerHTML = `
+      <div class="modal modal-media">
+        <div class="modal-head">
+          <div>
+            <div class="modal-title">Visualização da mídia</div>
+          </div>
+          <button class="btn btn-ghost" id="fecharModalMedia">Fechar</button>
+        </div>
+        <div class="media-viewer">
+          ${isVideo
+            ? `<video src="${escapeHtml(url)}" controls autoplay></video>`
+            : `<img src="${escapeHtml(url)}" alt="Mídia do chamado">`}
+        </div>
+        <div class="modal-actions">
+          <a class="btn btn-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir em nova aba</a>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+
+    $("#fecharModalMedia", backdrop).addEventListener("click", () => {
+      document.body.removeChild(backdrop);
+    });
   }
 
   function abrirModalNovoChamado(ctx, recarregar) {
@@ -425,6 +522,7 @@
             <select id="novoChamadoStatus" class="select">
               <option value="aberto">Aberto</option>
               <option value="aguardando_analise">Aguardando análise</option>
+              <option value="em_analise">Em análise</option>
               <option value="em_andamento">Em andamento</option>
               <option value="finalizado">Finalizado</option>
               <option value="cancelado">Cancelado</option>
@@ -465,6 +563,7 @@
         description: $("#novoChamadoDescricao", backdrop).value.trim(),
         status: $("#novoChamadoStatus", backdrop).value,
         due_date: $("#novoChamadoPrazo", backdrop).value || null,
+        token: gerarTokenLocal()
       };
 
       if (!payload.description) {
@@ -520,6 +619,6 @@
   window.ModuloChamados = {
     listarChamados,
     formatarData,
-    formatarDataHora,
+    formatarDataHora
   };
 })();
