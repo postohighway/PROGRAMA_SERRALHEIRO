@@ -26,7 +26,7 @@
 
   function rotaAtual() {
     const rota = (location.hash || "#dashboard").replace("#", "").trim();
-    const validas = ["dashboard", "clientes", "chamados", "orcamentos", "ordens", "compras", "financeiro", "agenda", "configuracoes"];
+    const validas = ["dashboard", "clientes", "chamados", "orcamentos", "ordens", "compras", "despesas", "financeiro", "agenda", "configuracoes"];
     return validas.includes(rota) ? rota : "dashboard";
   }
 
@@ -48,6 +48,7 @@
             <a href="#orcamentos" data-route="orcamentos">Orçamentos</a>
             <a href="#ordens" data-route="ordens">Ordens de Serviço</a>
             <a href="#compras" data-route="compras">Compras</a>
+            <a href="#despesas" data-route="despesas">Contas a Pagar</a>
             <a href="#financeiro" data-route="financeiro">Financeiro</a>
             <a href="#agenda" data-route="agenda">Agenda</a>
             <a href="#configuracoes" data-route="configuracoes">Configurações</a>
@@ -217,8 +218,20 @@
       return placeholder("Compras", "Módulo de compras não carregado.");
     }
 
+    if (rota === "despesas") {
+      setTitulo("Contas a Pagar", "Despesas administrativas e integração com fluxo de caixa");
+      if (window.ModuloDespesas && typeof window.ModuloDespesas.listarDespesas === "function" && window.sb && window.sb.db && window.sb.companyId) {
+        return window.ModuloDespesas.listarDespesas({
+          areaId: "conteudoTela",
+          sb: window.sb,
+          companyId: window.sb.companyId
+        });
+      }
+      return placeholder("Contas a Pagar", "Módulo de despesas não carregado.");
+    }
+
     if (rota === "financeiro") {
-      setTitulo("Financeiro", "Executivo, contas a receber, fluxo de caixa e resultado por obra");
+      setTitulo("Financeiro", "Executivo, contas a receber, fluxo de caixa, DRE e previsão");
       if (window.ModuloFinanceiro && typeof window.ModuloFinanceiro.listarFinanceiro === "function" && window.sb && window.sb.db && window.sb.companyId) {
         return window.ModuloFinanceiro.listarFinanceiro({
           areaId: "conteudoTela",
