@@ -58,7 +58,7 @@
     }
     if (basePath && !basePath.startsWith("/")) basePath = "/" + basePath;
     const base = origin + (basePath || "");
-    const url = new URL(`${base}/${nomeArquivo}`.replace(/([^:]\/)\/+/g, "$1"));
+    const url = new URL(`${base}/${nomeArquivo}`.replace(/([^:]\/ )\/+/g, "$1"));
     Object.entries(params || {}).forEach(([k,v]) => { if (v != null && String(v).trim() !== "") url.searchParams.set(k, String(v)); });
     return url.toString();
   }
@@ -79,9 +79,10 @@
     if (document.getElementById("css-chamados-ov")) return;
     const st = document.createElement("style");
     st.id = "css-chamados-ov";
-    st.textContent = `.media-preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:10px}.midia-card{background:rgba(255,255,255,.03);border:1px solid rgba(108,152,232,.18);border-radius:12px;overflow:hidden;cursor:pointer}.midia-thumb{height:140px;background:#0b1b33;display:flex;align-items:center;justify-content:center;overflow:hidden}.midia-thumb img,.midia-thumb video{width:100%;height:100%;object-fit:cover}.midia-meta{padding:10px 12px 12px}.midia-nome{font-size:12px;word-break:break-all;margin-bottom:6px;color:#eff6ff}.link-inline{color:#9cc4ff;font-size:12px;text-decoration:none}.modal-media{width:min(1080px, calc(100vw - 32px))}.media-viewer{min-height:60vh;max-height:78vh;background:#06101f;border:1px solid rgba(108,152,232,.16);border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden}.media-viewer img,.media-viewer video{max-width:100%;max-height:76vh;object-fit:contain}.detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.mini-card{border:1px solid rgba(108,152,232,.14);background:rgba(255,255,255,.02);border-radius:12px;padding:12px;margin-bottom:10px}.mini-card-top{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}.mini-card-title{font-weight:700;color:#eff6ff}.mini-card-meta{font-size:12px;color:#9db3d6}.btn.btn-success{background:#14845f;color:#fff}.btn.btn-warning{background:#8a6612;color:#fff}.btn-mini{border:none;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer;background:#25477a;color:#fff}.galeria-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.galeria-indicador,.zoom-info{color:#9db3d6;font-size:12px}.grid-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid-form .full{grid-column:1/-1}.label{display:block;font-size:12px;color:#9db3d6;margin-bottom:6px}.textarea{width:100%;min-height:100px;border:1px solid rgba(108,152,232,.14);background:#0d2244;color:#fff;border-radius:12px;padding:12px}.modal-backdrop{position:fixed;inset:0;background:rgba(4,10,22,.72);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9999}.modal{width:min(860px,calc(100vw - 32px));background:#0b1b33;border:1px solid rgba(108,152,232,.18);border-radius:16px;padding:16px;box-shadow:0 18px 48px rgba(0,0,0,.35)}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.modal-title{font-size:22px;font-weight:800;color:#eff6ff}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.alert.error{display:none;background:rgba(187,61,76,.15);border:1px solid rgba(255,109,132,.3);color:#ffd6de;padding:12px;border-radius:12px;margin-bottom:12px}.alert.error.show{display:block}`;
+    st.textContent = `.media-preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:10px}.midia-card{background:rgba(255,255,255,.03);border:1px solid rgba(108,152,232,.18);border-radius:12px;overflow:hidden;cursor:pointer}.midia-thumb{height:140px;background:#0b1b33;display:flex;align-items:center;justify-content:center;overflow:hidden}.midia-thumb img,.midia-thumb video{width:100%;height:100%;object-fit:cover}.midia-meta{padding:10px 12px 12px}.midia-nome{font-size:12px;word-break:break-all;margin-bottom:6px;color:#eff6ff}.link-inline{color:#9cc4ff;font-size:12px;text-decoration:none}.modal-media{width:min(1080px, calc(100vw - 32px))}.media-viewer{min-height:60vh;max-height:78vh;background:#06101f;border:1px solid rgba(108,152,232,.16);border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden}.media-viewer img,.media-viewer video{max-width:100%;max-height:76vh;object-fit:contain}.detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.mini-card{border:1px solid rgba(108,152,232,.14);background:rgba(255,255,255,.02);border-radius:12px;padding:12px;margin-bottom:10px}.mini-card-top{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}.mini-card-title{font-weight:700;color:#eff6ff}.mini-card-meta{font-size:12px;color:#9db3d6}.btn.btn-success{background:#14845f;color:#fff}.btn.btn-warning{background:#8a6612;color:#fff}.btn-mini{border:none;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer;background:#25477a;color:#fff}.galeria-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.galeria-indicador,.zoom-info{color:#9db3d6;font-size:12px}`;
     document.head.appendChild(st);
   }
+
 
   function abrirModalLinkPortal({ titulo, link, subtitulo }) {
     const backdrop = document.createElement("div");
@@ -90,7 +91,10 @@
     document.body.appendChild(backdrop);
     const fechar = () => document.body.removeChild(backdrop);
     $("#fecharModalLinkPortal", backdrop).addEventListener("click", fechar);
-    $("#copiarModalLinkPortal", backdrop).addEventListener("click", async () => { await copiarTexto(link || ""); alert("Link copiado."); });
+    $("#copiarModalLinkPortal", backdrop).addEventListener("click", async () => {
+      await copiarTexto(link || "");
+      alert("Link copiado.");
+    });
   }
 
   function abrirModalNovoChamado(ctx, refreshLista) {
@@ -98,6 +102,7 @@
     backdrop.className = "modal-backdrop";
     backdrop.innerHTML = `<div class="modal"><div class="modal-head"><div><div class="modal-title">Novo Chamado</div><div class="panel-sub">Cadastre um novo chamado manualmente.</div></div><button class="btn btn-ghost" id="fecharModalNovoChamado">Fechar</button></div><div class="alert error" id="erroModalNovoChamado"></div><div class="grid-form"><div><label class="label">Cliente</label><input id="novoChamadoCliente" class="field" placeholder="Nome do cliente"></div><div><label class="label">Telefone</label><input id="novoChamadoTelefone" class="field" placeholder="Telefone"></div><div><label class="label">Prazo</label><input id="novoChamadoPrazo" class="field" type="date"></div><div><label class="label">Status</label><select id="novoChamadoStatus" class="select"><option value="aberto">Aberto</option><option value="aguardando_analise">Aguardando análise</option><option value="em_analise">Em análise</option></select></div><div class="full"><label class="label">Descrição</label><textarea id="novoChamadoDescricao" class="textarea" placeholder="Descreva o problema relatado pelo cliente"></textarea></div></div><div class="modal-actions"><button class="btn btn-secondary" id="cancelarModalNovoChamado">Cancelar</button><button class="btn btn-primary" id="salvarModalNovoChamado">Salvar Chamado</button></div></div>`;
     document.body.appendChild(backdrop);
+
     const fechar = () => document.body.removeChild(backdrop);
     $("#fecharModalNovoChamado", backdrop).addEventListener("click", fechar);
     $("#cancelarModalNovoChamado", backdrop).addEventListener("click", fechar);
@@ -147,6 +152,7 @@
       alert("Chamado criado com sucesso.");
     });
   }
+
 
   async function listarChamados(ctx) {
     injetarCss();
@@ -316,6 +322,7 @@
     document.addEventListener("keydown", onKey);
     render();
   }
+
 
   window.abrirModalNovoChamado = abrirModalNovoChamado;
   window.abrirModalLinkPortal = abrirModalLinkPortal;
