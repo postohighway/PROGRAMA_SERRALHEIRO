@@ -1,4 +1,3 @@
-
 (function () {
   "use strict";
 
@@ -81,8 +80,8 @@
 
   function badgeTipoFluxo(tipo) {
     const t = String(tipo || "").toLowerCase();
-    if (t === "entrada") return `<span class="status-pill status-approved">Entrada</span>`;
-    if (t === "saida") return `<span class="status-pill status-rejected">Saída</span>`;
+    if (t === "receber") return `<span class="status-pill status-approved">Receber</span>`;
+    if (t === "pagar") return `<span class="status-pill status-rejected">Pagar</span>`;
     return `<span class="status-pill status-draft">${escapeHtml(tipo || "—")}</span>`;
   }
 
@@ -226,7 +225,7 @@
         ctx.sb.db.from("purchases").select("id, workorder_id, description, total, status, created_at, paid_at, company_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("quotes").select("id, ticket_id, status, total, customer_id, created_at, approved_at, company_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("workorders").select("id, quote_id, ticket_id, desc, status, due_date, created_at, company_id").eq("company_id", ctx.companyId),
-        ctx.sb.db.from("txs").select("id, type, desc, amount, due_date, status, category, created_at, receivable_id, workorder_id, quote_id, purchase_id, company_id").eq("company_id", ctx.companyId),
+        ctx.sb.db.from("txs").select('id, type, desc, amount, due_date, status, category, created_at, receivable_id, workorder_id, quote_id, purchase_id, company_id').eq("company_id", ctx.companyId),
         ctx.sb.db.from("customers").select("id, name, phone, email").eq("company_id", ctx.companyId),
         ctx.sb.db.from("contracts").select("id, customer_id, name, amount, status, company_id").eq("company_id", ctx.companyId)
       ]);
@@ -273,16 +272,21 @@
       const receberVencido = base.receivables.filter((r) => !r.paid && r.due_date && r.due_date < hojeISO()).reduce((a, r) => a + Number(r.amount || 0), 0);
       const recebidoPeriodo = pagamentosNoPeriodo(base).reduce((a, p) => a + Number(p.amount || 0), 0);
       const comprasPeriodo = comprasNoPeriodo(base).reduce((a, p) => a + Number(p.total || 0), 0);
+      const despesasPeriodo = txsNoPeriodo(base)
+        .filter((t) => String(t.type || "").toLowerCase() === "pagar")
+        .filter((t) => String(t.status || "").toLowerCase() === "quitado")
+        .filter((t) => !String(t.category || "").toLowerCase().includes("compra"))
+        .reduce((a, t) => a + Number(t.amount || 0), 0);
       const faturamentoPeriodo = quotesNoPeriodo(base).filter((q) => q.status === "approved").reduce((a, q) => a + Number(q.total || 0), 0);
-      const margemPeriodo = faturamentoPeriodo > 0 ? ((faturamentoPeriodo - comprasPeriodo) / faturamentoPeriodo) * 100 : 0;
+      const margemPeriodo = faturamentoPeriodo > 0 ? ((faturamentoPeriodo - comprasPeriodo - despesasPeriodo) / faturamentoPeriodo) * 100 : 0;
       box.innerHTML = `
         <div class="fin-meta" style="margin-bottom:10px">Resultado do período: ${escapeHtml(formatarData(state.inicio))} até ${escapeHtml(formatarData(state.fim))}</div>
         <div class="fin-kpis">
           <div class="fin-kpi"><div class="fin-kpi-label">A Receber Geral</div><div class="fin-kpi-value">${formatarMoeda(receberAberto)}</div></div>
           <div class="fin-kpi"><div class="fin-kpi-label">Recebido no Período</div><div class="fin-kpi-value">${formatarMoeda(recebidoPeriodo)}</div></div>
           <div class="fin-kpi"><div class="fin-kpi-label">Compras no Período</div><div class="fin-kpi-value">${formatarMoeda(comprasPeriodo)}</div></div>
+          <div class="fin-kpi"><div class="fin-kpi-label">Despesas no Período</div><div class="fin-kpi-value">${formatarMoeda(despesasPeriodo)}</div></div>
           <div class="fin-kpi"><div class="fin-kpi-label">Faturamento no Período</div><div class="fin-kpi-value">${formatarMoeda(faturamentoPeriodo)}</div></div>
-          <div class="fin-kpi"><div class="fin-kpi-label">Vencido Geral</div><div class="fin-kpi-value">${formatarMoeda(receberVencido)}</div></div>
           <div class="fin-kpi"><div class="fin-kpi-label">Margem do Período</div><div class="fin-kpi-value">${margemPeriodo.toFixed(2)}%</div></div>
         </div>`;
     }
@@ -340,8 +344,8 @@
     async function renderCaixa(box) {
       const base = await carregarBaseFinanceira();
       const periodoTxs = txsNoPeriodo(base);
-      const entradas = periodoTxs.filter((t) => String(t.type || "").toLowerCase() === "entrada");
-      const saidas = periodoTxs.filter((t) => String(t.type || "").toLowerCase() === "saida");
+      const entradas = periodoTxs.filter((t) => String(t.type || "").toLowerCase() === "receber");
+      const saidas = periodoTxs.filter((t) => String(t.type || "").toLowerCase() === "pagar");
       const entradasTotal = entradas.reduce((a, t) => a + Number(t.amount || 0), 0);
       const saidasTotal = saidas.reduce((a, t) => a + Number(t.amount || 0), 0);
       const saldo = entradasTotal - saidasTotal;
@@ -351,8 +355,8 @@
           <div class="fin-kpi"><div class="fin-kpi-label">Saídas do Período</div><div class="fin-kpi-value">${formatarMoeda(saidasTotal)}</div></div>
           <div class="fin-kpi"><div class="fin-kpi-label">Saldo do Período</div><div class="fin-kpi-value">${formatarMoeda(saldo)}</div></div>
           <div class="fin-kpi"><div class="fin-kpi-label">Lançamentos</div><div class="fin-kpi-value">${periodoTxs.length}</div></div>
-          <div class="fin-kpi"><div class="fin-kpi-label">Entradas em Aberto</div><div class="fin-kpi-value">${entradas.filter((t) => String(t.status || "").toLowerCase() !== "pago").length}</div></div>
-          <div class="fin-kpi"><div class="fin-kpi-label">Saídas em Aberto</div><div class="fin-kpi-value">${saidas.filter((t) => String(t.status || "").toLowerCase() !== "pago").length}</div></div>
+          <div class="fin-kpi"><div class="fin-kpi-label">Entradas em Aberto</div><div class="fin-kpi-value">${entradas.filter((t) => String(t.status || "").toLowerCase() !== "quitado").length}</div></div>
+          <div class="fin-kpi"><div class="fin-kpi-label">Saídas em Aberto</div><div class="fin-kpi-value">${saidas.filter((t) => String(t.status || "").toLowerCase() !== "quitado").length}</div></div>
         </div>`;
     }
 
@@ -360,7 +364,11 @@
       const base = await carregarBaseFinanceira();
       const receitaBruta = quotesNoPeriodo(base).filter((q) => q.status === "approved").reduce((a, q) => a + Number(q.total || 0), 0);
       const custos = comprasNoPeriodo(base).reduce((a, p) => a + Number(p.total || 0), 0);
-      const despesas = txsNoPeriodo(base).filter((t) => String(t.type || "").toLowerCase() === "saida").filter((t) => !String(t.category || "").toLowerCase().includes("compra")).reduce((a, t) => a + Number(t.amount || 0), 0);
+      const despesas = txsNoPeriodo(base)
+        .filter((t) => String(t.type || "").toLowerCase() === "pagar")
+        .filter((t) => String(t.status || "").toLowerCase() === "quitado")
+        .filter((t) => !String(t.category || "").toLowerCase().includes("compra"))
+        .reduce((a, t) => a + Number(t.amount || 0), 0);
       const lucroBruto = receitaBruta - custos;
       const lucroOperacional = lucroBruto - despesas;
       box.innerHTML = `
