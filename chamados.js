@@ -253,5 +253,4 @@
   }
 
   window.ModuloChamados = { listarChamados, formatarData, formatarDataHora };
-  
 })();
