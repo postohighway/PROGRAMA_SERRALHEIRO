@@ -1,0 +1,26 @@
+
+<h2>Contas a Pagar / Despesas</h2>
+
+<div style="margin-bottom:20px;">
+<input id="desp_desc" placeholder="Descrição">
+<input id="desp_cat" placeholder="Categoria">
+<input id="desp_valor" placeholder="Valor">
+<input id="desp_venc" type="date">
+<button onclick="criarDespesa()">Adicionar</button>
+</div>
+
+<table border="1" width="100%">
+<thead>
+<tr>
+<th>Descrição</th>
+<th>Categoria</th>
+<th>Valor</th>
+<th>Vencimento</th>
+<th>Status</th>
+<th>Ação</th>
+</tr>
+</thead>
+<tbody id="tabelaDespesas"></tbody>
+</table>
+
+<script src="despesas.js"></script>
