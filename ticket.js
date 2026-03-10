@@ -2,7 +2,24 @@
   "use strict";
 
   function getParam(name) {
-    return new URLSearchParams(window.location.search).get(name);
+    try {
+      const url = new URL(window.location.href);
+
+      let value = url.searchParams.get(name);
+      if (value) return value;
+
+      if (url.hash) {
+        const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+        value = hashParams.get(name);
+        if (value) return value;
+      }
+
+      const regex = new RegExp("[?&#]" + name + "=([^&#]*)", "i");
+      const match = window.location.href.match(regex);
+      if (match && match[1]) return decodeURIComponent(match[1]);
+    } catch (_) {}
+
+    return null;
   }
 
   function firstNonEmpty() {
@@ -84,8 +101,9 @@
     url.searchParams.set("company_id", companyId);
     url.searchParams.set("ticket_id", dados.ticket_id);
     url.searchParams.set("ticket_token", dados.ticket_token);
+    url.searchParams.set("v", String(Date.now()));
 
-    window.location.href = url.toString();
+    window.location.replace(url.toString());
   }
 
   document.getElementById("btnEnviarPortal").addEventListener("click", submit);
