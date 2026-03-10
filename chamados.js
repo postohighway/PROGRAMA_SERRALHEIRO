@@ -253,5 +253,5 @@
   }
 
   window.ModuloChamados = { listarChamados, formatarData, formatarDataHora };
-  window.abrirModalNovoChamado = abrirModalNovoChamado;
+  
 })();
