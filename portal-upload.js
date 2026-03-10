@@ -2,7 +2,24 @@
   "use strict";
 
   function getParam(name) {
-    return new URLSearchParams(window.location.search).get(name);
+    try {
+      const url = new URL(window.location.href);
+
+      let value = url.searchParams.get(name);
+      if (value) return value;
+
+      if (url.hash) {
+        const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+        value = hashParams.get(name);
+        if (value) return value;
+      }
+
+      const regex = new RegExp("[?&#]" + name + "=([^&#]*)", "i");
+      const match = window.location.href.match(regex);
+      if (match && match[1]) return decodeURIComponent(match[1]);
+    } catch (_) {}
+
+    return null;
   }
 
   function firstNonEmpty() {
@@ -31,6 +48,7 @@
   }
 
   const sb = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
   const companyId = getParam("company_id");
   const ticketId = getParam("ticket_id");
   const ticketToken = getParam("ticket_token");
@@ -53,7 +71,6 @@
       return;
     }
 
-    // Fluxo 1: link gerado por upload_token
     if (uploadToken) {
       const r = await sb.rpc("public_get_ticket_upload_context", {
         p_company_id: companyId,
@@ -79,7 +96,6 @@
       return;
     }
 
-    // Fluxo 2: link gerado por ticket_id + ticket_token
     if (!ticketId) {
       setStatus("Link inválido. ticket_id ausente.", "error");
       return;
@@ -128,16 +144,17 @@
     if (ticketToken) fd.append("ticket_token", ticketToken);
     if (uploadToken) fd.append("upload_token", uploadToken);
 
-    // Compatibilidade com validações da edge function
     fd.append("token", ticketToken || uploadToken || "");
     fd.append("mode", uploadToken ? "upload_token" : "ticket_token");
 
     for (let i = 1; i <= 5; i++) {
-      const arquivo = document.getElementById("foto" + i).files[0];
+      const input = document.getElementById("foto" + i);
+      const arquivo = input && input.files ? input.files[0] : null;
       if (arquivo) fd.append("photo" + i, arquivo);
     }
 
-    const video = document.getElementById("video1").files[0];
+    const videoInput = document.getElementById("video1");
+    const video = videoInput && videoInput.files ? videoInput.files[0] : null;
     if (video) fd.append("video1", video);
 
     btn.disabled = true;
@@ -159,7 +176,6 @@
         return;
       }
 
-      // Finaliza status apenas quando veio por ticket_token
       if (ticketToken && ticketId) {
         const fin = await sb.rpc("public_finalize_portal_upload", {
           p_company_id: companyId,
