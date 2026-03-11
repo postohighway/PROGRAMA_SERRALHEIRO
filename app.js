@@ -92,70 +92,33 @@
     });
   }
 
-  function formatarMoeda(valor) {
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor || 0));
-  }
-
-  function formatarMesAtualInicio() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  function placeholder(titulo, desc) {
+    setTitulo(titulo, desc);
+    $("#conteudoTela").innerHTML = `<div class="panel"><h2>${titulo}</h2><div class="panel-sub">${desc}</div><div class="placeholder-big">Módulo em preparação.</div></div>`;
   }
 
   async function renderizarDashboard() {
     setTitulo("Dashboard", "Visão geral do sistema");
+    if (window.ModuloDashboard && typeof window.ModuloDashboard.renderizarDashboard === "function") {
+      return window.ModuloDashboard.renderizarDashboard({
+        areaId: "conteudoTela",
+        sb: window.sb,
+        setErro,
+        setInfo,
+        setTitulo
+      });
+    }
+
     const alvo = $("#conteudoTela");
     if (!alvo) return;
-
     alvo.innerHTML = `
       <div class="cards">
         <div class="card"><div class="card-label">Chamados Abertos</div><div class="card-value">0</div></div>
         <div class="card"><div class="card-label">Orçamentos Pendentes</div><div class="card-value">0</div></div>
         <div class="card"><div class="card-label">Ordens em Produção</div><div class="card-value">0</div></div>
-        <div class="card"><div class="card-label">Receita do Mês</div><div class="card-value">${formatarMoeda(0)}</div></div>
+        <div class="card"><div class="card-label">Receita do Mês</div><div class="card-value">R$ 0,00</div></div>
       </div>
     `;
-
-    if (!(window.sb && window.sb.db && window.sb.companyId)) {
-      setInfo("Conexão carregada, mas companyId ainda não está disponível.");
-      return;
-    }
-
-    try {
-      const inicioMes = formatarMesAtualInicio();
-
-      const [ticketsResp, quotesResp, osResp, pagamentosResp] = await Promise.all([
-        window.sb.db.from("tickets").select("status").eq("company_id", window.sb.companyId),
-        window.sb.db.from("quotes").select("status").eq("company_id", window.sb.companyId),
-        window.sb.db.from("workorders").select("status").eq("company_id", window.sb.companyId),
-        window.sb.db.from("payments").select("amount, created_at").eq("company_id", window.sb.companyId).gte("created_at", `${inicioMes}T00:00:00`)
-      ]);
-
-      if (ticketsResp.error) throw ticketsResp.error;
-      if (quotesResp.error) throw quotesResp.error;
-      if (osResp.error) throw osResp.error;
-      if (pagamentosResp.error) throw pagamentosResp.error;
-
-      const chamadosAbertos = (ticketsResp.data || []).filter((x) => ["aberto", "open", "aguardando_analise"].includes(String(x.status || "").toLowerCase())).length;
-      const orcamentosPendentes = (quotesResp.data || []).filter((x) => ["draft", "sent", "rascunho", "enviado"].includes(String(x.status || "").toLowerCase())).length;
-      const ordensEmProducao = (osResp.data || []).filter((x) => ["aberta", "em_andamento", "produção", "producao"].includes(String(x.status || "").toLowerCase())).length;
-      const receitaMes = (pagamentosResp.data || []).reduce((acc, item) => acc + Number(item.amount || 0), 0);
-
-      alvo.innerHTML = `
-        <div class="cards">
-          <div class="card"><div class="card-label">Chamados Abertos</div><div class="card-value">${chamadosAbertos}</div></div>
-          <div class="card"><div class="card-label">Orçamentos Pendentes</div><div class="card-value">${orcamentosPendentes}</div></div>
-          <div class="card"><div class="card-label">Ordens em Produção</div><div class="card-value">${ordensEmProducao}</div></div>
-          <div class="card"><div class="card-label">Receita do Mês</div><div class="card-value">${formatarMoeda(receitaMes)}</div></div>
-        </div>
-      `;
-    } catch (erro) {
-      setErro("Falha ao carregar dashboard: " + (erro.message || erro));
-    }
-  }
-
-  function placeholder(titulo, desc) {
-    setTitulo(titulo, desc);
-    $("#conteudoTela").innerHTML = `<div class="panel"><h2>${titulo}</h2><div class="panel-sub">${desc}</div><div class="placeholder-big">Módulo em preparação.</div></div>`;
   }
 
   async function renderizarTelaAtual() {
