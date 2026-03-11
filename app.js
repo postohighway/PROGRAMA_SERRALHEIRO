@@ -27,7 +27,7 @@
 
   function rotaAtual() {
     const rota = (location.hash || "#dashboard").replace("#", "").trim();
-    const validas = ["dashboard", "clientes", "chamados", "orcamentos", "ordens", "compras", "despesas", "financeiro", "agenda", "configuracoes"];
+    const validas = ["dashboard", "clientes", "chamados", "orcamentos", "ordens", "compras", "despesas", "financeiro", "agenda", "recorrencia", "configuracoes"];
     return validas.includes(rota) ? rota : "dashboard";
   }
 
@@ -52,6 +52,7 @@
             <a href="#despesas" data-route="despesas">Contas a Pagar</a>
             <a href="#financeiro" data-route="financeiro">Financeiro</a>
             <a href="#agenda" data-route="agenda">Agenda</a>
+            <a href="#recorrencia" data-route="recorrencia">Recorrência</a>
             <a href="#configuracoes" data-route="configuracoes">Configurações</a>
           </nav>
         </aside>
@@ -208,6 +209,20 @@
         });
       }
       return placeholder("Agenda", "Módulo de agenda não carregado.");
+    }
+
+    if (rota === "recorrencia") {
+      setTitulo("Recorrência", "Clientes avulsos, contratos e SLA");
+      if (window.ModuloRecorrencia && typeof window.ModuloRecorrencia.renderizarRecorrencia === "function") {
+        return window.ModuloRecorrencia.renderizarRecorrencia({
+          areaId: "conteudoTela",
+          sb: window.sb,
+          setErro,
+          setInfo,
+          setTitulo
+        });
+      }
+      return placeholder("Recorrência", "Módulo de recorrência não carregado.");
     }
 
     if (rota === "clientes") return placeholder("Clientes", "Cadastro e consulta de clientes.");
