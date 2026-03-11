@@ -4,21 +4,17 @@
   function getParam(name) {
     try {
       const url = new URL(window.location.href);
-
       let value = url.searchParams.get(name);
       if (value) return value;
-
       if (url.hash) {
         const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
         value = hashParams.get(name);
         if (value) return value;
       }
-
       const regex = new RegExp("[?&#]" + name + "=([^&#]*)", "i");
       const match = window.location.href.match(regex);
       if (match && match[1]) return decodeURIComponent(match[1]);
     } catch (_) {}
-
     return null;
   }
 
@@ -48,7 +44,6 @@
   }
 
   const sb = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-
   const companyId = getParam("company_id");
   const ticketId = getParam("ticket_id");
   const ticketToken = getParam("ticket_token");
@@ -57,7 +52,6 @@
   const statusBox = document.getElementById("status");
   const contextoBox = document.getElementById("contextoChamado");
   const btn = document.getElementById("btnEnviarMidia");
-
   const endpoint = supabaseUrl.replace(/\/$/, "") + "/functions/v1/upload-ticket-media";
 
   function setStatus(msg, tipo) {
