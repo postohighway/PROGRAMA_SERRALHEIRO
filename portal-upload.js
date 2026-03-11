@@ -40,10 +40,10 @@
     try {
       const atual = readStoredParams();
       const merged = {
-        company_id: firstNonEmpty(params.company_id, atual.company_id),
-        ticket_id: firstNonEmpty(params.ticket_id, atual.ticket_id),
-        ticket_token: firstNonEmpty(params.ticket_token, atual.ticket_token),
-        upload_token: firstNonEmpty(params.upload_token, atual.upload_token)
+        company_id: params.company_id || atual.company_id || null,
+        ticket_id: params.ticket_id || atual.ticket_id || null,
+        ticket_token: params.ticket_token || atual.ticket_token || null,
+        upload_token: params.upload_token || atual.upload_token || null
       };
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     } catch (_) {}
@@ -51,19 +51,11 @@
 
   function getParam(name) {
     const byUrl = getParamFromUrl(name);
-    if (byUrl != null && String(byUrl).trim() !== "") return String(byUrl).trim();
+    if (byUrl) return byUrl;
 
     const stored = readStoredParams();
-    const byStorage = stored ? stored[name] : null;
-    if (byStorage != null && String(byStorage).trim() !== "") return String(byStorage).trim();
+    if (stored && stored[name]) return stored[name];
 
-    return null;
-  }
-
-  function firstNonEmpty() {
-    for (const value of arguments) {
-      if (value != null && String(value).trim() !== "") return String(value).trim();
-    }
     return null;
   }
 
@@ -77,8 +69,8 @@
   }
 
   const cfg = window.sbConfig || {};
-  const supabaseUrl = firstNonEmpty(cfg.url, cfg.supabaseUrl);
-  const supabaseAnonKey = firstNonEmpty(cfg.anon, cfg.supabaseAnonKey);
+  const supabaseUrl = cfg.url || cfg.supabaseUrl;
+  const supabaseAnonKey = cfg.anon || cfg.supabaseAnonKey;
 
   if (!window.supabase || !supabaseUrl || !supabaseAnonKey) {
     alert("Configuração do portal não encontrada.");
@@ -114,69 +106,15 @@
     statusBox.className = "status-box show " + (tipo || "");
   }
 
-  function clearStatus() {
-    statusBox.textContent = "";
-    statusBox.className = "status-box";
-  }
-
-  function preencherContexto(dados) {
-    contextoBox.innerHTML = `
-      <div><strong>Cliente:</strong> ${escapeHtml(dados.client_name || "—")}</div>
-      <div><strong>Telefone:</strong> ${escapeHtml(dados.client_phone || "—")}</div>
-      <div><strong>Descrição:</strong> ${escapeHtml(dados.description || "—")}</div>
-    `;
-  }
-
-  function preencherContextoGenerico() {
-    contextoBox.innerHTML = `
-      <div><strong>Cliente:</strong> Link validado</div>
-      <div><strong>Telefone:</strong> —</div>
-      <div><strong>Descrição:</strong> Pode anexar as fotos e o vídeo normalmente.</div>
-    `;
-  }
-
   async function carregarContexto() {
-    clearStatus();
 
     if (!companyId) {
       setStatus("Link inválido. company_id ausente.", "error");
       return;
     }
 
-    if (uploadToken) {
-      try {
-        const r = await sb.rpc("public_get_ticket_upload_context", {
-          p_company_id: companyId,
-          p_upload_token: uploadToken
-        });
-
-        if (r.error) {
-          setStatus("Erro ao carregar contexto: " + (r.error.message || r.error), "error");
-          return;
-        }
-
-        const dados = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
-
-        if (!dados) {
-          setStatus("Contexto do chamado não encontrado.", "error");
-          return;
-        }
-
-        preencherContexto(dados);
-        return;
-      } catch (erro) {
-        setStatus("Erro ao carregar contexto: " + (erro.message || erro), "error");
-        return;
-      }
-    }
-
-    if (!ticketId) {
-      setStatus("Link inválido. ticket_id ausente.", "error");
-      return;
-    }
-
-    if (!ticketToken) {
-      setStatus("Link inválido. ticket_token ausente.", "error");
+    if (!ticketId || !ticketToken) {
+      setStatus("Link inválido. ticket ou token ausente.", "error");
       return;
     }
 
@@ -190,47 +128,36 @@
         .maybeSingle();
 
       if (r.error) {
-        console.warn("Falha ao carregar contexto do ticket:", r.error);
-        preencherContextoGenerico();
-        setStatus("Link validado. Você pode anexar as mídias normalmente.", "info");
+        setStatus("Erro ao carregar chamado: " + (r.error.message || r.error), "error");
         return;
       }
 
-      const dados = r.data || null;
+      const dados = r.data;
 
       if (!dados) {
-        preencherContextoGenerico();
-        setStatus("Link validado. Você pode anexar as mídias normalmente.", "info");
+        setStatus("Chamado não encontrado para este link.", "error");
         return;
       }
 
-      preencherContexto(dados);
+      contextoBox.innerHTML = `
+        <div><strong>Cliente:</strong> ${escapeHtml(dados.client_name || "—")}</div>
+        <div><strong>Telefone:</strong> ${escapeHtml(dados.client_phone || "—")}</div>
+        <div><strong>Descrição:</strong> ${escapeHtml(dados.description || "—")}</div>
+      `;
+
     } catch (erro) {
-      console.warn("Exceção ao carregar contexto do ticket:", erro);
-      preencherContextoGenerico();
-      setStatus("Link validado. Você pode anexar as mídias normalmente.", "info");
+      setStatus("Erro ao carregar chamado: " + (erro.message || erro), "error");
     }
   }
 
   async function enviar() {
+
     companyId = getParam("company_id");
     ticketId = getParam("ticket_id");
     ticketToken = getParam("ticket_token");
     uploadToken = getParam("upload_token");
 
-    storeParams({
-      company_id: companyId,
-      ticket_id: ticketId,
-      ticket_token: ticketToken,
-      upload_token: uploadToken
-    });
-
-    if (!companyId) {
-      setStatus("Link inválido: company_id ausente.", "error");
-      return;
-    }
-
-    if (!ticketToken && !uploadToken) {
+    if (!companyId || !ticketToken) {
       setStatus("Link inválido: token ausente.", "error");
       return;
     }
@@ -260,6 +187,7 @@
     setStatus("Enviando anexos, aguarde...", "info");
 
     try {
+
       const res = await fetch(endpoint, {
         method: "POST",
         body: fd
@@ -275,29 +203,22 @@
       }
 
       if (ticketToken && ticketId) {
-        const fin = await sb.rpc("public_finalize_portal_upload", {
+        await sb.rpc("public_finalize_portal_upload", {
           p_company_id: companyId,
           p_ticket_id: ticketId,
           p_ticket_token: ticketToken
         });
-
-        if (fin.error) {
-          console.warn("Finalização do chamado falhou:", fin.error);
-          setStatus(
-            "Anexos enviados com sucesso. O chamado foi registrado, mesmo que a finalização automática não tenha concluído.",
-            "success"
-          );
-          btn.textContent = "Enviado com sucesso";
-          return;
-        }
       }
 
-      setStatus("Anexos enviados com sucesso. Obrigado!", "success");
+      setStatus("Anexos enviados com sucesso.", "success");
       btn.textContent = "Enviado com sucesso";
+
     } catch (erro) {
+
       setStatus("Erro ao enviar: " + (erro.message || erro), "error");
       btn.disabled = false;
       btn.textContent = "Enviar anexos";
+
     }
   }
 
@@ -313,4 +234,5 @@
   });
 
   carregarContexto();
+
 })();
