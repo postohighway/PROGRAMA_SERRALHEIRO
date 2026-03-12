@@ -65,13 +65,8 @@
   function copiarTexto(texto) {
     if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(texto);
     const ta = document.createElement("textarea");
-    ta.value = texto;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
+    ta.value = texto; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
     return Promise.resolve();
   }
   function gerarTokenLocal() {
@@ -93,17 +88,73 @@
     });
     return url.toString();
   }
+
+  function horasSlaPorPrioridade(priority) {
+    const p = normalizarPrioridade(priority);
+    if (p === "critica") return 4;
+    if (p === "alta") return 24;
+    if (p === "normal") return 48;
+    return 72;
+  }
+
+  function calcularSla(ticket) {
+    const status = String(ticket.status || "").toLowerCase();
+    if (["finalizado", "cancelado"].includes(status)) {
+      return { classe: "sla-ok", texto: "Encerrado", restanteHoras: null, vencido: false };
+    }
+
+    const createdAt = ticket.created_at ? new Date(ticket.created_at) : null;
+    if (!createdAt || Number.isNaN(createdAt.getTime())) {
+      return { classe: "sla-ok", texto: "SLA sem base", restanteHoras: null, vencido: false };
+    }
+
+    const horas = horasSlaPorPrioridade(ticket.priority);
+    const deadline = new Date(createdAt.getTime() + horas * 60 * 60 * 1000);
+    const agora = new Date();
+    const diffMs = deadline.getTime() - agora.getTime();
+    const diffHoras = diffMs / (1000 * 60 * 60);
+
+    if (diffHoras <= 0) {
+      return {
+        classe: "sla-vencido",
+        texto: "SLA estourado",
+        restanteHoras: diffHoras,
+        vencido: true,
+        deadline
+      };
+    }
+
+    if (diffHoras <= 4) {
+      return {
+        classe: "sla-alerta",
+        texto: `Vence em ${Math.ceil(diffHoras)}h`,
+        restanteHoras: diffHoras,
+        vencido: false,
+        deadline
+      };
+    }
+
+    return {
+      classe: "sla-ok",
+      texto: `SLA ${horas}h`,
+      restanteHoras: diffHoras,
+      vencido: false,
+      deadline
+    };
+  }
+
   function injetarCss() {
-    if (document.getElementById("css-kanban-chamados-v1")) return;
+    if (document.getElementById("css-kanban-chamados-sla-v1")) return;
     const st = document.createElement("style");
-    st.id = "css-kanban-chamados-v1";
+    st.id = "css-kanban-chamados-sla-v1";
     st.textContent = `
       .kanban-wrap{display:grid;grid-template-columns:1.4fr .9fr;gap:16px}
       .kanban-board{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:14px;overflow:auto;padding-bottom:4px}
       .kanban-col{background:rgba(255,255,255,.02);border:1px solid rgba(108,152,232,.16);border-radius:14px;min-height:420px;display:flex;flex-direction:column}
       .kanban-head{padding:12px 14px;border-bottom:1px solid rgba(108,152,232,.12)}
-      .kanban-title{font-weight:800;color:#eff6ff}
+      .kanban-title{font-weight:800;color:#eff6ff;display:flex;justify-content:space-between;gap:8px;align-items:center}
       .kanban-sub{font-size:12px;color:#9db3d6;margin-top:4px}
+      .kanban-count{font-size:12px;color:#9db3d6;background:rgba(255,255,255,.04);padding:4px 8px;border-radius:999px}
       .kanban-body{padding:12px;display:flex;flex-direction:column;gap:10px;min-height:180px}
       .kanban-body.drag-over{background:rgba(61,134,255,.06)}
       .kanban-card{border-radius:14px;padding:12px;border:1px solid rgba(108,152,232,.16);background:rgba(255,255,255,.03);cursor:grab}
@@ -111,16 +162,22 @@
       .kanban-card.ticket-priority-normal{box-shadow:inset 4px 0 0 #3d86ff}
       .kanban-card.ticket-priority-alta{box-shadow:inset 4px 0 0 #f6b73c}
       .kanban-card.ticket-priority-critica{box-shadow:inset 4px 0 0 #ff5d6c}
+      .kanban-card.sla-alerta{border-color:rgba(246,183,60,.65)}
+      .kanban-card.sla-vencido{border-color:rgba(255,93,108,.85); animation:slaPulse 1.5s infinite}
+      @keyframes slaPulse {0%{box-shadow:inset 4px 0 0 #ff5d6c, 0 0 0 rgba(255,93,108,.0)}50%{box-shadow:inset 4px 0 0 #ff5d6c, 0 0 18px rgba(255,93,108,.25)}100%{box-shadow:inset 4px 0 0 #ff5d6c, 0 0 0 rgba(255,93,108,.0)}}
       .kanban-card-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:10px}
       .kanban-card-title{font-weight:800;color:#eff6ff;line-height:1.25}
       .kanban-card-meta{font-size:12px;color:#9db3d6}
       .kanban-card-desc{font-size:13px;color:#dce7f8;margin-top:10px}
       .kanban-empty{padding:18px;text-align:center;color:#8ea6ca;font-size:13px}
-      .priority-pill{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid transparent}
+      .priority-pill,.sla-pill{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid transparent}
       .priority-baixa{background:rgba(148,163,184,.12);border-color:rgba(148,163,184,.35);color:#d8dee7}
       .priority-normal{background:rgba(61,134,255,.12);border-color:rgba(61,134,255,.35);color:#dbeaff}
       .priority-alta{background:rgba(246,183,60,.12);border-color:rgba(246,183,60,.35);color:#ffe6ab}
       .priority-critica{background:rgba(255,93,108,.12);border-color:rgba(255,93,108,.35);color:#ffd5da}
+      .sla-ok{background:rgba(20,195,142,.10);border-color:rgba(20,195,142,.32);color:#bff2df}
+      .sla-alerta{background:rgba(246,183,60,.10);border-color:rgba(246,183,60,.32);color:#ffe6ab}
+      .sla-vencido{background:rgba(255,93,108,.12);border-color:rgba(255,93,108,.45);color:#ffd5da}
       .detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
       .media-preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:10px}
       .midia-card{background:rgba(255,255,255,.03);border:1px solid rgba(108,152,232,.18);border-radius:12px;overflow:hidden;cursor:pointer}
@@ -142,10 +199,15 @@
       .galeria-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
       .galeria-indicador,.zoom-info{color:#9db3d6;font-size:12px}
       .detail-grid-priority{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+      .alerta-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+      .alerta-chip{padding:8px 12px;border-radius:999px;font-weight:800;font-size:12px;border:1px solid rgba(255,255,255,.14)}
+      .alerta-chip.alerta-vermelho{background:rgba(255,93,108,.12);border-color:rgba(255,93,108,.42);color:#ffd5da}
+      .alerta-chip.alerta-amarelo{background:rgba(246,183,60,.12);border-color:rgba(246,183,60,.36);color:#ffe6ab}
       @media (max-width:1200px){.kanban-wrap{grid-template-columns:1fr}.kanban-board{grid-template-columns:repeat(5, minmax(260px,1fr));}}
     `;
     document.head.appendChild(st);
   }
+
   function abrirModalLinkPortal({ titulo, link, subtitulo }) {
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop";
@@ -155,6 +217,7 @@
     $("#fecharModalLinkPortal", backdrop).addEventListener("click", fechar);
     $("#copiarModalLinkPortal", backdrop).addEventListener("click", async () => { await copiarTexto(link || ""); alert("Link copiado."); });
   }
+
   function abrirModalNovoChamado(ctx, refreshLista) {
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop";
@@ -178,8 +241,7 @@
     $("#cancelarModalNovoChamado", backdrop).addEventListener("click", fechar);
     const erroBox = $("#erroModalNovoChamado", backdrop);
     $("#salvarModalNovoChamado", backdrop).addEventListener("click", async () => {
-      erroBox.textContent = "";
-      erroBox.classList.remove("show");
+      erroBox.textContent = ""; erroBox.classList.remove("show");
       const client_name = $("#novoChamadoCliente", backdrop).value.trim();
       const client_phone = $("#novoChamadoTelefone", backdrop).value.trim() || null;
       const due_date = $("#novoChamadoPrazo", backdrop).value || null;
@@ -191,11 +253,10 @@
       const token = gerarTokenLocal();
       const ins = await ctx.sb.db.from("tickets").insert({ company_id: ctx.companyId, client_name, client_phone, description, due_date, status, priority, token });
       if (ins.error) { erroBox.textContent = ins.error.message || "Falha ao salvar chamado."; erroBox.classList.add("show"); return; }
-      fechar();
-      if (typeof refreshLista === "function") await refreshLista();
-      alert("Chamado criado com sucesso.");
+      fechar(); if (typeof refreshLista === "function") await refreshLista(); alert("Chamado criado com sucesso.");
     });
   }
+
   function renderMidia(path, sb, idx) {
     const url = obterUrlMidia(path, sb);
     const nome = String(path || "").split("/").pop() || "arquivo";
@@ -205,13 +266,15 @@
     if (tipo === "video") return `<div class="midia-card" data-tipo="video" data-url="${escapeHtml(url)}" data-idx="${idx}"><div class="midia-thumb"><video src="${escapeHtml(url)}" muted preload="metadata"></video></div><div class="midia-meta"><div class="midia-nome">${escapeHtml(nome)}</div><a class="link-inline" href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir vídeo</a></div></div>`;
     return `<div class="midia-card"><div class="midia-meta"><div class="midia-nome">${escapeHtml(nome)}</div></div></div>`;
   }
+
   function abrirVisualizadorMidia(url, isVideo) {
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop";
-    backdrop.innerHTML = `<div class="modal modal-media"><div class="modal-head"><div><div class="modal-title">Visualização da mídia</div></div><button class="btn btn-ghost" id="fecharModalMedia">Fechar</button></div><div class="media-viewer">${isVideo ? `<video src="${escapeHtml(url)}" controls autoplay></video>` : `<img src="${escapeHtml(url)}" alt="Mídia do chamado">`}</div><div class="modal-actions"><a class="btn btn-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir em nova aba</a></div></div>`;
+    backdrop.innerHTML = `<div class="modal modal-media"><div class="modal-head"><div><div class="modal-title">Visualização da mídia</div></div><button class="btn btn-ghost" id="fecharModalMedia">Fechar</button></div><div class="media-viewer">${isVideo ? `<video src="${escapeHtml(url)}" controls autoplay></video>` : `<img src="${escapeHtml(url)}" alt="Mídia do chamado">`}</div></div>`;
     document.body.appendChild(backdrop);
     $("#fecharModalMedia", backdrop).addEventListener("click", () => document.body.removeChild(backdrop));
   }
+
   function abrirGaleriaImagens(imagens, idxInicial) {
     let idx = Math.max(0, Math.min(idxInicial || 0, imagens.length - 1));
     if (!imagens.length) return;
@@ -232,6 +295,7 @@
     function fechar() { document.removeEventListener("keydown", onKey); document.body.removeChild(backdrop); }
     document.body.appendChild(backdrop); document.addEventListener("keydown", onKey); render();
   }
+
   async function gerarOrcamento(ctx, ticket, refreshDetalhe) {
     if (!ticket || !ticket.id) return;
     if (!window.confirm("Deseja gerar um orçamento para este chamado agora?")) return;
@@ -240,6 +304,7 @@
     alert("Orçamento gerado com sucesso.");
     await refreshDetalhe();
   }
+
   function abrirModalVisita(ctx, ticket, refreshDetalhe) {
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop";
@@ -302,8 +367,9 @@
         <button id="btnPortalCliente" class="btn btn-secondary">Link do Portal</button>
         <button id="btnNovoChamado" class="btn btn-primary">Novo Chamado</button>
       </div>
+      <div id="alertaSlaBar" class="alerta-bar"></div>
       <div class="kanban-wrap">
-        <div class="panel"><h2>Kanban operacional</h2><div class="panel-sub">Arraste o chamado entre as colunas para atualizar o status.</div><div id="kanbanBoard" class="kanban-board">${statusCols.map(col => `<div class="kanban-col"><div class="kanban-head"><div class="kanban-title">${escapeHtml(col.titulo)}</div><div class="kanban-sub">${escapeHtml(col.sub)}</div></div><div class="kanban-body" data-status="${col.id}"></div></div>`).join("")}</div></div>
+        <div class="panel"><h2>Kanban operacional</h2><div class="panel-sub">Arraste o chamado entre as colunas para atualizar o status.</div><div id="kanbanBoard" class="kanban-board">${statusCols.map(col => `<div class="kanban-col"><div class="kanban-head"><div class="kanban-title"><span>${escapeHtml(col.titulo)}</span><span class="kanban-count" data-count="${col.id}">0</span></div><div class="kanban-sub">${escapeHtml(col.sub)}</div></div><div class="kanban-body" data-status="${col.id}"></div></div>`).join("")}</div></div>
         <div class="panel"><h2>Detalhe do chamado</h2><div class="panel-sub">Selecione um card para visualizar.</div><div id="detalheChamadoWrap" class="empty">Nenhum chamado selecionado.</div></div>
       </div>
     `;
@@ -318,6 +384,7 @@
     async function carregarLista() {
       const { data, error } = await ctx.sb.db.from("tickets").select("id, created_at, client_name, client_phone, description, status, priority, due_date, token, photo1_path, photo2_path, photo3_path, photo4_path, photo5_path, video1_path").eq("company_id", ctx.companyId);
       if (error) throw error;
+
       const busca = state.busca.trim().toLowerCase();
       state.tickets = (data || []).filter(item => {
         if (state.prioridade && normalizarPrioridade(item.priority) !== state.prioridade) return false;
@@ -329,18 +396,45 @@
         if (pa !== pb) return pa - pb;
         return String(b.created_at || "").localeCompare(String(a.created_at || ""));
       });
+
+      renderAlertasSla();
       renderKanban();
       if (!state.selecionado && state.tickets.length) state.selecionado = state.tickets[0];
       await carregarDetalhe();
+    }
+
+    function renderAlertasSla() {
+      const bar = $("#alertaSlaBar", alvo);
+      const ativos = state.tickets.filter(t => !["finalizado","cancelado"].includes(String(t.status || "").toLowerCase()));
+      const vencidos = ativos.filter(t => calcularSla(t).classe === "sla-vencido").length;
+      const alerta = ativos.filter(t => calcularSla(t).classe === "sla-alerta").length;
+      bar.innerHTML = `
+        <div class="alerta-chip alerta-vermelho">SLA estourado: ${vencidos}</div>
+        <div class="alerta-chip alerta-amarelo">Vencendo em até 4h: ${alerta}</div>
+      `;
     }
 
     function renderKanban() {
       $all(".kanban-body", alvo).forEach(col => {
         const status = col.getAttribute("data-status");
         const items = state.tickets.filter(t => String(t.status || "") === status);
-        col.innerHTML = items.length ? items.map(ticket => `<div class="kanban-card ticket-priority-${normalizarPrioridade(ticket.priority)}" draggable="true" data-id="${ticket.id}"><div class="kanban-card-head"><div><div class="kanban-card-title">${escapeHtml(ticket.client_name || "Sem nome")}</div><div class="kanban-card-meta">${escapeHtml(ticket.client_phone || "—")}</div></div>${badgePrioridade(ticket.priority || "normal")}</div><div>${badgeStatus(ticket.status)}</div><div class="kanban-card-desc">${escapeHtml((ticket.description || "").slice(0, 110) || "Sem descrição")}</div><div class="kanban-card-meta" style="margin-top:12px">Prazo: ${escapeHtml(formatarData(ticket.due_date))}</div></div>`).join("") : `<div class="kanban-empty">Nenhum chamado.</div>`;
+        const countEl = $(`[data-count="${status}"]`, alvo);
+        if (countEl) countEl.textContent = String(items.length);
+        col.innerHTML = items.length ? items.map(ticket => {
+          const sla = calcularSla(ticket);
+          return `<div class="kanban-card ticket-priority-${normalizarPrioridade(ticket.priority)} ${sla.classe}" draggable="true" data-id="${ticket.id}">
+            <div class="kanban-card-head">
+              <div><div class="kanban-card-title">${escapeHtml(ticket.client_name || "Sem nome")}</div><div class="kanban-card-meta">${escapeHtml(ticket.client_phone || "—")}</div></div>
+              ${badgePrioridade(ticket.priority || "normal")}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">${badgeStatus(ticket.status)}<span class="sla-pill ${sla.classe}">${escapeHtml(sla.texto)}</span></div>
+            <div class="kanban-card-desc">${escapeHtml((ticket.description || "").slice(0, 110) || "Sem descrição")}</div>
+            <div class="kanban-card-meta" style="margin-top:12px">Prazo: ${escapeHtml(formatarData(ticket.due_date))}</div>
+          </div>`;
+        }).join("") : `<div class="kanban-empty">Nenhum chamado.</div>`;
         prepararDropzone(col);
       });
+
       $all(".kanban-card", alvo).forEach(card => {
         card.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", card.getAttribute("data-id")); });
         card.addEventListener("click", async () => {
@@ -363,6 +457,7 @@
         const upd = await ctx.sb.db.from("tickets").update({ status: novoStatus }).eq("id", id).eq("company_id", ctx.companyId);
         if (upd.error) return alert("Falha ao mover chamado: " + (upd.error.message || upd.error));
         ticket.status = novoStatus;
+        renderAlertasSla();
         renderKanban();
         state.selecionado = ticket;
         await carregarDetalhe();
@@ -372,6 +467,7 @@
     async function carregarDetalhe() {
       const wrap = $("#detalheChamadoWrap", alvo);
       if (!state.selecionado) { wrap.innerHTML = `<div class="empty">Nenhum chamado selecionado.</div>`; return; }
+
       const [historicoResp, mensagensResp, visitasResp, quotesResp] = await Promise.all([
         ctx.sb.db.from("ticket_history").select("created_at, action, from_status, to_status, note").eq("ticket_id", state.selecionado.id).order("created_at", { ascending: false }),
         ctx.sb.db.from("ticket_messages").select("created_at, author_type, author_name, message, event_type").eq("ticket_id", state.selecionado.id).order("created_at", { ascending: false }),
@@ -383,6 +479,7 @@
       state.visitas = visitasResp.data || [];
       state.orcamentos = quotesResp.data || [];
       const midias = caminhosMidia(state.selecionado);
+      const sla = calcularSla(state.selecionado);
 
       wrap.innerHTML = `
         <div class="detail-actions">
@@ -396,6 +493,7 @@
           <div class="muted">Telefone</div><div>${escapeHtml(state.selecionado.client_phone || "—")}</div>
           <div class="muted">Status</div><div>${badgeStatus(state.selecionado.status)}</div>
           <div class="muted">Prioridade</div><div class="detail-grid-priority">${badgePrioridade(state.selecionado.priority || "normal")}</div>
+          <div class="muted">SLA</div><div><span class="sla-pill ${sla.classe}">${escapeHtml(sla.texto)}</span></div>
           <div class="muted">Prazo</div><div>${escapeHtml(formatarData(state.selecionado.due_date))}</div>
           <div class="muted">Criado em</div><div>${escapeHtml(formatarDataHora(state.selecionado.created_at))}</div>
           <div class="muted">Descrição</div><div>${escapeHtml(state.selecionado.description || "—")}</div>
@@ -410,9 +508,7 @@
         <div class="separator"></div>
         <div class="detail-block"><h3>Visitas Técnicas</h3>${state.visitas.length ? state.visitas.map(v => `<div class="mini-card"><div class="mini-card-top"><div class="mini-card-title">${escapeHtml(v.event_type || "visit")}</div><div>${badgePrioridade(v.priority || "normal")}</div></div><div class="mini-card-meta">Início: ${escapeHtml(formatarDataHora(v.start_at))}</div><div class="mini-card-meta">Duração estimada: ${escapeHtml(v.estimated_minutes || "—")} min</div><div class="mini-card-meta">Endereço: ${escapeHtml(v.address || "—")}</div><div>${escapeHtml(v.notes || "Sem observações")}</div></div>`).join("") : `<div class="empty">Nenhuma visita técnica agendada.</div>`}</div>
         <div class="separator"></div>
-        <div class="detail-block"><h3>Orçamentos</h3>${state.orcamentos.length ? state.orcamentos.map(q => `<div class="mini-card"><div class="mini-card-top"><div class="mini-card-title">Orçamento v${escapeHtml(q.version || 1)}</div><div>${badgeStatus(q.status)}</div></div><div class="mini-card-meta">Criado em: ${escapeHtml(formatarDataHora(q.created_at))}</div><div class="mini-card-meta">Atualizado em: ${escapeHtml(formatarDataHora(q.updated_at))}</div><div><strong>Total:</strong> ${formatarMoeda(q.total || 0)}</div></div>`).join("") : `<div class="empty">Nenhum orçamento gerado para este chamado.</div>`}</div>
-        <div class="separator"></div>
-        <div class="detail-block"><h3>Histórico</h3>${state.historico.length ? `<div class="list-lines">${state.historico.map(h => `<div class="line-item"><div class="line-top"><span>${escapeHtml(formatarDataHora(h.created_at))}</span><span>${escapeHtml(h.action || "evento")}</span></div><div>${escapeHtml(h.note || `${h.from_status || ""} → ${h.to_status || ""}` || "Sem observação")}</div></div>`).join("")}</div>` : `<div class="empty">Sem histórico.</div>`}</div>
+        <div class="detail-block"><h3>Orçamentos</h3>${state.orcamentos.length ? state.orcamentos.map(q => `<div class="mini-card"><div class="mini-card-top"><div class="mini-card-title">Orçamento v${escapeHtml(q.version || 1)}</div><div>${badgeStatus(q.status)}</div></div><div class="mini-card-meta">Criado em: ${escapeHtml(formatarDataHora(q.created_at))}</div><div class="mini-card-meta">Atualizado em: ${escapeHtml(formatarDataHora(q.updated_at))}</div><div><strong>Total:</strong> ${escapeHtml(new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(q.total||0)))}</div></div>`).join("") : `<div class="empty">Nenhum orçamento gerado para este chamado.</div>`}</div>
       `;
 
       $("#btnGerarLinkAnexos", wrap).addEventListener("click", async () => {
@@ -426,6 +522,7 @@
       $("#btnGerarOrcamento", wrap).addEventListener("click", () => gerarOrcamento(ctx, state.selecionado, carregarDetalhe));
       const btnCopiar = $("#btnCopiarLinkAnexos", wrap);
       if (btnCopiar) btnCopiar.addEventListener("click", async () => { await copiarTexto(state.linkAnexosAtual); alert("Link copiado."); });
+
       const imagens = midias.filter(ehImagem).map(path => ({ path, url: obterUrlMidia(path, ctx.sb), nome: String(path || "").split("/").pop() || "imagem" })).filter(x => x.url);
       wrap.querySelectorAll(".midia-card").forEach(card => card.addEventListener("click", () => {
         const tipo = card.getAttribute("data-tipo");
