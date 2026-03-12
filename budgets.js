@@ -1,103 +1,207 @@
 
 (function () {
   "use strict";
-  function $(s,r){return (r||document).querySelector(s);}
-  function $all(s,r){return Array.from((r||document).querySelectorAll(s));}
-  function esc(t){return String(t||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
-  function money(v){return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(v||0));}
-  function num(v){const n=Number(String(v||"").replace(",", ".")); return Number.isFinite(n)?n:0;}
-  function dt(v){if(!v)return "—"; const d=new Date(v); return Number.isNaN(d.getTime())?String(v):d.toLocaleString("pt-BR");}
-  function css(){ if(document.getElementById("css-budgets-v1")) return; const st=document.createElement("style"); st.id="css-budgets-v1"; st.textContent=`
-    .budget-items-table{width:100%;border-collapse:collapse;margin-top:10px}.budget-items-table th,.budget-items-table td{padding:10px;border-bottom:1px solid rgba(108,152,232,.12)}.budget-items-table th{font-size:12px;color:#9db3d6;text-align:left}
-    .budget-total-box{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:14px;padding:14px;border:1px solid rgba(108,152,232,.14);border-radius:12px;background:rgba(255,255,255,.03)}
-    .budget-top-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.budget-mini-list{display:flex;flex-direction:column;gap:10px}.budget-mini-card{padding:12px;border:1px solid rgba(108,152,232,.14);border-radius:12px;background:rgba(255,255,255,.02)}.budget-mini-top{display:flex;justify-content:space-between;gap:10px;margin-bottom:8px}.budget-small{font-size:12px;color:#9db3d6}
-  `; document.head.appendChild(st);}
-  function statusLabel(s){const m={draft:"Rascunho",sent:"Enviado",approved:"Aprovado",rejected:"Recusado",converted:"Convertido"}; return m[String(s||"").toLowerCase()]||(s||"—");}
-  function badge(s){return `<span class="status-pill">${esc(statusLabel(s))}</span>`;}
-  async function ensurePipeline(ctx,ticket){
-    const ex=await ctx.sb.db.from("commercial_pipeline").select("id,stage").eq("company_id",ctx.companyId).eq("ticket_id",ticket.id).maybeSingle();
-    if(ex.error) throw ex.error;
-    if(ex.data) return ex.data;
-    const ins=await ctx.sb.db.from("commercial_pipeline").insert({company_id:ctx.companyId,ticket_id:ticket.id,stage:"orcamento",estimated_value:0,status:"ativo"}).select("id,stage").single();
-    if(ins.error) throw ins.error;
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $all(s, r) { return Array.from((r || document).querySelectorAll(s)); }
+  function escapeHtml(t) { return String(t || "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
+  function money(v) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v || 0)); }
+  function parseNumber(v) { const n = Number(String(v || "").replace(",", ".")); return Number.isFinite(n) ? n : 0; }
+  function fmtDateTime(v) { if (!v) return "—"; const d = new Date(v); return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString("pt-BR"); }
+  function budgetStatusLabel(s) { const map = { draft:"Rascunho", sent:"Enviado", approved:"Aprovado", rejected:"Recusado", converted:"Convertido" }; return map[String(s || "").toLowerCase()] || (s || "—"); }
+  function stageLabel(s) { const map = { diagnostico:"Diagnóstico", orcamento:"Orçamento", aprovacao:"Aprovação", aprovado:"Aprovado", execucao:"Execução", faturado:"Faturado", perdido:"Perdido" }; return map[String(s || "").toLowerCase()] || (s || "—"); }
+  function badge(txt) { return `<span class="status-pill">${escapeHtml(txt)}</span>`; }
+
+  function injectCss() {
+    if (document.getElementById("css-budgets-stable-v1")) return;
+    const st = document.createElement("style");
+    st.id = "css-budgets-stable-v1";
+    st.textContent = ".budget-items-table{width:100%;border-collapse:collapse;margin-top:10px}.budget-items-table th,.budget-items-table td{padding:10px;border-bottom:1px solid rgba(108,152,232,.12);vertical-align:top}.budget-items-table th{font-size:12px;color:#9db3d6;text-align:left}.budget-row-actions{display:flex;gap:8px;justify-content:flex-end}.budget-total-box{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:14px;padding:14px;border:1px solid rgba(108,152,232,.14);border-radius:12px;background:rgba(255,255,255,.03)}.budget-total-label{color:#9db3d6}.budget-total-value{font-weight:800;color:#eff6ff}.budget-top-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.budget-mini-list{display:flex;flex-direction:column;gap:10px}.budget-mini-card{padding:12px;border:1px solid rgba(108,152,232,.14);border-radius:12px;background:rgba(255,255,255,.02)}.budget-mini-top{display:flex;justify-content:space-between;gap:10px;margin-bottom:8px}.budget-small{font-size:12px;color:#9db3d6}.budget-grid{display:grid;grid-template-columns:1.25fr .9fr;gap:16px}@media (max-width:1100px){.budget-grid{grid-template-columns:1fr}}";
+    document.head.appendChild(st);
+  }
+
+  async function ensurePipeline(ctx, ticket) {
+    const existing = await ctx.sb.db.from("commercial_pipeline").select("id, stage, estimated_value, approved_value, status").eq("company_id", ctx.companyId).eq("ticket_id", ticket.id).maybeSingle();
+    if (existing.error) throw existing.error;
+    if (existing.data) return existing.data;
+    const ins = await ctx.sb.db.from("commercial_pipeline").insert({ company_id: ctx.companyId, ticket_id: ticket.id, stage: "orcamento", estimated_value: 0, status: "ativo" }).select("id, stage, estimated_value, approved_value, status").single();
+    if (ins.error) throw ins.error;
     return ins.data;
   }
-  async function loadBudgets(ctx,ticketId){
-    const r=await ctx.sb.db.from("budgets").select("id,company_id,ticket_id,pipeline_id,customer_id,client_name,client_phone,description,subtotal,discount_value,total,status,version,created_at,updated_at,approved_at").eq("company_id",ctx.companyId).eq("ticket_id",ticketId).order("created_at",{ascending:false});
-    if(r.error) throw r.error; return r.data||[];
+
+  async function loadBudgets(ctx, ticketId) {
+    const r = await ctx.sb.db.from("budgets").select("id, company_id, ticket_id, pipeline_id, customer_id, client_name, client_phone, description, subtotal, discount_value, total, status, version, created_at, updated_at, approved_at").eq("company_id", ctx.companyId).eq("ticket_id", ticketId).order("created_at", { ascending: false });
+    if (r.error) throw r.error;
+    return r.data || [];
   }
-  async function loadItems(ctx,budgetId){
-    const r=await ctx.sb.db.from("budget_items").select("id,item_type,description,quantity,unit_price,total_price,sort_order").eq("company_id",ctx.companyId).eq("budget_id",budgetId).order("sort_order",{ascending:true});
-    if(r.error) throw r.error; return r.data||[];
+  async function loadBudgetItems(ctx, budgetId) {
+    const r = await ctx.sb.db.from("budget_items").select("id, company_id, budget_id, item_type, description, quantity, unit_price, total_price, sort_order, created_at").eq("company_id", ctx.companyId).eq("budget_id", budgetId).order("sort_order", { ascending: true });
+    if (r.error) throw r.error;
+    return r.data || [];
   }
-  async function saveBudget(ctx,payload,items){
-    let budgetId=payload.id||null;
-    const body={company_id:ctx.companyId,ticket_id:payload.ticket_id,pipeline_id:payload.pipeline_id,customer_id:payload.customer_id||null,client_name:payload.client_name||null,client_phone:payload.client_phone||null,description:payload.description||null,subtotal:payload.subtotal||0,discount_value:payload.discount_value||0,total:payload.total||0,status:payload.status||"draft",version:payload.version||1};
-    if(budgetId){
-      const u=await ctx.sb.db.from("budgets").update({...body,updated_at:new Date().toISOString()}).eq("id",budgetId).eq("company_id",ctx.companyId).select("id").single();
-      if(u.error) throw u.error;
+
+  async function upsertBudget(ctx, payload, items) {
+    const budgetPayload = { company_id: ctx.companyId, ticket_id: payload.ticket_id, pipeline_id: payload.pipeline_id, customer_id: payload.customer_id || null, client_name: payload.client_name || null, client_phone: payload.client_phone || null, description: payload.description || null, subtotal: payload.subtotal || 0, discount_value: payload.discount_value || 0, total: payload.total || 0, status: payload.status || "draft", version: payload.version || 1 };
+    let budgetId = payload.id || null;
+    if (budgetId) {
+      const upd = await ctx.sb.db.from("budgets").update({ ...budgetPayload, updated_at: new Date().toISOString() }).eq("id", budgetId).eq("company_id", ctx.companyId).select("id").single();
+      if (upd.error) throw upd.error;
     } else {
-      const i=await ctx.sb.db.from("budgets").insert(body).select("id").single();
-      if(i.error) throw i.error; budgetId=i.data.id;
+      const ins = await ctx.sb.db.from("budgets").insert(budgetPayload).select("id").single();
+      if (ins.error) throw ins.error;
+      budgetId = ins.data.id;
     }
-    const d=await ctx.sb.db.from("budget_items").delete().eq("company_id",ctx.companyId).eq("budget_id",budgetId); if(d.error) throw d.error;
-    if(items.length){
-      const rows=items.map((x,idx)=>({company_id:ctx.companyId,budget_id:budgetId,item_type:x.item_type,description:x.description,quantity:x.quantity,unit_price:x.unit_price,total_price:x.total_price,sort_order:idx+1}));
-      const ii=await ctx.sb.db.from("budget_items").insert(rows); if(ii.error) throw ii.error;
+    const del = await ctx.sb.db.from("budget_items").delete().eq("company_id", ctx.companyId).eq("budget_id", budgetId);
+    if (del.error) throw del.error;
+    if (items.length) {
+      const rows = items.map((item, idx) => ({ company_id: ctx.companyId, budget_id: budgetId, item_type: item.item_type, description: item.description, quantity: item.quantity, unit_price: item.unit_price, total_price: item.total_price, sort_order: idx + 1 }));
+      const insItems = await ctx.sb.db.from("budget_items").insert(rows);
+      if (insItems.error) throw insItems.error;
     }
-    const stage=payload.status==="approved"?"aprovado":payload.status==="rejected"?"perdido":payload.status==="sent"?"aprovacao":"orcamento";
-    const up=await ctx.sb.db.from("commercial_pipeline").update({stage:stage,estimated_value:payload.total||0,approved_value:payload.status==="approved"?(payload.total||0):null,updated_at:new Date().toISOString()}).eq("company_id",ctx.companyId).eq("id",payload.pipeline_id);
-    if(up.error) throw up.error;
+    const newStage = payload.status === "approved" ? "aprovado" : payload.status === "rejected" ? "perdido" : payload.status === "sent" ? "aprovacao" : "orcamento";
+    const updPipe = await ctx.sb.db.from("commercial_pipeline").update({ stage: newStage, estimated_value: payload.total || 0, approved_value: payload.status === "approved" ? (payload.total || 0) : null, updated_at: new Date().toISOString() }).eq("company_id", ctx.companyId).eq("id", payload.pipeline_id);
+    if (updPipe.error) throw updPipe.error;
     return budgetId;
   }
-  async function convertToOs(ctx,budget,ticket){
-    const ex=await ctx.sb.db.from("service_orders").select("id,status").eq("company_id",ctx.companyId).eq("budget_id",budget.id).maybeSingle();
-    if(ex.error) throw ex.error;
-    if(ex.data) return ex.data.id;
-    const ins=await ctx.sb.db.from("service_orders").insert({company_id:ctx.companyId,ticket_id:ticket.id,budget_id:budget.id,pipeline_id:budget.pipeline_id||null,status:"pending",notes:"OS criada a partir de orçamento aprovado."}).select("id").single();
-    if(ins.error) throw ins.error;
-    await ctx.sb.db.from("budgets").update({status:"converted",updated_at:new Date().toISOString()}).eq("id",budget.id).eq("company_id",ctx.companyId);
-    if(budget.pipeline_id) await ctx.sb.db.from("commercial_pipeline").update({stage:"execucao",updated_at:new Date().toISOString()}).eq("id",budget.pipeline_id).eq("company_id",ctx.companyId);
+
+  async function convertBudgetToServiceOrder(ctx, budget, ticket) {
+    const existing = await ctx.sb.db.from("service_orders").select("id, status").eq("company_id", ctx.companyId).eq("budget_id", budget.id).maybeSingle();
+    if (existing.error) throw existing.error;
+    if (existing.data) return existing.data.id;
+    const ins = await ctx.sb.db.from("service_orders").insert({ company_id: ctx.companyId, ticket_id: ticket.id, budget_id: budget.id, pipeline_id: budget.pipeline_id || null, status: "pending", notes: "OS criada a partir de orçamento aprovado." }).select("id").single();
+    if (ins.error) throw ins.error;
+    await ctx.sb.db.from("budgets").update({ status: "converted", updated_at: new Date().toISOString() }).eq("id", budget.id).eq("company_id", ctx.companyId);
+    if (budget.pipeline_id) await ctx.sb.db.from("commercial_pipeline").update({ stage: "execucao", updated_at: new Date().toISOString() }).eq("id", budget.pipeline_id).eq("company_id", ctx.companyId);
     return ins.data.id;
   }
-  function renderBudgetsResumoHtml(budgets){
-    if(!budgets||!budgets.length) return `<div class="empty">Nenhum orçamento gerado para este chamado.</div>`;
-    return budgets.map(b=>`<div class="mini-card"><div class="mini-card-top"><div><div class="mini-card-title">Orçamento v${esc(b.version||1)}</div><div class="budget-small">${esc(dt(b.created_at))}</div></div><div>${badge(b.status)}</div></div><div class="budget-small">Total: ${money(b.total||0)}</div></div>`).join("");
+
+  function renderBudgetsResumoHtml(budgets) {
+    if (!budgets || !budgets.length) return '<div class="empty">Nenhum orçamento gerado.</div>';
+    return budgets.map(b => `<div class="mini-card"><div class="mini-card-top"><div class="mini-card-title">Orçamento v${escapeHtml(b.version || 1)}</div><div>${badge(budgetStatusLabel(b.status))}</div></div><div class="mini-card-meta">Criado em: ${escapeHtml(fmtDateTime(b.created_at))}</div><div class="mini-card-meta">Atualizado em: ${escapeHtml(fmtDateTime(b.updated_at))}</div><div><strong>Total:</strong> ${money(b.total || 0)}</div></div>`).join("");
   }
-  function abrirModalOrcamento(ctx,ticket,refresh){
-    css();
-    const back=document.createElement("div"); back.className="modal-backdrop";
-    back.innerHTML=`<div class="modal" style="width:min(1180px, calc(100vw - 32px));"><div class="modal-head"><div><div class="modal-title">Orçamento do Chamado</div><div class="panel-sub">${esc(ticket.client_name||"Sem nome")} — ${esc(ticket.description||"")}</div></div><button class="btn btn-ghost" id="fecharBudget">Fechar</button></div><div class="alert error" id="budgetErro"></div><div class="grid-2"><div><div class="grid-form"><div><label class="label">Cliente</label><input id="budgetClientName" class="field"></div><div><label class="label">Telefone</label><input id="budgetClientPhone" class="field"></div><div class="full"><label class="label">Descrição geral</label><textarea id="budgetDescription" class="textarea"></textarea></div></div><div class="budget-top-actions"><button class="btn btn-secondary" id="addServico">+ Serviço</button><button class="btn btn-secondary" id="addProduto">+ Produto</button><button class="btn btn-secondary" id="novoRascunho">Novo rascunho</button></div><div id="itemsWrap"></div><div class="budget-total-box"><div>Subtotal</div><div id="budgetSubtotal">R$ 0,00</div><div>Desconto</div><div><input id="budgetDiscount" class="field" type="number" step="0.01" value="0"></div><div><strong>Total</strong></div><div><strong id="budgetTotal">R$ 0,00</strong></div></div><div class="modal-actions" style="margin-top:14px;"><button class="btn btn-secondary" id="saveDraft">Salvar rascunho</button><button class="btn btn-primary" id="markSent">Marcar como enviado</button><button class="btn btn-success" id="markApproved">Aprovar</button><button class="btn btn-warning" id="convertOs">Converter em OS</button><button class="btn btn-ghost" id="markRejected">Rejeitar</button></div></div><div><h3 style="margin-top:0;">Histórico de Orçamentos</h3><div id="budgetHistory" class="budget-mini-list"></div></div></div></div>`;
-    document.body.appendChild(back);
-    const close=()=>document.body.removeChild(back);
-    $("#fecharBudget",back).addEventListener("click",close);
-    const erro=$("#budgetErro",back), history=$("#budgetHistory",back), itemsWrap=$("#itemsWrap",back), subtotal=$("#budgetSubtotal",back), total=$("#budgetTotal",back);
-    const clientName=$("#budgetClientName",back), clientPhone=$("#budgetClientPhone",back), desc=$("#budgetDescription",back), discount=$("#budgetDiscount",back);
-    const state={pipeline:null,budgets:[],budgetId:null,items:[]};
-    function setError(msg){ erro.textContent=msg||""; if(msg) erro.classList.add("show"); else erro.classList.remove("show"); }
-    function recalc(){ state.items.forEach(x=>{x.quantity=num(x.quantity);x.unit_price=num(x.unit_price);x.total_price=Number((x.quantity*x.unit_price).toFixed(2));}); const sub=state.items.reduce((a,x)=>a+Number(x.total_price||0),0); const disc=num(discount.value); const tot=Math.max(0, sub-disc); subtotal.textContent=money(sub); total.textContent=money(tot); return {subtotal:sub,discount_value:disc,total:tot};}
-    function renderItems(){ if(!state.items.length){itemsWrap.innerHTML=`<div class="empty">Nenhum item adicionado.</div>`; recalc(); return;}
-      itemsWrap.innerHTML=`<table class="budget-items-table"><thead><tr><th>Tipo</th><th>Descrição</th><th>Qtd</th><th>Vr. Unit.</th><th>Total</th><th></th></tr></thead><tbody>${state.items.map((it,idx)=>`<tr><td><select class="select jsType" data-idx="${idx}"><option value="servico" ${it.item_type==="servico"?"selected":""}>Serviço</option><option value="produto" ${it.item_type==="produto"?"selected":""}>Produto</option></select></td><td><input class="field jsDesc" data-idx="${idx}" value="${esc(it.description||"")}"></td><td><input class="field jsQty" data-idx="${idx}" type="number" step="0.001" min="0" value="${esc(it.quantity||1)}"></td><td><input class="field jsUnit" data-idx="${idx}" type="number" step="0.01" min="0" value="${esc(it.unit_price||0)}"></td><td>${money(it.total_price||0)}</td><td><button class="btn btn-ghost jsDel" data-idx="${idx}">Remover</button></td></tr>`).join("")}</tbody></table>`;
-      $all(".jsType",itemsWrap).forEach(el=>el.addEventListener("change",e=>{ const i=Number(e.target.dataset.idx); state.items[i].item_type=e.target.value; }));
-      $all(".jsDesc",itemsWrap).forEach(el=>el.addEventListener("input",e=>{ const i=Number(e.target.dataset.idx); state.items[i].description=e.target.value; }));
-      $all(".jsQty",itemsWrap).forEach(el=>el.addEventListener("input",e=>{ const i=Number(e.target.dataset.idx); state.items[i].quantity=num(e.target.value); renderItems(); }));
-      $all(".jsUnit",itemsWrap).forEach(el=>el.addEventListener("input",e=>{ const i=Number(e.target.dataset.idx); state.items[i].unit_price=num(e.target.value); renderItems(); }));
-      $all(".jsDel",itemsWrap).forEach(el=>el.addEventListener("click",e=>{ const i=Number(e.target.dataset.idx); state.items.splice(i,1); renderItems(); }));
+
+  function abrirModalOrcamento(ctx, ticket, refreshAfter) {
+    injectCss();
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    backdrop.innerHTML = `<div class="modal" style="width:min(1180px, calc(100vw - 32px));"><div class="modal-head"><div><div class="modal-title">Orçamento do Chamado</div><div class="panel-sub">${escapeHtml(ticket.client_name || "Sem nome")} — ${escapeHtml(ticket.description || "")}</div></div><button class="btn btn-ghost" id="fecharModalBudget">Fechar</button></div><div class="alert error" id="erroModalBudget"></div><div class="budget-grid"><div><div class="grid-form"><div><label class="label">Cliente</label><input id="budgetClientName" class="field" /></div><div><label class="label">Telefone</label><input id="budgetClientPhone" class="field" /></div><div class="full"><label class="label">Descrição geral</label><textarea id="budgetDescription" class="textarea" placeholder="Escopo do serviço / observações do orçamento"></textarea></div></div><div class="budget-top-actions"><button class="btn btn-secondary" id="btnAddServico">+ Serviço</button><button class="btn btn-secondary" id="btnAddProduto">+ Produto</button><button class="btn btn-secondary" id="btnNovoRascunho">Novo rascunho</button></div><div id="budgetItemsWrap"></div><div class="budget-total-box"><div class="budget-total-label">Subtotal</div><div class="budget-total-value" id="budgetSubtotal">R$ 0,00</div><div class="budget-total-label">Desconto</div><div><input id="budgetDiscount" class="field" type="number" step="0.01" min="0" value="0"></div><div class="budget-total-label">Total</div><div class="budget-total-value" id="budgetTotal">R$ 0,00</div></div><div class="modal-actions" style="margin-top:14px;"><button class="btn btn-secondary" id="btnSalvarRascunho">Salvar rascunho</button><button class="btn btn-primary" id="btnEnviarOrcamento">Marcar como enviado</button><button class="btn btn-success" id="btnAprovarOrcamento">Aprovar</button><button class="btn btn-warning" id="btnConverterOs">Converter em OS</button><button class="btn btn-ghost" id="btnRejeitarOrcamento">Rejeitar</button></div></div><div><h3 style="margin-top:0;">Histórico de Orçamentos</h3><div id="budgetHistoryWrap" class="budget-mini-list"></div></div></div></div>`;
+    document.body.appendChild(backdrop);
+
+    const erroBox = $("#erroModalBudget", backdrop);
+    const fechar = () => document.body.removeChild(backdrop);
+    $("#fecharModalBudget", backdrop).addEventListener("click", fechar);
+
+    const state = { pipeline: null, budgets: [], currentBudgetId: null, items: [] };
+    const clientName = $("#budgetClientName", backdrop);
+    const clientPhone = $("#budgetClientPhone", backdrop);
+    const description = $("#budgetDescription", backdrop);
+    const discount = $("#budgetDiscount", backdrop);
+    const itemsWrap = $("#budgetItemsWrap", backdrop);
+    const historyWrap = $("#budgetHistoryWrap", backdrop);
+    const subtotalEl = $("#budgetSubtotal", backdrop);
+    const totalEl = $("#budgetTotal", backdrop);
+
+    function setError(msg) { erroBox.textContent = msg || ""; erroBox.classList.toggle("show", !!msg); }
+
+    function recalc() {
+      state.items.forEach(item => { item.quantity = parseNumber(item.quantity); item.unit_price = parseNumber(item.unit_price); item.total_price = Number((item.quantity * item.unit_price).toFixed(2)); });
+      const subtotal = state.items.reduce((acc, item) => acc + Number(item.total_price || 0), 0);
+      const disc = parseNumber(discount.value);
+      const total = Math.max(0, subtotal - disc);
+      subtotalEl.textContent = money(subtotal);
+      totalEl.textContent = money(total);
+      return { subtotal, total, discount_value: disc };
+    }
+
+    function renderItems() {
+      if (!state.items.length) { itemsWrap.innerHTML = '<div class="empty">Nenhum item adicionado.</div>'; recalc(); return; }
+      itemsWrap.innerHTML = `<table class="budget-items-table"><thead><tr><th>Tipo</th><th>Descrição</th><th>Qtd</th><th>Vr. Unit.</th><th>Total</th><th></th></tr></thead><tbody>${state.items.map((item, idx) => `<tr><td><select class="select js-item-type" data-idx="${idx}"><option value="servico" ${item.item_type === "servico" ? "selected" : ""}>Serviço</option><option value="produto" ${item.item_type === "produto" ? "selected" : ""}>Produto</option></select></td><td><input class="field js-item-desc" data-idx="${idx}" value="${escapeHtml(item.description || "")}"></td><td><input class="field js-item-qty" data-idx="${idx}" type="number" step="0.001" min="0" value="${escapeHtml(item.quantity || 1)}"></td><td><input class="field js-item-unit" data-idx="${idx}" type="number" step="0.01" min="0" value="${escapeHtml(item.unit_price || 0)}"></td><td>${money(item.total_price || 0)}</td><td><div class="budget-row-actions"><button class="btn btn-ghost js-item-del" data-idx="${idx}">Remover</button></div></td></tr>`).join("")}</tbody></table>`;
+      $all(".js-item-type", itemsWrap).forEach(el => el.addEventListener("change", e => { const idx = Number(e.target.getAttribute("data-idx")); state.items[idx].item_type = e.target.value; }));
+      $all(".js-item-desc", itemsWrap).forEach(el => el.addEventListener("input", e => { const idx = Number(e.target.getAttribute("data-idx")); state.items[idx].description = e.target.value; }));
+      $all(".js-item-qty", itemsWrap).forEach(el => el.addEventListener("input", e => { const idx = Number(e.target.getAttribute("data-idx")); state.items[idx].quantity = parseNumber(e.target.value); renderItems(); }));
+      $all(".js-item-unit", itemsWrap).forEach(el => el.addEventListener("input", e => { const idx = Number(e.target.getAttribute("data-idx")); state.items[idx].unit_price = parseNumber(e.target.value); renderItems(); }));
+      $all(".js-item-del", itemsWrap).forEach(el => el.addEventListener("click", e => { const idx = Number(e.target.getAttribute("data-idx")); state.items.splice(idx, 1); renderItems(); }));
       recalc();
     }
-    function loadForm(b,items){ state.budgetId=b?b.id:null; clientName.value=b?.client_name||ticket.client_name||""; clientPhone.value=b?.client_phone||ticket.client_phone||""; desc.value=b?.description||ticket.description||""; discount.value=String(b?.discount_value||0); state.items=(items||[]).map(x=>({item_type:x.item_type||"servico",description:x.description||"",quantity:Number(x.quantity||1),unit_price:Number(x.unit_price||0),total_price:Number(x.total_price||0)})); renderItems(); }
-    async function refreshData(){ setError(""); state.pipeline=await ensurePipeline(ctx,ticket); state.budgets=await loadBudgets(ctx,ticket.id); if(state.budgets.length){ const first=state.budgets[0]; const items=await loadItems(ctx,first.id); loadForm(first,items);} else loadForm(null,[]); history.innerHTML=state.budgets.length?state.budgets.map(b=>`<div class="budget-mini-card"><div class="budget-mini-top"><div><strong>Versão ${esc(b.version||1)}</strong><div class="budget-small">${esc(dt(b.created_at))}</div></div><div>${badge(b.status)}</div></div><div class="budget-small">Total: ${money(b.total||0)}</div><div class="modal-actions" style="margin-top:10px;"><button class="btn btn-secondary jsLoad" data-id="${b.id}">Carregar</button></div></div>`).join(""):`<div class="empty">Nenhum orçamento salvo ainda.</div>`; $all(".jsLoad",history).forEach(btn=>btn.addEventListener("click", async()=>{ const b=state.budgets.find(x=>x.id===btn.dataset.id); if(!b)return; const items=await loadItems(ctx,b.id); loadForm(b,items); })); }
-    async function doSave(status){ try{ setError(""); if(!state.pipeline) state.pipeline=await ensurePipeline(ctx,ticket); const calc=recalc(); if(!state.items.length) throw new Error("Adicione pelo menos um item no orçamento."); if(state.items.some(x=>!String(x.description||"").trim())) throw new Error("Todos os itens precisam ter descrição."); const current=state.budgets.find(b=>b.id===state.budgetId)||null; const nextVer=current?current.version:((state.budgets.length?Math.max(...state.budgets.map(x=>Number(x.version||1))):0)+1); const id=await saveBudget(ctx,{id:state.budgetId,ticket_id:ticket.id,pipeline_id:state.pipeline.id,customer_id:ticket.customer_id||null,client_name:clientName.value.trim(),client_phone:clientPhone.value.trim(),description:desc.value.trim(),subtotal:calc.subtotal,discount_value:calc.discount_value,total:calc.total,status,version:nextVer},state.items); state.budgetId=id; if(status==="approved") await ctx.sb.db.from("budgets").update({approved_at:new Date().toISOString()}).eq("id",id).eq("company_id",ctx.companyId); await refreshData(); if(typeof refresh==="function") await refresh(); alert(status==="draft"?"Rascunho salvo.":status==="sent"?"Orçamento marcado como enviado.":status==="approved"?"Orçamento aprovado.":status==="rejected"?"Orçamento rejeitado.":"Orçamento salvo."); } catch(e){ setError(e.message||String(e)); } }
-    $("#addServico",back).addEventListener("click",()=>{ state.items.push({item_type:"servico",description:"",quantity:1,unit_price:0,total_price:0}); renderItems(); });
-    $("#addProduto",back).addEventListener("click",()=>{ state.items.push({item_type:"produto",description:"",quantity:1,unit_price:0,total_price:0}); renderItems(); });
-    $("#novoRascunho",back).addEventListener("click",()=>{ state.budgetId=null; desc.value=ticket.description||""; discount.value="0"; state.items=[]; renderItems(); });
-    discount.addEventListener("input",recalc);
-    $("#saveDraft",back).addEventListener("click",()=>doSave("draft"));
-    $("#markSent",back).addEventListener("click",()=>doSave("sent"));
-    $("#markApproved",back).addEventListener("click",()=>doSave("approved"));
-    $("#markRejected",back).addEventListener("click",()=>doSave("rejected"));
-    $("#convertOs",back).addEventListener("click",async()=>{ try{ setError(""); const cur=state.budgets.find(x=>x.id===state.budgetId); if(!cur) throw new Error("Salve o orçamento antes de converter em OS."); if(!["approved","converted"].includes(String(cur.status||"").toLowerCase())) throw new Error("A OS só pode ser criada a partir de orçamento aprovado."); const osId=await convertToOs(ctx,cur,ticket); await refreshData(); if(typeof refresh==="function") await refresh(); alert("OS criada com sucesso. ID: "+osId); }catch(e){ setError(e.message||String(e)); }});
+
+    function loadBudgetIntoForm(budget, items) {
+      state.currentBudgetId = budget ? budget.id : null;
+      clientName.value = budget?.client_name || ticket.client_name || "";
+      clientPhone.value = budget?.client_phone || ticket.client_phone || "";
+      description.value = budget?.description || ticket.description || "";
+      discount.value = String(budget?.discount_value || 0);
+      state.items = (items || []).map(item => ({ item_type: item.item_type || "servico", description: item.description || "", quantity: Number(item.quantity || 1), unit_price: Number(item.unit_price || 0), total_price: Number(item.total_price || 0) }));
+      renderItems();
+    }
+
+    function renderHistory() {
+      if (!state.budgets.length) { historyWrap.innerHTML = '<div class="empty">Nenhum orçamento salvo ainda.</div>'; return; }
+      historyWrap.innerHTML = state.budgets.map(b => `<div class="budget-mini-card"><div class="budget-mini-top"><div><strong>Versão ${escapeHtml(b.version || 1)}</strong><div class="budget-small">${escapeHtml(fmtDateTime(b.created_at))}</div></div><div>${badge(budgetStatusLabel(b.status))}</div></div><div class="budget-small">Descrição: ${escapeHtml((b.description || "").slice(0, 100) || "—")}</div><div class="budget-small">Total: ${money(b.total || 0)}</div><div class="budget-small">Etapa: ${badge(stageLabel(b.pipeline_stage || "orcamento"))}</div><div class="modal-actions" style="margin-top:10px;"><button class="btn btn-secondary js-load-budget" data-id="${b.id}">Carregar</button></div></div>`).join("");
+      $all(".js-load-budget", historyWrap).forEach(btn => btn.addEventListener("click", async () => { const budgetId = btn.getAttribute("data-id"); const budget = state.budgets.find(x => x.id === budgetId); if (!budget) return; const items = await loadBudgetItems(ctx, budget.id); loadBudgetIntoForm(budget, items); }));
+    }
+
+    async function refreshData() {
+      try {
+        setError("");
+        state.pipeline = await ensurePipeline(ctx, ticket);
+        state.budgets = await loadBudgets(ctx, ticket.id);
+        if (state.budgets.length) { const first = state.budgets[0]; const items = await loadBudgetItems(ctx, first.id); loadBudgetIntoForm(first, items); } else { loadBudgetIntoForm(null, []); }
+        state.budgets = state.budgets.map(b => ({ ...b, pipeline_stage: state.pipeline?.stage || "orcamento" }));
+        renderHistory();
+      } catch (e) { setError(e.message || String(e)); }
+    }
+
+    async function saveWithStatus(status) {
+      try {
+        setError("");
+        if (!state.pipeline) state.pipeline = await ensurePipeline(ctx, ticket);
+        const calc = recalc();
+        if (!state.items.length) throw new Error("Adicione pelo menos um item no orçamento.");
+        if (state.items.some(item => !String(item.description || "").trim())) throw new Error("Todos os itens precisam ter descrição.");
+        const existingVersions = state.budgets.length ? Math.max(...state.budgets.map(b => Number(b.version || 1))) : 0;
+        const current = state.budgets.find(b => b.id === state.currentBudgetId) || null;
+        const budgetId = await upsertBudget(ctx, { id: state.currentBudgetId, ticket_id: ticket.id, pipeline_id: state.pipeline.id, customer_id: ticket.customer_id || null, client_name: clientName.value.trim(), client_phone: clientPhone.value.trim(), description: description.value.trim(), subtotal: calc.subtotal, discount_value: calc.discount_value, total: calc.total, status, version: current ? current.version : existingVersions + 1 }, state.items);
+        state.currentBudgetId = budgetId;
+        if (status === "approved") await ctx.sb.db.from("budgets").update({ approved_at: new Date().toISOString() }).eq("id", budgetId).eq("company_id", ctx.companyId);
+        await refreshData();
+        if (typeof refreshAfter === "function") await refreshAfter();
+        alert(status === "draft" ? "Rascunho salvo." : status === "sent" ? "Orçamento marcado como enviado." : status === "approved" ? "Orçamento aprovado." : status === "rejected" ? "Orçamento rejeitado." : "Orçamento salvo.");
+      } catch (e) { setError(e.message || String(e)); }
+    }
+
+    $("#btnAddServico", backdrop).addEventListener("click", () => { state.items.push({ item_type: "servico", description: "", quantity: 1, unit_price: 0, total_price: 0 }); renderItems(); });
+    $("#btnAddProduto", backdrop).addEventListener("click", () => { state.items.push({ item_type: "produto", description: "", quantity: 1, unit_price: 0, total_price: 0 }); renderItems(); });
+    $("#btnNovoRascunho", backdrop).addEventListener("click", () => { state.currentBudgetId = null; description.value = ticket.description || ""; discount.value = "0"; state.items = []; renderItems(); });
+    discount.addEventListener("input", recalc);
+    $("#btnSalvarRascunho", backdrop).addEventListener("click", () => saveWithStatus("draft"));
+    $("#btnEnviarOrcamento", backdrop).addEventListener("click", () => saveWithStatus("sent"));
+    $("#btnAprovarOrcamento", backdrop).addEventListener("click", () => saveWithStatus("approved"));
+    $("#btnRejeitarOrcamento", backdrop).addEventListener("click", () => saveWithStatus("rejected"));
+    $("#btnConverterOs", backdrop).addEventListener("click", async () => {
+      try {
+        setError("");
+        const current = state.budgets.find(b => b.id === state.currentBudgetId);
+        if (!current) throw new Error("Salve o orçamento antes de converter em OS.");
+        if (!["approved", "converted"].includes(String(current.status || "").toLowerCase())) throw new Error("A OS só pode ser criada a partir de orçamento aprovado.");
+        const osId = await convertBudgetToServiceOrder(ctx, current, ticket);
+        await refreshData();
+        if (typeof refreshAfter === "function") await refreshAfter();
+        alert("OS criada com sucesso. ID: " + osId);
+      } catch (e) { setError(e.message || String(e)); }
+    });
+
     refreshData();
   }
-  window.ModuloBudgets={ abrirModalOrcamento, renderBudgetsResumoHtml, ensurePipeline };
+
+  async function listarTelaOrcamentos(ctx) {
+    injectCss();
+    const alvo = document.getElementById(ctx.areaId);
+    if (!alvo) return;
+    alvo.innerHTML = '<div class="panel"><h2>Orçamentos</h2><div class="panel-sub">Use o Pipeline Comercial ou gere um orçamento a partir de Chamados.</div><div id="orcamentosListaWrap" class="budget-mini-list"></div></div>';
+    const budgets = await ctx.sb.db.from("budgets").select("id, company_id, ticket_id, pipeline_id, client_name, client_phone, description, subtotal, discount_value, total, status, version, created_at, updated_at, approved_at").eq("company_id", ctx.companyId).order("created_at", { ascending: false });
+    const wrap = document.getElementById("orcamentosListaWrap");
+    if (budgets.error) { wrap.innerHTML = '<div class="empty">Falha ao carregar orçamentos.</div>'; return; }
+    wrap.innerHTML = budgets.data && budgets.data.length ? renderBudgetsResumoHtml(budgets.data) : '<div class="empty">Nenhum orçamento cadastrado ainda.</div>';
+  }
+
+  window.ModuloBudgets = { abrirModalOrcamento, renderBudgetsResumoHtml, ensurePipeline, listarTelaOrcamentos };
 })();
