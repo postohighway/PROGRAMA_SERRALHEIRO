@@ -1,28 +1,348 @@
 (function () {
   "use strict";
 
-  function moeda(valor){return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(valor||0));}
-  function inteiro(valor){return new Intl.NumberFormat("pt-BR").format(Number(valor||0));}
-  function inicioMes(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`;}
-  function mesesRetroativos(qtd){const itens=[];const hoje=new Date();for(let i=qtd-1;i>=0;i--){const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);itens.push({chave:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`,rotulo:d.toLocaleDateString("pt-BR",{month:"short",year:"2-digit"})});}return itens;}
-  function normalizarStatus(s){return String(s||"").trim().toLowerCase();}
-  function somar(arr,campo){return (arr||[]).reduce((a,i)=>a+Number(i&&i[campo]?i[campo]:0),0);}
-  function countWhere(arr,fn){return (arr||[]).filter(fn).length;}
-  function panel(title,subtitle,body){return `<div class="panel"><h2>${title}</h2>${subtitle?`<div class="panel-sub">${subtitle}</div>`:""}${body}</div>`;}
-  function linhaLista(topLeft,topRight,main,sub){return `<div class="line-item"><div class="line-top"><div>${topLeft||"—"}</div><div>${topRight||""}</div></div><div>${main||"—"}</div>${sub?`<div class="muted" style="margin-top:6px;">${sub}</div>`:""}</div>`;}
-  function statusLabel(s){const st=normalizarStatus(s);const mapa={aberto:"Aberto",em_analise:"Em análise",em_andamento:"Em andamento",aguardando_cliente:"Aguardando cliente",finalizado:"Finalizado",cancelado:"Cancelado",draft:"Rascunho",sent:"Enviado",rascunho:"Rascunho",enviado:"Enviado",aprovada:"Aprovada",aprovado:"Aprovado",aberta:"Aberta",producao:"Produção","produção":"Produção"};return mapa[st]||String(s||"—");}
-  async function fetchAll(db,table,columns,companyId,extraBuilder){let query=db.from(table).select(columns).eq("company_id",companyId);if(typeof extraBuilder==="function")query=extraBuilder(query);const r=await query;if(r.error)throw r.error;return r.data||[];}
-  function renderCards(resumo){return `<div class="cards" style="grid-template-columns:repeat(7,minmax(0,1fr));"><div class="card"><div class="card-label">Chamados Abertos</div><div class="card-value">${inteiro(resumo.chamadosAbertos)}</div></div><div class="card"><div class="card-label">Em Análise</div><div class="card-value">${inteiro(resumo.chamadosAnalise)}</div></div><div class="card"><div class="card-label">Ordens em Produção</div><div class="card-value">${inteiro(resumo.ordensProducao)}</div></div><div class="card"><div class="card-label">Orçamentos Pendentes</div><div class="card-value">${inteiro(resumo.orcamentosPendentes)}</div></div><div class="card"><div class="card-label">Receita do Mês</div><div class="card-value">${moeda(resumo.receitaMes)}</div></div><div class="card"><div class="card-label">Despesa do Mês</div><div class="card-value">${moeda(resumo.despesaMes)}</div></div><div class="card"><div class="card-label">Lucro do Mês</div><div class="card-value">${moeda(resumo.lucroMes)}</div></div></div>`;}
-  function renderAlertas(alertas){if(!alertas.length)return `<div class="empty">Nenhum alerta gerencial no momento.</div>`;return `<div class="list-lines">${alertas.map((a)=>linhaLista(a.tipo,a.nivel,a.titulo,a.texto)).join("")}</div>`;}
-  function renderUltimosChamados(items){if(!items.length)return `<div class="empty">Nenhum chamado recente encontrado.</div>`;return `<div class="list-lines">${items.map((c)=>linhaLista(c.created_at?new Date(c.created_at).toLocaleDateString("pt-BR"):"—",`<span class="status-pill status-${normalizarStatus(c.status)}">${statusLabel(c.status)}</span>`,`${c.client_name||"Sem nome"} — ${c.description||"Sem descrição"}`,c.client_phone||"")).join("")}</div>`;}
-  function renderPagamentos(items){if(!items.length)return `<div class="empty">Nenhuma movimentação recente encontrada.</div>`;return `<div class="list-lines">${items.map((m)=>linhaLista(m.data||"—",m.valor||"",m.titulo||"—",m.sub||"")).join("")}</div>`;}
-  function renderContas(items){if(!items.length)return `<div class="empty">Nenhuma conta em aberto próxima do vencimento.</div>`;return `<div class="list-lines">${items.map((d)=>linhaLista(d.due_date?new Date(d.due_date+"T00:00:00").toLocaleDateString("pt-BR"):"—",moeda(d.amount||0),d.desc||d.category||"Despesa",d.category||"")).join("")}</div>`;}
-  function montarResumo(tickets,quotes,workorders,txs,payments){const chamadosAbertos=countWhere(tickets,(x)=>["aberto"].includes(normalizarStatus(x.status)));const chamadosAnalise=countWhere(tickets,(x)=>["em_analise"].includes(normalizarStatus(x.status)));const ordensProducao=countWhere(workorders,(x)=>["aberta","em_andamento","produção","producao"].includes(normalizarStatus(x.status)));const orcamentosPendentes=countWhere(quotes,(x)=>["draft","sent","rascunho","enviado"].includes(normalizarStatus(x.status)));let receitaMes=0;let despesaMes=0;if(txs.length){receitaMes=txs.filter((x)=>normalizarStatus(x.status)!=="cancelado"&&normalizarStatus(x.type)==="receber").reduce((a,i)=>a+Number(i.amount||0),0);despesaMes=txs.filter((x)=>normalizarStatus(x.status)!=="cancelado"&&normalizarStatus(x.type)==="pagar").reduce((a,i)=>a+Number(i.amount||0),0);}else{receitaMes=somar(payments,"amount");}return {chamadosAbertos,chamadosAnalise,ordensProducao,orcamentosPendentes,receitaMes,despesaMes,lucroMes:receitaMes-despesaMes};}
-  function montarAlertas(tickets,quotes,workorders,despesasAbertas){const alertas=[];const aguardandoCliente=countWhere(tickets,(x)=>normalizarStatus(x.status)==="aguardando_cliente");const emAndamento=countWhere(tickets,(x)=>normalizarStatus(x.status)==="em_andamento");const orcPend=countWhere(quotes,(x)=>["draft","sent","rascunho","enviado"].includes(normalizarStatus(x.status)));const osProd=countWhere(workorders,(x)=>["aberta","em_andamento","produção","producao"].includes(normalizarStatus(x.status)));if(aguardandoCliente>0)alertas.push({tipo:"Chamados",nivel:"Atenção",titulo:`${aguardandoCliente} chamado(s) aguardando cliente`,texto:"Verificar retorno do cliente para não travar o fluxo operacional."});if(orcPend>0)alertas.push({tipo:"Orçamentos",nivel:"Comercial",titulo:`${orcPend} orçamento(s) pendente(s)`,texto:"Pode haver oportunidade parada aguardando follow-up."});if(osProd>0)alertas.push({tipo:"Produção",nivel:"Operação",titulo:`${osProd} ordem(ns) em produção`,texto:"Acompanhar prazos e compras vinculadas às OS em aberto."});if(despesasAbertas.length>0)alertas.push({tipo:"Financeiro",nivel:"Vencimento",titulo:`${despesasAbertas.length} conta(s) a pagar próxima(s) do vencimento`,texto:"Priorizar conferência das despesas em aberto dos próximos 7 dias."});if(emAndamento>0)alertas.push({tipo:"Atendimento",nivel:"Execução",titulo:`${emAndamento} chamado(s) em andamento`,texto:"Acompanhar evolução técnica para evitar represamento."});return alertas;}
-  function agruparTicketsPorMes(tickets,meses){const mapa={};meses.forEach((m)=>mapa[m.chave]=0);tickets.forEach((t)=>{if(!t.created_at)return;const d=new Date(t.created_at);const chave=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;if(Object.prototype.hasOwnProperty.call(mapa,chave))mapa[chave]+=1;});return meses.map((m)=>mapa[m.chave]||0);}
-  function agruparFinanceiroPorMes(registros,meses,typeField,amountField,statusField){const receb={};const pag={};meses.forEach((m)=>{receb[m.chave]=0;pag[m.chave]=0;});registros.forEach((r)=>{const data=r.created_at||r.due_date||r.date;if(!data)return;const d=new Date(String(data).length<=10?data+"T00:00:00":data);const chave=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;if(!Object.prototype.hasOwnProperty.call(receb,chave))return;if(normalizarStatus(r[statusField])==="cancelado")return;const tipo=normalizarStatus(r[typeField]);const valor=Number(r[amountField]||0);if(tipo==="receber")receb[chave]+=valor;if(tipo==="pagar")pag[chave]+=valor;});return {receber:meses.map((m)=>receb[m.chave]||0),pagar:meses.map((m)=>pag[m.chave]||0)};}
-  function renderBase(areaId,resumo,alertas,ultimosChamados,movimentacoes,contasAbertas){const alvo=document.getElementById(areaId);if(!alvo)return;alvo.innerHTML=`${renderCards(resumo)}<div class="grid-2" style="margin-top:16px;">${panel("Chamados por Status","Distribuição atual do atendimento",`<div style="height:320px;"><canvas id="graficoChamadosStatus"></canvas></div>`)}${panel("Receita x Despesa","Evolução dos últimos 6 meses",`<div style="height:320px;"><canvas id="graficoFinanceiroMes"></canvas></div>`)}</div><div class="grid-2" style="margin-top:16px;">${panel("Chamados por Mês","Tendência recente do volume de tickets",`<div style="height:320px;"><canvas id="graficoChamadosMes"></canvas></div>`)}${panel("Alertas Gerenciais","Pontos de atenção da operação e do financeiro",renderAlertas(alertas))}</div><div class="grid-2" style="margin-top:16px;">${panel("Últimos Chamados","Atividade recente do atendimento",renderUltimosChamados(ultimosChamados))}${panel("Contas a Pagar Próximas","Despesas em aberto dos próximos 7 dias",renderContas(contasAbertas))}</div><div class="grid-2" style="margin-top:16px;">${panel("Movimentações Recentes","Recebimentos e pagamentos mais recentes",renderPagamentos(movimentacoes))}${panel("Resumo Executivo","Leitura rápida do momento atual do sistema",`<div class="list-lines">${linhaLista("Receita do mês",moeda(resumo.receitaMes),"Resultado operacional bruto",`Despesa do mês: ${moeda(resumo.despesaMes)}`)}${linhaLista("Lucro do mês",moeda(resumo.lucroMes),"Saldo operacional estimado","Receita menos despesa do mês atual")}${linhaLista("Atendimento",inteiro(resumo.chamadosAbertos+resumo.chamadosAnalise),"Chamados ativos",`${inteiro(resumo.chamadosAbertos)} abertos e ${inteiro(resumo.chamadosAnalise)} em análise`)}${linhaLista("Comercial",inteiro(resumo.orcamentosPendentes),"Orçamentos pendentes","Pipeline comercial aguardando fechamento")}${linhaLista("Produção",inteiro(resumo.ordensProducao),"Ordens em produção","Frente operacional em execução")}</div>`)}</div>`;}
-  function renderCharts(tickets,txs,payments){if(typeof window.Chart==="undefined")return;const statusMap={aberto:0,em_analise:0,em_andamento:0,aguardando_cliente:0,finalizado:0,cancelado:0};tickets.forEach((t)=>{const st=normalizarStatus(t.status);if(Object.prototype.hasOwnProperty.call(statusMap,st))statusMap[st]+=1;});const meses=mesesRetroativos(6);const ticketsPorMes=agruparTicketsPorMes(tickets,meses);const financeiroMes=txs.length?agruparFinanceiroPorMes(txs,meses,"type","amount","status"):agruparFinanceiroPorMes(payments.map((p)=>({created_at:p.created_at,type:"receber",amount:p.amount,status:"quitado"})),meses,"type","amount","status");const chartDefaults={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#edf4ff",font:{size:12,weight:"600"}}}},scales:{x:{ticks:{color:"#c8d8f4"},grid:{color:"rgba(36,59,97,.35)"}},y:{ticks:{color:"#c8d8f4"},grid:{color:"rgba(36,59,97,.35)"}}}};new window.Chart(document.getElementById("graficoChamadosStatus"),{type:"doughnut",data:{labels:["Aberto","Em análise","Em andamento","Aguardando cliente","Finalizado","Cancelado"],datasets:[{data:[statusMap.aberto,statusMap.em_analise,statusMap.em_andamento,statusMap.aguardando_cliente,statusMap.finalizado,statusMap.cancelado],backgroundColor:["#3d86ff","#f6b73c","#14c38e","#8d6bff","#20d3a6","#ff5d6c"],borderColor:"#07111f",borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{color:"#edf4ff"}}}}});new window.Chart(document.getElementById("graficoChamadosMes"),{type:"line",data:{labels:meses.map((m)=>m.rotulo),datasets:[{label:"Chamados",data:ticketsPorMes,borderColor:"#3d86ff",backgroundColor:"rgba(61,134,255,.18)",tension:0.28,fill:true}]},options:chartDefaults});new window.Chart(document.getElementById("graficoFinanceiroMes"),{type:"bar",data:{labels:meses.map((m)=>m.rotulo),datasets:[{label:"Receita",data:financeiroMes.receber,backgroundColor:"rgba(20,195,142,.78)",borderColor:"#14c38e",borderWidth:1},{label:"Despesa",data:financeiroMes.pagar,backgroundColor:"rgba(255,93,108,.72)",borderColor:"#ff5d6c",borderWidth:1}]},options:chartDefaults});}
-  async function renderizarDashboard(opts){const areaId=opts&&opts.areaId?opts.areaId:"conteudoTela";const sb=opts&&opts.sb?opts.sb:window.sb;const setErro=opts&&opts.setErro?opts.setErro:function(){};const setInfo=opts&&opts.setInfo?opts.setInfo:function(){};const setTitulo=opts&&opts.setTitulo?opts.setTitulo:function(){};setTitulo("Dashboard","Painel executivo da operação");setErro("");setInfo("");const alvo=document.getElementById(areaId);if(!alvo)return;alvo.innerHTML=panel("Dashboard","Carregando indicadores executivos...",`<div class="placeholder-big">Aguarde, carregando dados do sistema...</div>`);if(!(sb&&sb.db&&sb.companyId)){setInfo("Conexão carregada, mas companyId ainda não está disponível.");return;}try{const inicio=inicioMes();const hoje=new Date();const daqui7=new Date();daqui7.setDate(hoje.getDate()+7);const [tickets,quotes,workorders,txs,payments]=await Promise.all([fetchAll(sb.db,"tickets","id, status, created_at, client_name, client_phone, description",sb.companyId),fetchAll(sb.db,"quotes","id, status, created_at, customer_name, notes",sb.companyId).catch(()=>[]),fetchAll(sb.db,"workorders","id, status, created_at, title, customer_name",sb.companyId).catch(()=>[]),fetchAll(sb.db,"txs","id, type, status, amount, category, desc, created_at, due_date",sb.companyId,(q)=>q.gte("created_at",`${inicio}T00:00:00`)).catch(()=>[]),fetchAll(sb.db,"payments","id, amount, created_at",sb.companyId,(q)=>q.gte("created_at",`${inicio}T00:00:00`)).catch(()=>[])]);const resumo=montarResumo(tickets,quotes,workorders,txs,payments);const despesasAbertas=txs.filter((x)=>{const due=x.due_date?new Date(x.due_date+"T00:00:00"):null;return normalizarStatus(x.type)==="pagar"&&normalizarStatus(x.status)==="aberto"&&due&&due<=daqui7;}).sort((a,b)=>String(a.due_date||"").localeCompare(String(b.due_date||"")));const alertas=montarAlertas(tickets,quotes,workorders,despesasAbertas);const ultimosChamados=[...tickets].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,5);const movimentacoes=[...txs.map((x)=>({data:x.created_at?new Date(x.created_at).toLocaleDateString("pt-BR"):"—",valor:moeda(x.amount||0),titulo:`${normalizarStatus(x.type)==="pagar"?"Despesa":"Recebimento"} — ${x.desc||x.category||"Sem descrição"}`,sub:`${statusLabel(x.status)}${x.category?" • "+x.category:""}`})),...payments.map((x)=>({data:x.created_at?new Date(x.created_at).toLocaleDateString("pt-BR"):"—",valor:moeda(x.amount||0),titulo:"Recebimento registrado",sub:"Tabela payments"}))].slice(0,6);renderBase(areaId,resumo,alertas,ultimosChamados,movimentacoes,despesasAbertas);renderCharts(tickets,txs,payments);}catch(erro){setErro("Falha ao carregar dashboard: "+(erro.message||erro));alvo.innerHTML=panel("Dashboard","Não foi possível montar o painel executivo.",`<div class="placeholder-big">Verifique as tabelas usadas pelo dashboard e tente novamente.</div>`);}}
-  window.ModuloDashboard={renderizarDashboard};
+  function fmtInt(v) {
+    return new Intl.NumberFormat("pt-BR").format(Number(v || 0));
+  }
+
+  function fmtMoney(v) {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL"
+    }).format(Number(v || 0));
+  }
+
+  function norm(v) {
+    return String(v || "").trim().toLowerCase();
+  }
+
+  function todayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
+  function plusDays(iso, days) {
+    const d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
+  function panel(title, subtitle, body) {
+    return `<div class="panel"><h2>${title}</h2>${subtitle ? `<div class="panel-sub">${subtitle}</div>` : ""}${body}</div>`;
+  }
+
+  function row(a, b, c, d) {
+    return `<div class="line-item"><div class="line-top"><div>${a || "—"}</div><div>${b || ""}</div></div><div>${c || "—"}</div>${d ? `<div class="muted" style="margin-top:6px;">${d}</div>` : ""}</div>`;
+  }
+
+  function badge(status) {
+    const s = norm(status);
+    let cls = "status-pill";
+    if (["ativo", "finalizado", "quitado", "pago"].includes(s)) cls += " status-finalizado";
+    else if (["suspenso", "em_analise", "aguardando_analise"].includes(s)) cls += " status-aguardando_analise";
+    else if (["cancelado"].includes(s)) cls += " status-cancelado";
+    else cls += " status-aberto";
+    return `<span class="${cls}">${status || "—"}</span>`;
+  }
+
+  async function safeSelect(db, table, columns, companyId, extraBuilder) {
+    try {
+      let q = db.from(table).select(columns).eq("company_id", companyId);
+      if (typeof extraBuilder === "function") q = extraBuilder(q);
+      const r = await q;
+      if (r.error) throw r.error;
+      return { ok: true, data: r.data || [] };
+    } catch (e) {
+      return { ok: false, error: e };
+    }
+  }
+
+  function monthsBack(count) {
+    const out = [];
+    const now = new Date();
+    for (let i = count - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+      out.push({ key, label });
+    }
+    return out;
+  }
+
+  function aggregateCountByMonth(items, field, months) {
+    const map = {};
+    months.forEach(m => map[m.key] = 0);
+    (items || []).forEach(item => {
+      const raw = item[field];
+      if (!raw) return;
+      const d = new Date(String(raw).length <= 10 ? raw + "T00:00:00" : raw);
+      if (Number.isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      if (key in map) map[key] += 1;
+    });
+    return months.map(m => map[m.key] || 0);
+  }
+
+  function aggregateMoneyByMonth(items, fieldDate, fieldAmount, months) {
+    const map = {};
+    months.forEach(m => map[m.key] = 0);
+    (items || []).forEach(item => {
+      const raw = item[fieldDate];
+      if (!raw) return;
+      const d = new Date(String(raw).length <= 10 ? raw + "T00:00:00" : raw);
+      if (Number.isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      if (key in map) map[key] += Number(item[fieldAmount] || 0);
+    });
+    return months.map(m => map[m.key] || 0);
+  }
+
+  function renderContracts(contracts) {
+    if (!contracts.length) return `<div class="empty">Nenhum contrato ativo encontrado.</div>`;
+    return `<div class="list-lines">${contracts.slice(0, 8).map(c => row(
+      c.name || "Contrato",
+      badge(c.status),
+      `${c.customer_name || "Cliente"} • ${fmtMoney(c.amount || 0)}`,
+      [
+        c.next_billing_date ? `Próxima cobrança: ${new Date(c.next_billing_date + "T00:00:00").toLocaleDateString("pt-BR")}` : "",
+        c.sla_name || ""
+      ].filter(Boolean).join(" • ")
+    )).join("")}</div>`;
+  }
+
+  function renderReceivables(items) {
+    if (!items.length) return `<div class="empty">Nenhuma cobrança encontrada.</div>`;
+    return `<div class="list-lines">${items.slice(0, 8).map(r => row(
+      r.due_date ? new Date(r.due_date + "T00:00:00").toLocaleDateString("pt-BR") : "—",
+      badge(r.paid ? "pago" : "aberto"),
+      `${r.customer_name || "Cliente"} • ${fmtMoney(r.amount || 0)}`,
+      r.contract_name ? `Contrato: ${r.contract_name}` : ""
+    )).join("")}</div>`;
+  }
+
+  function renderTickets(items) {
+    if (!items.length) return `<div class="empty">Nenhum chamado recente.</div>`;
+    return `<div class="list-lines">${items.slice(0, 8).map(t => row(
+      t.created_at ? new Date(t.created_at).toLocaleDateString("pt-BR") : "—",
+      badge(t.status),
+      `${t.client_name || "Sem nome"}${t.client_phone ? " — " + t.client_phone : ""}`,
+      t.description || ""
+    )).join("")}</div>`;
+  }
+
+  function drawCharts(months, metrics) {
+    if (typeof window.Chart === "undefined") return;
+
+    const common = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: "#edf4ff" } } },
+      scales: {
+        x: { ticks: { color: "#c8d8f4" }, grid: { color: "rgba(36,59,97,.35)" } },
+        y: { ticks: { color: "#c8d8f4" }, grid: { color: "rgba(36,59,97,.35)" } }
+      }
+    };
+
+    const a = document.getElementById("grafTicketsMes");
+    if (a) {
+      new window.Chart(a, {
+        type: "line",
+        data: {
+          labels: months.map(m => m.label),
+          datasets: [{
+            label: "Chamados",
+            data: metrics.ticketsByMonth,
+            borderColor: "#3d86ff",
+            backgroundColor: "rgba(61,134,255,.18)",
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: common
+      });
+    }
+
+    const b = document.getElementById("grafMRRMes");
+    if (b) {
+      new window.Chart(b, {
+        type: "bar",
+        data: {
+          labels: months.map(m => m.label),
+          datasets: [{
+            label: "Receita recorrente",
+            data: metrics.contractRevenueByMonth,
+            backgroundColor: "rgba(20,195,142,.78)",
+            borderColor: "#14c38e",
+            borderWidth: 1
+          }]
+        },
+        options: common
+      });
+    }
+
+    const c = document.getElementById("grafRecebiveis");
+    if (c) {
+      new window.Chart(c, {
+        type: "doughnut",
+        data: {
+          labels: ["Em aberto", "Pagos"],
+          datasets: [{
+            data: [metrics.openReceivables, metrics.paidReceivables],
+            backgroundColor: ["#f6b73c", "#14c38e"],
+            borderColor: "#07111f",
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: "bottom", labels: { color: "#edf4ff" } } }
+        }
+      });
+    }
+  }
+
+  async function renderizarDashboard(opts) {
+    const areaId = opts && opts.areaId ? opts.areaId : "conteudoTela";
+    const sb = opts && opts.sb ? opts.sb : window.sb;
+    const setErro = opts && opts.setErro ? opts.setErro : function(){};
+    const setInfo = opts && opts.setInfo ? opts.setInfo : function(){};
+    const setTitulo = opts && opts.setTitulo ? opts.setTitulo : function(){};
+
+    setTitulo("Dashboard", "Painel executivo SaaS do sistema");
+    setErro("");
+    setInfo("");
+
+    const alvo = document.getElementById(areaId);
+    if (!alvo) return;
+
+    alvo.innerHTML = panel("Dashboard", "Carregando indicadores executivos...", `<div class="placeholder-big">Aguarde, consolidando operação, contratos e financeiro.</div>`);
+
+    if (!(sb && sb.db && sb.companyId)) {
+      setInfo("Conexão carregada, mas companyId ainda não está disponível.");
+      return;
+    }
+
+    try {
+      const hoje = todayISO();
+      const limite7 = plusDays(hoje, 7);
+
+      const [ticketsResp, customersResp, contractsResp, slaResp, receivablesResp] = await Promise.all([
+        safeSelect(sb.db, "tickets", "id, created_at, client_name, client_phone, description, status, customer_id", sb.companyId),
+        safeSelect(sb.db, "customers", "id, name, phone, created_at", sb.companyId),
+        safeSelect(sb.db, "contracts", "id, customer_id, sla_plan_id, start_date, next_billing_date, status, name, amount, created_at", sb.companyId),
+        safeSelect(sb.db, "sla_plans", "id, name, hours_to_expire, created_at", sb.companyId),
+        safeSelect(sb.db, "receivables", "id, contract_id, due_date, amount, paid, paid_at, customer_id, created_at", sb.companyId)
+      ]);
+
+      const tickets = ticketsResp.ok ? ticketsResp.data : [];
+      const customers = customersResp.ok ? customersResp.data : [];
+      const contracts = contractsResp.ok ? contractsResp.data : [];
+      const slaPlans = slaResp.ok ? slaResp.data : [];
+      const receivables = receivablesResp.ok ? receivablesResp.data : [];
+
+      const customerMap = {};
+      customers.forEach(c => { customerMap[c.id] = c; });
+      const slaMap = {};
+      slaPlans.forEach(s => { slaMap[s.id] = s; });
+      const contractMap = {};
+      contracts.forEach(c => { contractMap[c.id] = c; });
+
+      const activeContracts = contracts.filter(c => norm(c.status) === "ativo");
+      const suspendedContracts = contracts.filter(c => norm(c.status) === "suspenso");
+      const canceledContracts = contracts.filter(c => norm(c.status) === "cancelado");
+
+      const mrr = activeContracts.reduce((acc, c) => acc + Number(c.amount || 0), 0);
+      const paidReceivables = receivables.filter(r => !!r.paid).length;
+      const openReceivables = receivables.filter(r => !r.paid).length;
+      const overdueReceivables = receivables.filter(r => !r.paid && r.due_date && String(r.due_date) < hoje).length;
+      const dueSoonReceivables = receivables.filter(r => !r.paid && r.due_date && String(r.due_date) >= hoje && String(r.due_date) <= limite7).length;
+
+      const openTickets = tickets.filter(t => ["aberto", "open"].includes(norm(t.status))).length;
+      const analysisTickets = tickets.filter(t => ["em_analise", "aguardando_analise"].includes(norm(t.status))).length;
+      const progressTickets = tickets.filter(t => norm(t.status) === "em_andamento").length;
+
+      const recurringCustomers = new Set(activeContracts.map(c => c.customer_id).filter(Boolean)).size;
+      const avulsoKeys = new Set();
+      tickets.forEach(t => {
+        if (t.customer_id && activeContracts.some(c => c.customer_id === t.customer_id)) return;
+        const key = `${String(t.client_name || "").trim().toLowerCase()}||${String(t.client_phone || "").trim()}`;
+        if (key !== "||") avulsoKeys.add(key);
+      });
+      const avulsoClients = avulsoKeys.size;
+
+      const months = monthsBack(6);
+      const ticketsByMonth = aggregateCountByMonth(tickets, "created_at", months);
+      const contractRevenueByMonth = aggregateMoneyByMonth(activeContracts, "start_date", "amount", months);
+
+      const contractsView = activeContracts.map(c => ({
+        ...c,
+        customer_name: customerMap[c.customer_id] ? customerMap[c.customer_id].name : "",
+        sla_name: slaMap[c.sla_plan_id] ? `${slaMap[c.sla_plan_id].name} • ${slaMap[c.sla_plan_id].hours_to_expire || 0}h` : ""
+      })).sort((a, b) => String(a.next_billing_date || "").localeCompare(String(b.next_billing_date || "")));
+
+      const receivablesView = receivables.map(r => ({
+        ...r,
+        contract_name: contractMap[r.contract_id] ? contractMap[r.contract_id].name : "",
+        customer_name: customerMap[r.customer_id] ? customerMap[r.customer_id].name : ""
+      })).sort((a, b) => String(b.due_date || "").localeCompare(String(a.due_date || "")));
+
+      const latestTickets = [...tickets].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+
+      alvo.innerHTML = `
+        <div class="cards" style="grid-template-columns:repeat(6,minmax(0,1fr));">
+          <div class="card"><div class="card-label">MRR</div><div class="card-value">${fmtMoney(mrr)}</div></div>
+          <div class="card"><div class="card-label">Contratos Ativos</div><div class="card-value">${fmtInt(activeContracts.length)}</div></div>
+          <div class="card"><div class="card-label">Cobranças em Aberto</div><div class="card-value">${fmtInt(openReceivables)}</div></div>
+          <div class="card"><div class="card-label">Chamados Abertos</div><div class="card-value">${fmtInt(openTickets)}</div></div>
+          <div class="card"><div class="card-label">Clientes Recorrentes</div><div class="card-value">${fmtInt(recurringCustomers)}</div></div>
+          <div class="card"><div class="card-label">Clientes Avulsos</div><div class="card-value">${fmtInt(avulsoClients)}</div></div>
+        </div>
+
+        <div class="grid-2" style="margin-top:16px;">
+          ${panel("Chamados por Mês", "Evolução da operação", `<div style="height:320px;"><canvas id="grafTicketsMes"></canvas></div>`)}
+          ${panel("Receita Recorrente", "Base mensal de contratos ativos", `<div style="height:320px;"><canvas id="grafMRRMes"></canvas></div>`)}
+        </div>
+
+        <div class="grid-2" style="margin-top:16px;">
+          ${panel("Cobranças", "Situação aberta x paga", `<div style="height:320px;"><canvas id="grafRecebiveis"></canvas></div>`)}
+          ${panel("Resumo Executivo", "Indicadores principais do negócio", `<div class="list-lines">
+            ${row("MRR", fmtMoney(mrr), "Receita mensal recorrente", `Contratos ativos: ${fmtInt(activeContracts.length)}`)}
+            ${row("Cobranças", fmtInt(openReceivables), "Cobranças em aberto", `Vencidas: ${fmtInt(overdueReceivables)} • 7 dias: ${fmtInt(dueSoonReceivables)}`)}
+            ${row("SLA", fmtInt(openTickets), "Chamados abertos", `Em análise: ${fmtInt(analysisTickets)} • Em andamento: ${fmtInt(progressTickets)}`)}
+            ${row("Base", fmtInt(recurringCustomers), "Clientes recorrentes", `Avulsos: ${fmtInt(avulsoClients)}`)}
+          </div>`)}
+        </div>
+
+        <div class="grid-2" style="margin-top:16px;">
+          ${panel("Contratos Ativos", "Clientes recorrentes e próxima cobrança", renderContracts(contractsView))}
+          ${panel("Cobranças Recentes", "Recebíveis vinculados a contratos", renderReceivables(receivablesView))}
+        </div>
+
+        <div class="grid-2" style="margin-top:16px;">
+          ${panel("Últimos Chamados", "Fila operacional recente", renderTickets(latestTickets))}
+          ${panel("Alertas", "Pontos de atenção do sistema", `<div class="list-lines">
+            ${row("Contratos", badge("ativo"), "Ativos / Suspensos / Cancelados", `${fmtInt(activeContracts.length)} / ${fmtInt(suspendedContracts.length)} / ${fmtInt(canceledContracts.length)}`)}
+            ${row("Recebíveis", badge("aberto"), "Cobranças vencidas", `${fmtInt(overdueReceivables)} vencida(s) • ${fmtInt(dueSoonReceivables)} vence(m) em 7 dias`)}
+            ${row("Tickets", badge("aberto"), "Abertos / Em análise / Em andamento", `${fmtInt(openTickets)} / ${fmtInt(analysisTickets)} / ${fmtInt(progressTickets)}`)}
+            ${row("Base comercial", badge("ativo"), "Recorrentes / Avulsos", `${fmtInt(recurringCustomers)} / ${fmtInt(avulsoClients)}`)}
+          </div>`)}
+        </div>
+      `;
+
+      drawCharts(months, {
+        ticketsByMonth,
+        contractRevenueByMonth,
+        openReceivables,
+        paidReceivables
+      });
+    } catch (erro) {
+      setErro("Falha ao carregar dashboard: " + (erro.message || erro));
+      alvo.innerHTML = panel("Dashboard", "Não foi possível montar o painel executivo.", `<div class="placeholder-big">Verifique acesso às tabelas tickets, customers, contracts, sla_plans e receivables.</div>`);
+    }
+  }
+
+  window.ModuloDashboard = {
+    renderizarDashboard: renderizarDashboard
+  };
 })();
