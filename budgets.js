@@ -48,23 +48,6 @@
     return r.data || [];
   }
 
-
-
-  async function syncTicketStatus(ctx, ticketId, status) {
-    if (!ticketId || !status) return;
-    const upd = await ctx.sb.db.from("tickets").update({ status }).eq("company_id", ctx.companyId).eq("id", ticketId);
-    if (upd.error) throw upd.error;
-  }
-
-  function getTicketStatusFromPipelineStage(stage) {
-    const s = String(stage || "").toLowerCase();
-    if (s === "diagnostico" || s === "orcamento") return "em_analise";
-    if (s === "aprovacao") return "aguardando_cliente";
-    if (s === "aprovado" || s === "execucao") return "em_andamento";
-    if (s === "faturado") return "finalizado";
-    return null;
-  }
-
   async function loadCatalog(ctx) {
     const r = await ctx.sb.db.from("products_services").select("id, item_type, category, name, description, unit, sale_price, cost_price, is_active").eq("company_id", ctx.companyId).eq("is_active", true).order("name", { ascending: true });
     if (r.error) throw r.error;
@@ -101,8 +84,6 @@
     const newStage = payload.status === "approved" ? "aprovado" : payload.status === "rejected" ? "perdido" : payload.status === "sent" ? "aprovacao" : "orcamento";
     const updPipe = await ctx.sb.db.from("commercial_pipeline").update({ stage: newStage, estimated_value: payload.total || 0, approved_value: payload.status === "approved" ? (payload.total || 0) : null, updated_at: new Date().toISOString() }).eq("company_id", ctx.companyId).eq("id", payload.pipeline_id);
     if (updPipe.error) throw updPipe.error;
-    const ticketStatus = getTicketStatusFromPipelineStage(newStage);
-    if (ticketStatus && payload.ticket_id) await syncTicketStatus(ctx, payload.ticket_id, ticketStatus);
     return budgetId;
   }
 
@@ -129,7 +110,6 @@
       const pipeUpd = await ctx.sb.db.from("commercial_pipeline").update({ stage: "execucao", updated_at: new Date().toISOString() }).eq("id", budget.pipeline_id).eq("company_id", ctx.companyId);
       if (pipeUpd.error) throw pipeUpd.error;
     }
-    await syncTicketStatus(ctx, ticket.id, "em_andamento");
     return ins.data.id;
   }
 
@@ -180,7 +160,7 @@
     injectCss();
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop";
-    backdrop.innerHTML = `<div class="modal" style="width:min(1220px, calc(100vw - 32px));"><div class="modal-head"><div><div class="modal-title">Orçamento do Chamado</div><div class="panel-sub">${escapeHtml(ticket.client_name || "Sem nome")} — ${escapeHtml(ticket.description || "")}</div></div><button class="btn btn-ghost" id="fecharModalBudget">Fechar</button></div><div class="alert error" id="erroModalBudget"></div><div class="budget-grid"><div><div class="grid-form"><div><label class="label">Cliente</label><input id="budgetClientName" class="field" /></div><div><label class="label">Telefone</label><input id="budgetClientPhone" class="field" /></div><div class="full"><label class="label">Descrição geral</label><textarea id="budgetDescription" class="textarea" placeholder="Escopo do serviço / observações do orçamento"></textarea></div></div><div class="budget-top-actions"><button class="btn btn-secondary" id="btnAddServico">+ Serviço livre</button><button class="btn btn-secondary" id="btnAddProduto">+ Produto livre</button><button class="btn btn-primary" id="btnAddCatalogo">+ Adicionar do catálogo</button><button class="btn btn-secondary" id="btnNovoRascunho">Novo rascunho</button></div><div id="budgetItemsWrap"></div><div class="budget-resumo"><div class="budget-resumo-label">Subtotal venda</div><div class="budget-resumo-value" id="budgetSubtotal">R$ 0,00</div><div class="budget-resumo-label">Desconto</div><div><input id="budgetDiscount" class="field" type="number" step="0.01" min="0" value="0"></div><div class="budget-resumo-label">Total venda</div><div class="budget-resumo-value" id="budgetTotal">R$ 0,00</div><div class="budget-resumo-label">Total custo</div><div class="budget-resumo-value" id="budgetCost">R$ 0,00</div><div class="budget-resumo-label">Margem</div><div class="budget-resumo-value" id="budgetMarginValue">R$ 0,00</div><div class="budget-resumo-label">Margem %</div><div class="budget-resumo-value" id="budgetMarginPercent">0,00%</div></div><div id="budgetAlert" class="budget-alert">ATENÇÃO: orçamento com venda abaixo do custo.</div><div class="modal-actions" style="margin-top:14px;"><button class="btn btn-secondary" id="btnSalvarRascunho">Salvar rascunho</button><button class="btn btn-primary" id="btnEnviarOrcamento">Marcar como enviado</button><button class="btn btn-success" id="btnAprovarOrcamento">Aprovar</button><button class="btn btn-warning" id="btnConverterOs">Converter em OS</button><button class="btn btn-ghost" id="btnRejeitarOrcamento">Rejeitar</button></div></div><div><h3 style="margin-top:0;">Histórico de Orçamentos</h3><div id="budgetHistoryWrap" class="budget-mini-list"></div></div></div></div>`;
+    backdrop.innerHTML = `<div class="modal" style="width:min(1220px, calc(100vw - 32px));"><div class="modal-head"><div><div class="modal-title">Orçamento do Chamado</div><div class="panel-sub">${escapeHtml(ticket.client_name || "Sem nome")} — ${escapeHtml(ticket.description || "")}</div></div><button class="btn btn-ghost" id="fecharModalBudget">Fechar</button></div><div class="alert error" id="erroModalBudget"></div><div class="budget-grid"><div><div class="grid-form"><div><label class="label">Cliente</label><input id="budgetClientName" class="field" /></div><div><label class="label">Telefone</label><input id="budgetClientPhone" class="field" /></div><div class="full"><label class="label">Descrição geral</label><textarea id="budgetDescription" class="textarea" placeholder="Escopo do serviço / observações do orçamento"></textarea></div></div><div class="budget-top-actions"><button class="btn btn-secondary" id="btnAddServico">+ Serviço livre</button><button class="btn btn-secondary" id="btnAddProduto">+ Produto livre</button><button class="btn btn-primary" id="btnAddCatalogo">+ Adicionar do catálogo</button><button class="btn btn-secondary" id="btnNovoRascunho">Novo rascunho</button></div><div id="budgetItemsWrap"></div><div class="budget-resumo"><div class="budget-resumo-label">Subtotal venda</div><div class="budget-resumo-value" id="budgetSubtotal">R$ 0,00</div><div class="budget-resumo-label">Desconto</div><div><input id="budgetDiscount" class="field" type="number" step="0.01" min="0" value="0"></div><div class="budget-resumo-label">Total venda</div><div class="budget-resumo-value" id="budgetTotal">R$ 0,00</div><div class="budget-resumo-label">Total custo</div><div class="budget-resumo-value" id="budgetCost">R$ 0,00</div><div class="budget-resumo-label">Margem</div><div class="budget-resumo-value" id="budgetMarginValue">R$ 0,00</div><div class="budget-resumo-label">Margem %</div><div class="budget-resumo-value" id="budgetMarginPercent">0,00%</div></div><div id="budgetAlert" class="budget-alert">ATENÇÃO: orçamento com venda abaixo do custo.</div><div class="modal-actions" style="margin-top:14px;"><button class="btn btn-secondary" id="btnSalvarRascunho">Salvar rascunho</button><button class="btn btn-primary" id="btnEnviarOrcamento">Marcar como enviado</button><button class="btn btn-success" id="btnAprovarOrcamento">Aprovar</button><button class="btn btn-warning" id="btnConverterOs">Converter em OS</button><button class="btn btn-secondary" id="btnImprimirOrcamento">Imprimir</button><button class="btn btn-ghost" id="btnRejeitarOrcamento">Rejeitar</button></div></div><div><h3 style="margin-top:0;">Histórico de Orçamentos</h3><div id="budgetHistoryWrap" class="budget-mini-list"></div></div></div></div>`;
     document.body.appendChild(backdrop);
 
     const erroBox = $("#erroModalBudget", backdrop);
@@ -271,13 +251,18 @@
 
     function renderHistory() {
       if (!state.budgets.length) { historyWrap.innerHTML = '<div class="empty">Nenhum orçamento salvo ainda.</div>'; return; }
-      historyWrap.innerHTML = state.budgets.map(b => `<div class="budget-mini-card"><div class="budget-mini-top"><div><strong>Versão ${escapeHtml(b.version || 1)}</strong><div class="budget-small">${escapeHtml(fmtDateTime(b.created_at))}</div></div><div>${badge(budgetStatusLabel(b.status))}</div></div><div class="budget-small">Descrição: ${escapeHtml((b.description || "").slice(0, 100) || "—")}</div><div class="budget-small">Venda: ${money(b.total || 0)}</div><div class="budget-small">Custo: ${money(b.total_cost || 0)}</div><div class="budget-small">Margem: ${money(b.margin_value || 0)} • ${percent(b.margin_percent || 0)}</div><div class="budget-small">Etapa: ${badge(stageLabel(b.pipeline_stage || "orcamento"))}</div><div class="modal-actions" style="margin-top:10px;"><button class="btn btn-secondary js-load-budget" data-id="${b.id}">Carregar</button></div></div>`).join("");
+      historyWrap.innerHTML = state.budgets.map(b => `<div class="budget-mini-card"><div class="budget-mini-top"><div><strong>Versão ${escapeHtml(b.version || 1)}</strong><div class="budget-small">${escapeHtml(fmtDateTime(b.created_at))}</div></div><div>${badge(budgetStatusLabel(b.status))}</div></div><div class="budget-small">Descrição: ${escapeHtml((b.description || "").slice(0, 100) || "—")}</div><div class="budget-small">Venda: ${money(b.total || 0)}</div><div class="budget-small">Custo: ${money(b.total_cost || 0)}</div><div class="budget-small">Margem: ${money(b.margin_value || 0)} • ${percent(b.margin_percent || 0)}</div><div class="budget-small">Etapa: ${badge(stageLabel(b.pipeline_stage || "orcamento"))}</div><div class="modal-actions" style="margin-top:10px;"><button class="btn btn-secondary js-load-budget" data-id="${b.id}">Carregar</button><button class="btn btn-secondary js-print-budget" data-id="${b.id}">Imprimir</button></div></div>`).join("");
       $all(".js-load-budget", historyWrap).forEach(btn => btn.addEventListener("click", async () => {
         const budgetId = btn.getAttribute("data-id");
         const budget = state.budgets.find(x => x.id === budgetId);
         if (!budget) return;
         const items = await loadBudgetItems(ctx, budget.id);
         loadBudgetIntoForm(budget, items);
+      }));
+      $all(".js-print-budget", historyWrap).forEach(btn => btn.addEventListener("click", async () => {
+        const budgetId = btn.getAttribute("data-id");
+        if (!window.PrintOrcamento || typeof window.PrintOrcamento.imprimirOrcamento !== "function") return alert("Módulo de impressão do orçamento não carregado.");
+        await window.PrintOrcamento.imprimirOrcamento({ sb: ctx.sb, budgetId });
       }));
     }
 
@@ -330,6 +315,14 @@
     $("#btnEnviarOrcamento", backdrop).addEventListener("click", () => saveWithStatus("sent"));
     $("#btnAprovarOrcamento", backdrop).addEventListener("click", () => saveWithStatus("approved"));
     $("#btnRejeitarOrcamento", backdrop).addEventListener("click", () => saveWithStatus("rejected"));
+    $("#btnImprimirOrcamento", backdrop).addEventListener("click", async () => {
+      try {
+        const budgetId = state.currentBudgetId || (state.budgets[0] && state.budgets[0].id);
+        if (!budgetId) throw new Error("Salve o orçamento antes de imprimir.");
+        if (!window.PrintOrcamento || typeof window.PrintOrcamento.imprimirOrcamento !== "function") throw new Error("Módulo de impressão do orçamento não carregado.");
+        await window.PrintOrcamento.imprimirOrcamento({ sb: ctx.sb, budgetId });
+      } catch (e) { setError(e.message || String(e)); }
+    });
     $("#btnConverterOs", backdrop).addEventListener("click", async () => {
       try {
         setError("");
