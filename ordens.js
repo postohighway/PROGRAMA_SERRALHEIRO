@@ -29,10 +29,9 @@
     const s = String(status || "").toLowerCase();
     const mapa = {
       aberta: "Aberta",
-      em_andamento: "Em andamento",
-      aguardando_material: "Aguardando material",
-      em_instalacao: "Em instalação",
-      concluida: "Concluída",
+      em_execucao: "Em andamento",
+      aguardando_peca: "Aguardando material",
+      finalizada: "Concluída",
       cancelada: "Cancelada"
     };
     return `<span class="status-pill status-${escapeHtml(s)}">${escapeHtml(mapa[s] || status || "—")}</span>`;
@@ -70,8 +69,8 @@
     if (!ticketId) return;
     const s = String(workorderStatus || "").toLowerCase();
     let ticketStatus = null;
-    if (["aberta", "aguardando_material", "aguardando_peca", "em_andamento", "em_instalacao"].includes(s)) ticketStatus = "em_andamento";
-    else if (["concluida", "finalizada"].includes(s)) ticketStatus = "finalizado";
+    if (["aberta", "aguardando_peca", "em_execucao"].includes(s)) ticketStatus = "em_andamento";
+    else if (s === "finalizada") ticketStatus = "finalizado";
     else if (s === "cancelada") ticketStatus = "cancelado";
     if (!ticketStatus) return;
     const upd = await ctx.sb.db.from("tickets").update({ status: ticketStatus }).eq("company_id", ctx.companyId).eq("id", ticketId);
@@ -94,10 +93,9 @@
         <select id="filtroStatusOS" class="select">
           <option value="">Todos os status</option>
           <option value="aberta">Aberta</option>
-          <option value="aguardando_material">Aguardando material</option>
-          <option value="em_andamento">Em andamento</option>
-          <option value="em_instalacao">Em instalação</option>
-          <option value="concluida">Concluída</option>
+          <option value="aguardando_peca">Aguardando material</option>
+          <option value="em_execucao">Em andamento</option>
+          <option value="finalizada">Concluída</option>
           <option value="cancelada">Cancelada</option>
         </select>
       </div>
@@ -211,7 +209,7 @@
         </div>
 
         <div class="os-kpis">
-          <div class="os-kpi"><div class="os-kpi-label">Status</div><div class="os-kpi-value">${escapeHtml(state.selecionada.status || "aberta")}</div></div>
+          <div class="os-kpi"><div class="os-kpi-label">Status</div><div class="os-kpi-value">${escapeHtml(({aberta:'Aberta', aguardando_peca:'Aguardando material', em_execucao:'Em andamento', finalizada:'Concluída', cancelada:'Cancelada'})[state.selecionada.status || 'aberta'] || state.selecionada.status || 'Aberta')}</div></div>
           <div class="os-kpi"><div class="os-kpi-label">Total do Orçamento</div><div class="os-kpi-value">${quote ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(quote.total || 0)) : "—"}</div></div>
           <div class="os-kpi"><div class="os-kpi-label">Compras vinculadas</div><div class="os-kpi-value">${compras.length}</div></div>
         </div>
@@ -257,10 +255,10 @@
       `;
 
       $("#btnStatusAberta", wrap).addEventListener("click", () => atualizarStatus("aberta"));
-      $("#btnStatusMaterial", wrap).addEventListener("click", () => atualizarStatus("aguardando_material"));
-      $("#btnStatusProducao", wrap).addEventListener("click", () => atualizarStatus("em_andamento"));
-      $("#btnStatusInstalacao", wrap).addEventListener("click", () => atualizarStatus("em_instalacao"));
-      $("#btnStatusConcluida", wrap).addEventListener("click", () => atualizarStatus("concluida"));
+      $("#btnStatusMaterial", wrap).addEventListener("click", () => atualizarStatus("aguardando_peca"));
+      $("#btnStatusProducao", wrap).addEventListener("click", () => atualizarStatus("em_execucao"));
+      $("#btnStatusInstalacao", wrap).addEventListener("click", () => atualizarStatus("em_execucao"));
+      $("#btnStatusConcluida", wrap).addEventListener("click", () => atualizarStatus("finalizada"));
       $("#btnSalvarChecklist", wrap).addEventListener("click", salvarChecklist);
       $("#btnIrCompras", wrap).addEventListener("click", () => {
         window.__osSelecionadaId = state.selecionada.id;
@@ -269,8 +267,7 @@
 
       async function atualizarStatus(novoStatus) {
         const r = await ctx.sb.db.from("workorders").update({
-          status: novoStatus,
-          updated_at: new Date().toISOString()
+          status: novoStatus
         }).eq("id", state.selecionada.id);
 
         if (r.error) return alert("Falha ao atualizar status: " + (r.error.message || r.error));
