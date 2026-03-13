@@ -29,12 +29,28 @@
     const s = String(status || "").toLowerCase();
     const mapa = {
       aberta: "Aberta",
-      em_execucao: "Em execução",
+      em_execucao: "Em andamento",
       aguardando_peca: "Aguardando material",
       finalizada: "Concluída",
       cancelada: "Cancelada"
     };
     return `<span class="status-pill status-${escapeHtml(s)}">${escapeHtml(mapa[s] || status || "—")}</span>`;
+  }
+
+
+  function pipelineChip(stage) {
+    const s = String(stage || "").toLowerCase();
+    const map = {
+      diagnostico: ["Diagnóstico", "comercial"],
+      orcamento: ["Orçamento", "comercial"],
+      aprovacao: ["Aguardando cliente", "comercial"],
+      aprovado: ["Aprovado", "comercial"],
+      execucao: ["Execução", "execucao"],
+      faturado: ["Faturado", "faturado"],
+      perdido: ["Perdido", "cancelado"]
+    };
+    const item = map[s] || [stage || "—", "comercial"];
+    return `<span class="os-stage-chip ${escapeHtml(item[1])}">${escapeHtml(item[0])}</span>`;
   }
 
   function injetarCss() {
@@ -43,12 +59,12 @@
     st.id = "css-ordens-pro-v2";
     st.textContent = `
       .os-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:18px}
-      .os-list-item{border:1px solid rgba(108,152,232,.14);background:rgba(255,255,255,.02);border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer}
+      .os-list-item{border:1px solid rgba(108,152,232,.14);background:rgba(255,255,255,.02);border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer}.os-list-item.status-aberta{box-shadow:inset 4px 0 0 rgba(61,134,255,.8)}.os-list-item.status-em_execucao{box-shadow:inset 4px 0 0 rgba(20,195,142,.8)}.os-list-item.status-aguardando_peca{box-shadow:inset 4px 0 0 rgba(246,183,60,.8)}.os-list-item.status-finalizada{box-shadow:inset 4px 0 0 rgba(168,85,247,.85)}.os-list-item.status-cancelada{box-shadow:inset 4px 0 0 rgba(255,93,108,.8)}
       .os-list-item.active{border-color:rgba(108,152,232,.45);box-shadow:0 10px 24px rgba(0,0,0,.12)}
       .os-top{display:flex;justify-content:space-between;gap:10px}
       .os-title{font-weight:800;color:#eff6ff}
       .os-meta{font-size:12px;color:#9db3d6;margin-top:4px}
-      .os-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+      .os-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.os-stage-chip{display:inline-flex;align-items:center;justify-content:center;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid transparent}.os-stage-chip.comercial{background:rgba(61,134,255,.12);border-color:rgba(61,134,255,.30);color:#dbeaff}.os-stage-chip.execucao{background:rgba(20,195,142,.10);border-color:rgba(20,195,142,.30);color:#bff2df}.os-stage-chip.faturado{background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.30);color:#ead8ff}.os-stage-chip.cancelado{background:rgba(255,93,108,.10);border-color:rgba(255,93,108,.30);color:#ffd5da}.os-action-active{box-shadow:0 0 0 2px rgba(255,255,255,.16) inset}
       .os-info-box{border:1px solid rgba(108,152,232,.14);background:rgba(255,255,255,.02);border-radius:12px;padding:12px;margin-top:12px}
       .check-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
       .check-item{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid rgba(108,152,232,.10);border-radius:10px;background:rgba(255,255,255,.02)}
@@ -61,6 +77,32 @@
       @media (max-width:1100px){.os-grid{grid-template-columns:1fr}.check-grid,.os-kpis{grid-template-columns:1fr}}
     `;
     document.head.appendChild(st);
+  }
+
+
+
+  async function syncTicketStatusFromWorkorder(ctx, ticketId, workorderStatus) {
+    if (!ticketId) return;
+    const s = String(workorderStatus || "").toLowerCase();
+    let ticketStatus = null;
+    let pipelineStage = null;
+    if (["aberta", "aguardando_peca", "em_execucao"].includes(s)) {
+      ticketStatus = "em_andamento";
+      pipelineStage = "execucao";
+    } else if (s === "finalizada") {
+      ticketStatus = "finalizado";
+      pipelineStage = "faturado";
+    } else if (s === "cancelada") {
+      ticketStatus = "cancelado";
+      pipelineStage = "perdido";
+    }
+    if (!ticketStatus) return;
+    const upd = await ctx.sb.db.from("tickets").update({ status: ticketStatus }).eq("company_id", ctx.companyId).eq("id", ticketId);
+    if (upd.error) throw upd.error;
+    if (pipelineStage) {
+      const updPipe = await ctx.sb.db.from("commercial_pipeline").update({ stage: pipelineStage }).eq("company_id", ctx.companyId).eq("ticket_id", ticketId);
+      if (updPipe.error) throw updPipe.error;
+    }
   }
 
   async function listarOrdens(ctx) {
@@ -80,7 +122,7 @@
           <option value="">Todos os status</option>
           <option value="aberta">Aberta</option>
           <option value="aguardando_peca">Aguardando material</option>
-          <option value="em_execucao">Em execução</option>
+          <option value="em_execucao">Em andamento</option>
           <option value="finalizada">Concluída</option>
           <option value="cancelada">Cancelada</option>
         </select>
@@ -132,7 +174,7 @@
       }
 
       wrap.innerHTML = state.ordens.map((o) => `
-        <div class="os-list-item ${state.selecionada && state.selecionada.id === o.id ? "active" : ""}" data-id="${o.id}">
+        <div class="os-list-item status-${escapeHtml(o.status || "aberta")} ${state.selecionada && state.selecionada.id === o.id ? "active" : ""}" data-id="${o.id}">
           <div class="os-top">
             <div>
               <div class="os-title">OS ${escapeHtml(o.id)}</div>
@@ -169,11 +211,12 @@
       window.__osSelecionadaId = state.selecionada.id;
       wrap.innerHTML = `<div class="empty">Carregando detalhe...</div>`;
 
-      const [ticketResp, quoteResp, checklistResp, comprasResp] = await Promise.all([
-        state.selecionada.ticket_id ? ctx.sb.db.from("tickets").select("client_name, client_phone, description, due_date").eq("id", state.selecionada.ticket_id).maybeSingle() : Promise.resolve({ data: null }),
+      const [ticketResp, quoteResp, checklistResp, comprasResp, pipelineResp] = await Promise.all([
+        state.selecionada.ticket_id ? ctx.sb.db.from("tickets").select("client_name, client_phone, description, due_date, status").eq("id", state.selecionada.ticket_id).maybeSingle() : Promise.resolve({ data: null }),
         state.selecionada.quote_id ? ctx.sb.db.from("quotes").select("total, status").eq("id", state.selecionada.quote_id).maybeSingle() : Promise.resolve({ data: null }),
         state.selecionada.ticket_id ? ctx.sb.db.from("ticket_checklist").select("*").eq("ticket_id", state.selecionada.ticket_id).maybeSingle() : Promise.resolve({ data: null }),
-        ctx.sb.db.from("purchases").select("id, description, total, status, created_at").eq("workorder_id", state.selecionada.id).order("created_at", { ascending: false })
+        ctx.sb.db.from("purchases").select("id, description, total, status, created_at").eq("workorder_id", state.selecionada.id).order("created_at", { ascending: false }),
+        state.selecionada.ticket_id ? ctx.sb.db.from("commercial_pipeline").select("stage").eq("company_id", ctx.companyId).eq("ticket_id", state.selecionada.ticket_id).maybeSingle() : Promise.resolve({ data: null })
       ]);
 
       const ticket = ticketResp.data || null;
@@ -183,21 +226,25 @@
         finishing_done: false, installed: false, final_paid: false
       };
       const compras = comprasResp.data || [];
+      const pipeline = pipelineResp.data || null;
 
       wrap.innerHTML = `
         <div class="os-actions">
-          <button id="btnStatusAberta" class="btn btn-secondary">Aberta</button>
-          <button id="btnStatusMaterial" class="btn btn-warning">Aguardando Material</button>
-          <button id="btnStatusProducao" class="btn btn-primary">Em Execução</button>
-          <button id="btnStatusConcluida" class="btn btn-success">Concluir</button>
-          <button id="btnImprimirOS" class="btn btn-secondary">Imprimir</button>
+          <button id="btnStatusAberta" class="btn btn-secondary ${state.selecionada.status === 'aberta' ? 'os-action-active' : ''}">Aberta</button>
+          <button id="btnStatusMaterial" class="btn btn-warning ${state.selecionada.status === 'aguardando_peca' ? 'os-action-active' : ''}">Aguardando Material</button>
+          <button id="btnStatusProducao" class="btn btn-primary ${state.selecionada.status === 'em_execucao' ? 'os-action-active' : ''}">Em Produção</button>
+          <button id="btnStatusInstalacao" class="btn btn-success ${state.selecionada.status === 'em_execucao' ? 'os-action-active' : ''}">Em Instalação</button>
+          <button id="btnStatusConcluida" class="btn btn-success ${state.selecionada.status === 'finalizada' ? 'os-action-active' : ''}">Concluir</button>
           <button id="btnIrCompras" class="btn btn-secondary">Nova Compra Vinculada</button>
         </div>
 
         <div class="os-kpis">
-          <div class="os-kpi"><div class="os-kpi-label">Status</div><div class="os-kpi-value">${escapeHtml(state.selecionada.status || "aberta")}</div></div>
+          <div class="os-kpi"><div class="os-kpi-label">Status</div><div class="os-kpi-value">${escapeHtml(({aberta:'Aberta', aguardando_peca:'Aguardando material', em_execucao:'Em andamento', finalizada:'Concluída', cancelada:'Cancelada'})[state.selecionada.status || 'aberta'] || state.selecionada.status || 'Aberta')}</div></div>
           <div class="os-kpi"><div class="os-kpi-label">Total do Orçamento</div><div class="os-kpi-value">${quote ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(quote.total || 0)) : "—"}</div></div>
+          <div class="os-kpi"><div class="os-kpi-label">Fluxo Comercial</div><div class="os-kpi-value">${pipeline ? pipelineChip(pipeline.stage) : '—'}</div></div>
+          <div class="os-kpi"><div class="os-kpi-label">Chamado</div><div class="os-kpi-value">${ticket ? badgeStatus(ticket.status === 'finalizado' ? 'finalizada' : ticket.status) : '—'}</div></div>
           <div class="os-kpi"><div class="os-kpi-label">Compras vinculadas</div><div class="os-kpi-value">${compras.length}</div></div>
+          <div class="os-kpi"><div class="os-kpi-label">Orçamento</div><div class="os-kpi-value">${quote ? escapeHtml(({draft:'Rascunho', sent:'Enviado', approved:'Aprovado', rejected:'Recusado', canceled:'Cancelado'})[String(quote.status||'').toLowerCase()] || quote.status) : '—'}</div></div>
         </div>
 
         <div class="os-info-box">
@@ -243,11 +290,8 @@
       $("#btnStatusAberta", wrap).addEventListener("click", () => atualizarStatus("aberta"));
       $("#btnStatusMaterial", wrap).addEventListener("click", () => atualizarStatus("aguardando_peca"));
       $("#btnStatusProducao", wrap).addEventListener("click", () => atualizarStatus("em_execucao"));
+      $("#btnStatusInstalacao", wrap).addEventListener("click", () => atualizarStatus("em_execucao"));
       $("#btnStatusConcluida", wrap).addEventListener("click", () => atualizarStatus("finalizada"));
-      $("#btnImprimirOS", wrap).addEventListener("click", async () => {
-        if (!window.PrintOS || typeof window.PrintOS.imprimirOS !== "function") return alert("Módulo de impressão da OS não carregado.");
-        await window.PrintOS.imprimirOS({ sb: ctx.sb, workorderId: state.selecionada.id });
-      });
       $("#btnSalvarChecklist", wrap).addEventListener("click", salvarChecklist);
       $("#btnIrCompras", wrap).addEventListener("click", () => {
         window.__osSelecionadaId = state.selecionada.id;
@@ -255,29 +299,17 @@
       });
 
       async function atualizarStatus(novoStatus) {
-        const r = await ctx.sb.db.from("workorders").update({ status: novoStatus }).eq("id", state.selecionada.id);
+        const r = await ctx.sb.db.from("workorders").update({
+          status: novoStatus
+        }).eq("id", state.selecionada.id);
+
         if (r.error) return alert("Falha ao atualizar status: " + (r.error.message || r.error));
-
+        try {
+          await syncTicketStatusFromWorkorder(ctx, state.selecionada.ticket_id, novoStatus);
+        } catch (syncErr) {
+          return alert("Status da Ordem atualizado, mas falhou ao sincronizar o chamado: " + (syncErr.message || syncErr));
+        }
         state.selecionada.status = novoStatus;
-
-        if (state.selecionada.ticket_id) {
-          if (novoStatus === "finalizada") {
-            await ctx.sb.db.from("tickets").update({ status: "finalizado" }).eq("id", state.selecionada.ticket_id);
-          } else if (novoStatus === "cancelada") {
-            await ctx.sb.db.from("tickets").update({ status: "cancelado" }).eq("id", state.selecionada.ticket_id);
-          } else {
-            await ctx.sb.db.from("tickets").update({ status: "em_andamento" }).eq("id", state.selecionada.ticket_id);
-          }
-        }
-
-        if (state.selecionada.ticket_id) {
-          const pipe = await ctx.sb.db.from("commercial_pipeline").select("id").eq("company_id", ctx.companyId).eq("ticket_id", state.selecionada.ticket_id).maybeSingle();
-          if (!pipe.error && pipe.data && pipe.data.id) {
-            const stage = novoStatus === "finalizada" ? "faturado" : novoStatus === "cancelada" ? "perdido" : "execucao";
-            await ctx.sb.db.from("commercial_pipeline").update({ stage }).eq("id", pipe.data.id);
-          }
-        }
-
         alert("Status da Ordem atualizado.");
         await carregarLista();
       }
