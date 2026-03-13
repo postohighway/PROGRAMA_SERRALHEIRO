@@ -11,7 +11,7 @@
     if (document.getElementById("css-pipeline-stable-v1")) return;
     const st = document.createElement("style");
     st.id = "css-pipeline-stable-v1";
-    st.textContent = ".pipe-wrap{display:grid;grid-template-columns:1.45fr .95fr;gap:16px}.pipe-board{display:grid;grid-template-columns:repeat(7,minmax(220px,1fr));gap:14px;overflow:auto;padding-bottom:4px}.pipe-col{background:rgba(255,255,255,.02);border:1px solid rgba(108,152,232,.16);border-radius:14px;min-height:420px;display:flex;flex-direction:column}.pipe-head{padding:12px 14px;border-bottom:1px solid rgba(108,152,232,.12)}.pipe-title{font-weight:800;color:#eff6ff;display:flex;justify-content:space-between;gap:8px;align-items:center}.pipe-sub{font-size:12px;color:#9db3d6;margin-top:4px}.pipe-count{font-size:12px;color:#9db3d6;background:rgba(255,255,255,.04);padding:4px 8px;border-radius:999px}.pipe-body{padding:12px;display:flex;flex-direction:column;gap:10px;min-height:180px}.pipe-body.drag-over{background:rgba(61,134,255,.06)}.pipe-card{border-radius:14px;padding:12px;border:1px solid rgba(108,152,232,.16);background:rgba(255,255,255,.03);cursor:grab}.pipe-card-title{font-weight:800;color:#eff6ff;line-height:1.25}.pipe-card-small{font-size:12px;color:#9db3d6}.pipe-card-desc{font-size:13px;color:#dce7f8;margin-top:10px}.pipe-empty{padding:18px;text-align:center;color:#8ea6ca;font-size:13px}@media (max-width:1200px){.pipe-wrap{grid-template-columns:1fr}.pipe-board{grid-template-columns:repeat(7, minmax(260px,1fr));}}";
+    st.textContent = ".pipe-wrap{display:grid;grid-template-columns:1.45fr .95fr;gap:16px}.pipe-board{display:grid;grid-template-columns:repeat(7,minmax(220px,1fr));gap:14px;overflow:auto;padding-bottom:4px}.pipe-col{background:rgba(255,255,255,.02);border:1px solid rgba(108,152,232,.16);border-radius:14px;min-height:420px;display:flex;flex-direction:column}.pipe-head{padding:12px 14px;border-bottom:1px solid rgba(108,152,232,.12)}.pipe-title{font-weight:800;color:#eff6ff;display:flex;justify-content:space-between;gap:8px;align-items:center}.pipe-sub{font-size:12px;color:#9db3d6;margin-top:4px}.pipe-count{font-size:12px;color:#9db3d6;background:rgba(255,255,255,.04);padding:4px 8px;border-radius:999px}.pipe-body{padding:12px;display:flex;flex-direction:column;gap:10px;min-height:180px}.pipe-body.drag-over{background:rgba(61,134,255,.06)}.pipe-card{border-radius:14px;padding:12px;border:1px solid rgba(108,152,232,.16);background:rgba(255,255,255,.03);cursor:grab}.pipe-card.active{border-color:rgba(61,134,255,.55);box-shadow:0 10px 24px rgba(0,0,0,.18)}.pipe-card-title{font-weight:800;color:#eff6ff;line-height:1.25}.pipe-card-small{font-size:12px;color:#9db3d6}.pipe-card-desc{font-size:13px;color:#dce7f8;margin-top:10px}.pipe-empty{padding:18px;text-align:center;color:#8ea6ca;font-size:13px}@media (max-width:1200px){.pipe-wrap{grid-template-columns:1fr}.pipe-board{grid-template-columns:repeat(7, minmax(260px,1fr));}}";
     document.head.appendChild(st);
   }
 
@@ -20,7 +20,7 @@
     const alvo = document.getElementById(ctx.areaId);
     if (!alvo) return;
 
-    const state = { busca: "", registros: [], selecionado: null };
+    const state = { busca: "", registros: [], selecionado: null, focoTicketId: null, abrirBudgetAoCarregar: false, budgetAbertoAutomaticamente: false };
     const stages = [
       { id: "diagnostico", titulo: "Diagnóstico", sub: "Levantamento inicial" },
       { id: "orcamento", titulo: "Orçamento", sub: "Montagem da proposta" },
@@ -33,7 +33,13 @@
 
     alvo.innerHTML = `<div class="toolbar"><input id="filtroBuscaPipeline" class="field" placeholder="Buscar por cliente, telefone ou descrição" /></div><div class="pipe-wrap"><div class="panel"><h2>Pipeline Comercial</h2><div class="panel-sub">Arraste os cards para avançar o negócio.</div><div class="pipe-board">${stages.map(col => `<div class="pipe-col"><div class="pipe-head"><div class="pipe-title"><span>${escapeHtml(col.titulo)}</span><span class="pipe-count" data-pcount="${col.id}">0</span></div><div class="pipe-sub">${escapeHtml(col.sub)}</div></div><div class="pipe-body" data-stage="${col.id}"></div></div>`).join("")}</div></div><div class="panel"><h2>Detalhe Comercial</h2><div class="panel-sub">Selecione um card para visualizar.</div><div id="pipelineDetailWrap" class="empty">Nenhum registro selecionado.</div></div></div>`;
 
-    $("#filtroBuscaPipeline", alvo).addEventListener("input", async e => { state.busca = e.target.value || ""; await carregar(); });
+    $("#filtroBuscaPipeline", alvo).addEventListener("input", async e => { state.busca = e.target.value || ""; try {
+      state.focoTicketId = sessionStorage.getItem("sgb_pipeline_focus_ticket_id") || null;
+      state.abrirBudgetAoCarregar = sessionStorage.getItem("sgb_pipeline_open_budget") === "1";
+      sessionStorage.removeItem("sgb_pipeline_focus_ticket_id");
+      sessionStorage.removeItem("sgb_pipeline_open_budget");
+    } catch (_) {}
+    await carregar(); });
     await carregar();
 
     async function carregar() {
@@ -63,8 +69,17 @@
       });
 
       renderBoard();
+      if (state.focoTicketId) {
+        state.selecionado = state.registros.find(r => String(r.ticket_id || "") === String(state.focoTicketId)) || state.selecionado;
+        state.focoTicketId = null;
+      }
       if (!state.selecionado && state.registros.length) state.selecionado = state.registros[0];
       renderDetail();
+      if (state.abrirBudgetAoCarregar && state.selecionado && state.selecionado.ticket && window.ModuloBudgets && typeof window.ModuloBudgets.abrirModalOrcamento === "function" && !state.budgetAbertoAutomaticamente) {
+        state.budgetAbertoAutomaticamente = true;
+        state.abrirBudgetAoCarregar = false;
+        setTimeout(() => window.ModuloBudgets.abrirModalOrcamento(ctx, state.selecionado.ticket, carregar), 50);
+      }
     }
 
     function renderBoard() {
@@ -73,7 +88,7 @@
         const items = state.registros.filter(r => String(r.stage || "") === stage);
         const count = $('[data-pcount="' + stage + '"]', alvo);
         if (count) count.textContent = String(items.length);
-        col.innerHTML = items.length ? items.map(item => `<div class="pipe-card" draggable="true" data-id="${item.id}"><div class="pipe-card-title">${escapeHtml(item.client_name)}</div><div class="pipe-card-small">${escapeHtml(item.client_phone)}</div><div class="pipe-card-desc">${escapeHtml((item.description || "").slice(0, 120) || "Sem descrição")}</div><div class="pipe-card-small" style="margin-top:10px">Valor: ${money(item.value || 0)}</div><div class="pipe-card-small">Ticket: ${escapeHtml(item.ticket_id || "—")}</div></div>`).join("") : '<div class="pipe-empty">Nenhum registro.</div>';
+        col.innerHTML = items.length ? items.map(item => `<div class="pipe-card ${state.selecionado && state.selecionado.id === item.id ? "active" : ""}" draggable="true" data-id="${item.id}"><div class="pipe-card-title">${escapeHtml(item.client_name)}</div><div class="pipe-card-small">${escapeHtml(item.client_phone)}</div><div class="pipe-card-desc">${escapeHtml((item.description || "").slice(0, 120) || "Sem descrição")}</div><div class="pipe-card-small" style="margin-top:10px">Valor: ${money(item.value || 0)}</div><div class="pipe-card-small">Ticket: ${escapeHtml(item.ticket_id || "—")}</div></div>`).join("") : '<div class="pipe-empty">Nenhum registro.</div>';
         prepareDropzone(col);
       });
       $all(".pipe-card", alvo).forEach(card => {

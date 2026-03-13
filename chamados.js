@@ -298,11 +298,56 @@
 
   async function gerarOrcamento(ctx, ticket, refreshDetalhe) {
     if (!ticket || !ticket.id) return;
-    if (!window.confirm("Deseja gerar um orçamento para este chamado agora?")) return;
-    const r = await ctx.sb.db.rpc("create_quote_from_ticket", { p_ticket_id: ticket.id });
-    if (r.error) return alert("Falha ao gerar orçamento: " + (r.error.message || r.error));
-    alert("Orçamento gerado com sucesso.");
-    await refreshDetalhe();
+    if (!window.confirm("Deseja enviar este chamado para o Pipeline Comercial e abrir o orçamento agora?")) return;
+
+    let pipeline = null;
+
+    if (window.ModuloBudgets && typeof window.ModuloBudgets.ensurePipeline === "function") {
+      try {
+        pipeline = await window.ModuloBudgets.ensurePipeline(ctx, ticket);
+      } catch (e) {
+        return alert("Falha ao preparar pipeline comercial: " + (e.message || e));
+      }
+    } else {
+      const existing = await ctx.sb.db
+        .from("commercial_pipeline")
+        .select("id, stage, estimated_value, approved_value, status")
+        .eq("company_id", ctx.companyId)
+        .eq("ticket_id", ticket.id)
+        .maybeSingle();
+      if (existing.error) return alert("Falha ao localizar pipeline comercial: " + (existing.error.message || existing.error));
+      if (existing.data) {
+        pipeline = existing.data;
+      } else {
+        const ins = await ctx.sb.db
+          .from("commercial_pipeline")
+          .insert({ company_id: ctx.companyId, ticket_id: ticket.id, stage: "orcamento", estimated_value: 0, status: "ativo" })
+          .select("id, stage, estimated_value, approved_value, status")
+          .single();
+        if (ins.error) return alert("Falha ao criar pipeline comercial: " + (ins.error.message || ins.error));
+        pipeline = ins.data;
+      }
+    }
+
+    if (!pipeline || !pipeline.id) return alert("Não foi possível preparar o pipeline comercial.");
+
+    if (String(pipeline.stage || "").toLowerCase() === "diagnostico") {
+      const upd = await ctx.sb.db
+        .from("commercial_pipeline")
+        .update({ stage: "orcamento", updated_at: new Date().toISOString() })
+        .eq("company_id", ctx.companyId)
+        .eq("id", pipeline.id);
+      if (upd.error) return alert("Falha ao mover o pipeline para orçamento: " + (upd.error.message || upd.error));
+    }
+
+    try {
+      sessionStorage.setItem("sgb_pipeline_focus_ticket_id", String(ticket.id));
+      sessionStorage.setItem("sgb_pipeline_open_budget", "1");
+    } catch (_) {}
+
+    alert("Chamado enviado para o Pipeline Comercial.");
+    if (typeof refreshDetalhe === "function") await refreshDetalhe();
+    window.location.hash = "pipeline";
   }
 
   function abrirModalVisita(ctx, ticket, refreshDetalhe) {
