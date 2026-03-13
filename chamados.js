@@ -47,6 +47,19 @@
     const s = normalizarPrioridade(prioridade);
     return `<span class="priority-pill priority-${escapeHtml(s)}">${escapeHtml(traduzirPrioridade(s))}</span>`;
   }
+  function stagePipelineLabel(stage) {
+    const mapa = {diagnostico:"Diagnóstico", orcamento:"Orçamento", aprovacao:"Aprovação", aprovado:"Aprovado", execucao:"Execução", faturado:"Faturado", perdido:"Perdido"};
+    return mapa[String(stage || "").toLowerCase()] || "Sem pipeline";
+  }
+  function pipelineBadge(stage) {
+    if (!stage) return "";
+    const s = String(stage || "").toLowerCase().trim();
+    return `<span class="flow-pill pipeline-${escapeHtml(s)}">${escapeHtml(stagePipelineLabel(s))}</span>`;
+  }
+  function flagBadge(label, css) {
+    return `<span class="flow-pill ${escapeHtml(css || '')}">${escapeHtml(label)}</span>`;
+  }
+
   function caminhosMidia(ticket) {
     return [ticket.photo1_path,ticket.photo2_path,ticket.photo3_path,ticket.photo4_path,ticket.photo5_path,ticket.video1_path].filter(Boolean);
   }
@@ -168,7 +181,7 @@
       .kanban-card-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:10px}
       .kanban-card-title{font-weight:800;color:#eff6ff;line-height:1.25}
       .kanban-card-meta{font-size:12px;color:#9db3d6}
-      .kanban-card-desc{font-size:13px;color:#dce7f8;margin-top:10px}
+      .kanban-card-desc{font-size:13px;color:#dce7f8;margin-top:10px}.kanban-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.flow-pill{display:inline-flex;align-items:center;justify-content:center;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid transparent}.flow-pill.pipeline-diagnostico,.flow-pill.pipeline-orcamento{background:rgba(61,134,255,.10);border-color:rgba(61,134,255,.28);color:#dbeaff}.flow-pill.pipeline-aprovacao{background:rgba(246,183,60,.12);border-color:rgba(246,183,60,.32);color:#ffe6ab}.flow-pill.pipeline-aprovado{background:rgba(46,144,250,.12);border-color:rgba(46,144,250,.32);color:#d9ecff}.flow-pill.pipeline-execucao,.flow-pill.os-pill{background:rgba(20,195,142,.10);border-color:rgba(20,195,142,.30);color:#bff2df}.flow-pill.pipeline-faturado{background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.30);color:#ead8ff}.flow-pill.pipeline-perdido{background:rgba(255,93,108,.10);border-color:rgba(255,93,108,.28);color:#ffd5da}.mini-card-accent{box-shadow:inset 3px 0 0 rgba(61,134,255,.75)}
       .kanban-empty{padding:18px;text-align:center;color:#8ea6ca;font-size:13px}
       .priority-pill,.sla-pill{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid transparent}
       .priority-baixa{background:rgba(148,163,184,.12);border-color:rgba(148,163,184,.35);color:#d8dee7}
@@ -394,7 +407,7 @@
     if (!ctx.sb || !ctx.sb.db) throw new Error("Supabase não disponível.");
     if (!ctx.companyId) throw new Error("Company ID não configurado.");
 
-    const state = { busca: "", prioridade: "", tickets: [], selecionado: null, historico: [], mensagens: [], visitas: [], orcamentos: [], linkPortalGeral: montarUrlPublica("ticket.html", { c: ctx.companyId, t: ctx.portalToken || "" }), linkAnexosAtual: "" };
+    const state = { busca: "", prioridade: "", tickets: [], selecionado: null, historico: [], mensagens: [], visitas: [], orcamentos: [], pipelineMap: {}, quoteMap: {}, workorderMap: {}, linkPortalGeral: montarUrlPublica("ticket.html", { c: ctx.companyId, t: ctx.portalToken || "" }), linkAnexosAtual: "" };
     const statusCols = [
       { id: "aberto", titulo: "Abertos", sub: "Entrada e triagem inicial" },
       { id: "em_analise", titulo: "Em análise", sub: "Avaliação técnica / comercial" },
@@ -427,11 +440,54 @@
     await carregarLista();
 
     async function carregarLista() {
-      const { data, error } = await ctx.sb.db.from("tickets").select("id, created_at, client_name, client_phone, description, status, priority, due_date, token, photo1_path, photo2_path, photo3_path, photo4_path, photo5_path, video1_path").eq("company_id", ctx.companyId);
-      if (error) throw error;
+      const [ticketsResp, pipelineResp, quotesResp, workordersResp] = await Promise.all([
+        ctx.sb.db.from("tickets").select("id, created_at, client_name, client_phone, description, status, priority, due_date, token, photo1_path, photo2_path, photo3_path, photo4_path, photo5_path, video1_path").eq("company_id", ctx.companyId),
+        ctx.sb.db.from("commercial_pipeline").select("ticket_id, stage, updated_at").eq("company_id", ctx.companyId),
+        ctx.sb.db.from("quotes").select("ticket_id, status, total, created_at, version").eq("company_id", ctx.companyId),
+        ctx.sb.db.from("workorders").select("ticket_id, status, created_at").eq("company_id", ctx.companyId)
+      ]);
+      if (ticketsResp.error) throw ticketsResp.error;
+      if (pipelineResp.error) throw pipelineResp.error;
+      if (quotesResp.error) throw quotesResp.error;
+      if (workordersResp.error) throw workordersResp.error;
+
+      const pipelineMap = {};
+      (pipelineResp.data || []).forEach((p) => {
+        if (!p.ticket_id) return;
+        pipelineMap[p.ticket_id] = p;
+      });
+      const quoteMap = {};
+      (quotesResp.data || []).forEach((q) => {
+        if (!q.ticket_id) return;
+        (quoteMap[q.ticket_id] ||= []).push(q);
+      });
+      Object.values(quoteMap).forEach((arr) => arr.sort((a,b) => String(b.created_at||"").localeCompare(String(a.created_at||""))));
+      const workorderMap = {};
+      (workordersResp.data || []).forEach((w) => {
+        if (!w.ticket_id) return;
+        (workorderMap[w.ticket_id] ||= []).push(w);
+      });
+      Object.values(workorderMap).forEach((arr) => arr.sort((a,b) => String(b.created_at||"").localeCompare(String(a.created_at||""))));
+      state.pipelineMap = pipelineMap;
+      state.quoteMap = quoteMap;
+      state.workorderMap = workorderMap;
 
       const busca = state.busca.trim().toLowerCase();
-      state.tickets = (data || []).filter(item => {
+      state.tickets = (ticketsResp.data || []).map((item) => {
+        const pipeline = pipelineMap[item.id] || null;
+        const quotes = quoteMap[item.id] || [];
+        const workorders = workorderMap[item.id] || [];
+        const latestQuote = quotes[0] || null;
+        return {
+          ...item,
+          pipeline_stage: pipeline?.stage || null,
+          quote_count: quotes.length,
+          latest_quote_total: latestQuote ? Number(latestQuote.total || 0) : 0,
+          latest_quote_status: latestQuote?.status || null,
+          workorder_count: workorders.length,
+          latest_workorder_status: workorders[0]?.status || null
+        };
+      }).filter(item => {
         if (state.prioridade && normalizarPrioridade(item.priority) !== state.prioridade) return false;
         if (!busca) return true;
         const texto = [item.client_name, item.client_phone, item.description, item.status, item.priority].join(" ").toLowerCase();
@@ -473,8 +529,13 @@
               ${badgePrioridade(ticket.priority || "normal")}
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">${badgeStatus(ticket.status)}<span class="sla-pill ${sla.classe}">${escapeHtml(sla.texto)}</span></div>
+            <div class="kanban-chip-row">
+              ${ticket.pipeline_stage ? pipelineBadge(ticket.pipeline_stage) : ""}
+              ${ticket.workorder_count ? flagBadge(`OS ${ticket.workorder_count}`, 'os-pill') : ""}
+              ${ticket.quote_count ? flagBadge(`Orç. ${ticket.quote_count}`, ticket.latest_quote_status === 'approved' ? 'pipeline-aprovado' : ticket.latest_quote_status === 'sent' ? 'pipeline-aprovacao' : 'pipeline-orcamento') : ""}
+            </div>
             <div class="kanban-card-desc">${escapeHtml((ticket.description || "").slice(0, 110) || "Sem descrição")}</div>
-            <div class="kanban-card-meta" style="margin-top:12px">Prazo: ${escapeHtml(formatarData(ticket.due_date))}</div>
+            <div class="kanban-card-meta" style="margin-top:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>Prazo: ${escapeHtml(formatarData(ticket.due_date))}</span><span>${ticket.latest_quote_total ? 'Proposta: ' + escapeHtml(new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(ticket.latest_quote_total||0))) : 'Sem proposta'}</span></div>
           </div>`;
         }).join("") : `<div class="kanban-empty">Nenhum chamado.</div>`;
         prepararDropzone(col);
@@ -539,6 +600,8 @@
           <div class="muted">Status</div><div>${badgeStatus(state.selecionado.status)}</div>
           <div class="muted">Prioridade</div><div class="detail-grid-priority">${badgePrioridade(state.selecionado.priority || "normal")}</div>
           <div class="muted">SLA</div><div><span class="sla-pill ${sla.classe}">${escapeHtml(sla.texto)}</span></div>
+          <div class="muted">Etapa comercial</div><div>${state.selecionado.pipeline_stage ? pipelineBadge(state.selecionado.pipeline_stage) : '<span class="muted">Sem pipeline</span>'}</div>
+          <div class="muted">OS vinculadas</div><div>${state.selecionado.workorder_count ? flagBadge(`${state.selecionado.workorder_count} OS`, 'os-pill') : '<span class="muted">Nenhuma OS</span>'}</div>
           <div class="muted">Prazo</div><div>${escapeHtml(formatarData(state.selecionado.due_date))}</div>
           <div class="muted">Criado em</div><div>${escapeHtml(formatarDataHora(state.selecionado.created_at))}</div>
           <div class="muted">Descrição</div><div>${escapeHtml(state.selecionado.description || "—")}</div>
@@ -553,7 +616,7 @@
         <div class="separator"></div>
         <div class="detail-block"><h3>Visitas Técnicas</h3>${state.visitas.length ? state.visitas.map(v => `<div class="mini-card"><div class="mini-card-top"><div class="mini-card-title">${escapeHtml(v.event_type || "visit")}</div><div>${badgePrioridade(v.priority || "normal")}</div></div><div class="mini-card-meta">Início: ${escapeHtml(formatarDataHora(v.start_at))}</div><div class="mini-card-meta">Duração estimada: ${escapeHtml(v.estimated_minutes || "—")} min</div><div class="mini-card-meta">Endereço: ${escapeHtml(v.address || "—")}</div><div>${escapeHtml(v.notes || "Sem observações")}</div></div>`).join("") : `<div class="empty">Nenhuma visita técnica agendada.</div>`}</div>
         <div class="separator"></div>
-        <div class="detail-block"><h3>Orçamentos</h3>${state.orcamentos.length ? state.orcamentos.map(q => `<div class="mini-card"><div class="mini-card-top"><div class="mini-card-title">Orçamento v${escapeHtml(q.version || 1)}</div><div>${badgeStatus(q.status)}</div></div><div class="mini-card-meta">Criado em: ${escapeHtml(formatarDataHora(q.created_at))}</div><div class="mini-card-meta">Atualizado em: ${escapeHtml(formatarDataHora(q.updated_at))}</div><div><strong>Total:</strong> ${escapeHtml(new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(q.total||0)))}</div></div>`).join("") : `<div class="empty">Nenhum orçamento gerado para este chamado.</div>`}</div>
+        <div class="detail-block"><h3>Orçamentos</h3>${state.orcamentos.length ? state.orcamentos.map(q => `<div class="mini-card mini-card-accent"><div class="mini-card-top"><div class="mini-card-title">Orçamento v${escapeHtml(q.version || 1)}</div><div style="display:flex;gap:8px;flex-wrap:wrap">${badgeStatus(q.status)}${q.status === "approved" ? flagBadge("Pronto para OS", "pipeline-aprovado") : q.status === "sent" ? flagBadge("Aguardando retorno", "pipeline-aprovacao") : ""}</div></div><div class="mini-card-meta">Criado em: ${escapeHtml(formatarDataHora(q.created_at))}</div><div class="mini-card-meta">Atualizado em: ${escapeHtml(formatarDataHora(q.updated_at))}</div><div><strong>Total:</strong> ${escapeHtml(new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(q.total||0)))}</div></div>`).join("") : `<div class="empty">Nenhum orçamento gerado para este chamado.</div>`}</div>
       `;
 
       $("#btnGerarLinkAnexos", wrap).addEventListener("click", async () => {
