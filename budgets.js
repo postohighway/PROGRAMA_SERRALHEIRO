@@ -52,7 +52,7 @@
 
   async function syncTicketStatus(ctx, ticketId, status) {
     if (!ticketId || !status) return;
-    const upd = await ctx.sb.db.from("tickets").update({ status, updated_at: new Date().toISOString() }).eq("company_id", ctx.companyId).eq("id", ticketId);
+    const upd = await ctx.sb.db.from("tickets").update({ status }).eq("company_id", ctx.companyId).eq("id", ticketId);
     if (upd.error) throw upd.error;
   }
 

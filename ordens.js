@@ -74,7 +74,7 @@
     else if (["concluida", "finalizada"].includes(s)) ticketStatus = "finalizado";
     else if (s === "cancelada") ticketStatus = "cancelado";
     if (!ticketStatus) return;
-    const upd = await ctx.sb.db.from("tickets").update({ status: ticketStatus, updated_at: new Date().toISOString() }).eq("company_id", ctx.companyId).eq("id", ticketId);
+    const upd = await ctx.sb.db.from("tickets").update({ status: ticketStatus }).eq("company_id", ctx.companyId).eq("id", ticketId);
     if (upd.error) throw upd.error;
   }
 

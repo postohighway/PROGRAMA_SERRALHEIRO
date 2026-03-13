@@ -26,7 +26,7 @@
     else if (s === "aprovado" || s === "execucao") newStatus = "em_andamento";
     else if (s === "faturado") newStatus = "finalizado";
     if (!newStatus) return;
-    const upd = await ctx.sb.db.from("tickets").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("company_id", ctx.companyId).eq("id", ticketId);
+    const upd = await ctx.sb.db.from("tickets").update({ status: newStatus }).eq("company_id", ctx.companyId).eq("id", ticketId);
     if (upd.error) throw upd.error;
   }
 
