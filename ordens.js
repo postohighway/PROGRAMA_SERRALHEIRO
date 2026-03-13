@@ -152,7 +152,7 @@
       wrap.innerHTML = `<div class="empty">Carregando ordens...</div>`;
 
       let query = ctx.sb.db.from("workorders")
-        .select("id, quote_id, ticket_id, desc, status, due_date, created_at, updated_at, priority, notes")
+        .select("id, quote_id, budget_id, ticket_id, client_id, source, desc, status, due_date, created_at, updated_at, priority, notes")
         .eq("company_id", ctx.companyId)
         .order("created_at", { ascending: false });
 
@@ -165,7 +165,7 @@
       }
 
       const busca = state.busca.trim().toLowerCase();
-      state.ordens = (data || []).filter((o) => !busca || [o.id, o.quote_id, o.ticket_id, o.desc, o.status].join(" ").toLowerCase().includes(busca));
+      state.ordens = (data || []).filter((o) => !busca || [o.id, o.quote_id, o.budget_id, o.ticket_id, o.desc, o.status, o.source].join(" ").toLowerCase().includes(busca));
 
       if (!state.ordens.length) {
         wrap.innerHTML = `<div class="empty">Nenhuma ordem encontrada.</div>`;
@@ -178,7 +178,7 @@
           <div class="os-top">
             <div>
               <div class="os-title">OS ${escapeHtml(o.id)}</div>
-              <div class="os-meta">Orçamento: ${escapeHtml(o.quote_id || "—")}</div>
+              <div class="os-meta">Orçamento: ${escapeHtml(o.quote_id || o.budget_id || "—")}</div>
             </div>
             <div>${badgeStatus(o.status)}</div>
           </div>
@@ -211,16 +211,25 @@
       window.__osSelecionadaId = state.selecionada.id;
       wrap.innerHTML = `<div class="empty">Carregando detalhe...</div>`;
 
-      const [ticketResp, quoteResp, checklistResp, comprasResp, pipelineResp] = await Promise.all([
+      const [ticketResp, quoteResp, budgetResp, checklistResp, comprasResp, pipelineResp, customerResp] = await Promise.all([
         state.selecionada.ticket_id ? ctx.sb.db.from("tickets").select("client_name, client_phone, description, due_date, status").eq("id", state.selecionada.ticket_id).maybeSingle() : Promise.resolve({ data: null }),
-        state.selecionada.quote_id ? ctx.sb.db.from("quotes").select("total, status").eq("id", state.selecionada.quote_id).maybeSingle() : Promise.resolve({ data: null }),
+        state.selecionada.quote_id ? ctx.sb.db.from("quotes").select("total, status, customer_id").eq("id", state.selecionada.quote_id).maybeSingle() : Promise.resolve({ data: null }),
+        state.selecionada.budget_id ? ctx.sb.db.from("budgets").select("total, status, customer_id, client_name, client_phone, description").eq("id", state.selecionada.budget_id).maybeSingle() : Promise.resolve({ data: null }),
         state.selecionada.ticket_id ? ctx.sb.db.from("ticket_checklist").select("*").eq("ticket_id", state.selecionada.ticket_id).maybeSingle() : Promise.resolve({ data: null }),
         ctx.sb.db.from("purchases").select("id, description, total, status, created_at").eq("workorder_id", state.selecionada.id).order("created_at", { ascending: false }),
-        state.selecionada.ticket_id ? ctx.sb.db.from("commercial_pipeline").select("stage").eq("company_id", ctx.companyId).eq("ticket_id", state.selecionada.ticket_id).maybeSingle() : Promise.resolve({ data: null })
+        state.selecionada.ticket_id ? ctx.sb.db.from("commercial_pipeline").select("stage").eq("company_id", ctx.companyId).eq("ticket_id", state.selecionada.ticket_id).maybeSingle() : Promise.resolve({ data: null }),
+        state.selecionada.client_id ? ctx.sb.db.from("customers").select("name, phone").eq("id", state.selecionada.client_id).maybeSingle() : Promise.resolve({ data: null })
       ]);
 
       const ticket = ticketResp.data || null;
       const quote = quoteResp.data || null;
+      const budget = budgetResp.data || null;
+      const customer = customerResp.data || null;
+      const clienteNome = customer?.name || budget?.client_name || ticket?.client_name || "OS legada sem vínculo de cliente";
+      const clienteTelefone = customer?.phone || budget?.client_phone || ticket?.client_phone || "—";
+      const orcamentoId = state.selecionada.quote_id || state.selecionada.budget_id || "—";
+      const orcamentoTotal = quote?.total ?? budget?.total ?? null;
+      const orcamentoStatus = quote?.status || budget?.status || null;
       const checklist = checklistResp.data || {
         measured: false, materials_bought: false, production_started: false,
         finishing_done: false, installed: false, final_paid: false
@@ -235,31 +244,32 @@
           <button id="btnStatusProducao" class="btn btn-primary ${state.selecionada.status === 'em_execucao' ? 'os-action-active' : ''}">Em Produção</button>
           <button id="btnStatusInstalacao" class="btn btn-success ${state.selecionada.status === 'em_execucao' ? 'os-action-active' : ''}">Em Instalação</button>
           <button id="btnStatusConcluida" class="btn btn-success ${state.selecionada.status === 'finalizada' ? 'os-action-active' : ''}">Concluir</button>
+          <button id="btnImprimirOS" class="btn btn-secondary">Imprimir</button>
           <button id="btnIrCompras" class="btn btn-secondary">Nova Compra Vinculada</button>
         </div>
 
         <div class="os-kpis">
           <div class="os-kpi"><div class="os-kpi-label">Status</div><div class="os-kpi-value">${escapeHtml(({aberta:'Aberta', aguardando_peca:'Aguardando material', em_execucao:'Em andamento', finalizada:'Concluída', cancelada:'Cancelada'})[state.selecionada.status || 'aberta'] || state.selecionada.status || 'Aberta')}</div></div>
-          <div class="os-kpi"><div class="os-kpi-label">Total do Orçamento</div><div class="os-kpi-value">${quote ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(quote.total || 0)) : "—"}</div></div>
+          <div class="os-kpi"><div class="os-kpi-label">Total do Orçamento</div><div class="os-kpi-value">${orcamentoTotal != null ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(orcamentoTotal || 0)) : "—"}</div></div>
           <div class="os-kpi"><div class="os-kpi-label">Fluxo Comercial</div><div class="os-kpi-value">${pipeline ? pipelineChip(pipeline.stage) : '—'}</div></div>
           <div class="os-kpi"><div class="os-kpi-label">Chamado</div><div class="os-kpi-value">${ticket ? badgeStatus(ticket.status === 'finalizado' ? 'finalizada' : ticket.status) : '—'}</div></div>
           <div class="os-kpi"><div class="os-kpi-label">Compras vinculadas</div><div class="os-kpi-value">${compras.length}</div></div>
-          <div class="os-kpi"><div class="os-kpi-label">Orçamento</div><div class="os-kpi-value">${quote ? escapeHtml(({draft:'Rascunho', sent:'Enviado', approved:'Aprovado', rejected:'Recusado', canceled:'Cancelado'})[String(quote.status||'').toLowerCase()] || quote.status) : '—'}</div></div>
+          <div class="os-kpi"><div class="os-kpi-label">Orçamento</div><div class="os-kpi-value">${orcamentoStatus ? escapeHtml(({draft:'Rascunho', sent:'Enviado', approved:'Aprovado', rejected:'Recusado', canceled:'Cancelado', converted:'Convertido'})[String(orcamentoStatus||'').toLowerCase()] || orcamentoStatus) : '—'}</div></div>
         </div>
 
         <div class="os-info-box">
           <div class="os-title">Dados da Ordem</div>
           <div class="os-meta">OS: ${escapeHtml(state.selecionada.id)}</div>
-          <div class="os-meta">Orçamento: ${escapeHtml(state.selecionada.quote_id || "—")}</div>
+          <div class="os-meta">Orçamento: ${escapeHtml(orcamentoId)}</div>
           <div class="os-meta">Ticket: ${escapeHtml(state.selecionada.ticket_id || "—")}</div>
           <div class="os-meta">Prazo: ${escapeHtml(formatarData(state.selecionada.due_date || ticket?.due_date || null))}</div>
-          <div style="margin-top:8px">${escapeHtml(state.selecionada.desc || ticket?.description || "Sem descrição.")}</div>
+          <div style="margin-top:8px">${escapeHtml(state.selecionada.desc || budget?.description || ticket?.description || "Sem descrição.")}</div>
         </div>
 
         <div class="os-info-box">
           <div class="os-title">Cliente</div>
-          <div class="os-meta">Nome: ${escapeHtml(ticket?.client_name || "—")}</div>
-          <div class="os-meta">Telefone: ${escapeHtml(ticket?.client_phone || "—")}</div>
+          <div class="os-meta">Nome: ${escapeHtml(clienteNome)}</div>
+          <div class="os-meta">Telefone: ${escapeHtml(clienteTelefone)}</div>
         </div>
 
         <div class="os-info-box">
@@ -293,6 +303,13 @@
       $("#btnStatusInstalacao", wrap).addEventListener("click", () => atualizarStatus("em_execucao"));
       $("#btnStatusConcluida", wrap).addEventListener("click", () => atualizarStatus("finalizada"));
       $("#btnSalvarChecklist", wrap).addEventListener("click", salvarChecklist);
+      const btnImprimir = $("#btnImprimirOS", wrap);
+      if (btnImprimir) btnImprimir.addEventListener("click", () => {
+        if (window.PrintOS && typeof window.PrintOS.imprimirOS === "function") {
+          return window.PrintOS.imprimirOS({ sb: ctx.sb, workorderId: state.selecionada.id });
+        }
+        alert("Módulo de impressão da OS não carregado.");
+      });
       $("#btnIrCompras", wrap).addEventListener("click", () => {
         window.__osSelecionadaId = state.selecionada.id;
         location.hash = "#compras";
