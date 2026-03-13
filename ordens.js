@@ -69,12 +69,24 @@
     if (!ticketId) return;
     const s = String(workorderStatus || "").toLowerCase();
     let ticketStatus = null;
-    if (["aberta", "aguardando_peca", "em_execucao"].includes(s)) ticketStatus = "em_andamento";
-    else if (s === "finalizada") ticketStatus = "finalizado";
-    else if (s === "cancelada") ticketStatus = "cancelado";
+    let pipelineStage = null;
+    if (["aberta", "aguardando_peca", "em_execucao"].includes(s)) {
+      ticketStatus = "em_andamento";
+      pipelineStage = "execucao";
+    } else if (s === "finalizada") {
+      ticketStatus = "finalizado";
+      pipelineStage = "faturado";
+    } else if (s === "cancelada") {
+      ticketStatus = "cancelado";
+      pipelineStage = "perdido";
+    }
     if (!ticketStatus) return;
     const upd = await ctx.sb.db.from("tickets").update({ status: ticketStatus }).eq("company_id", ctx.companyId).eq("id", ticketId);
     if (upd.error) throw upd.error;
+    if (pipelineStage) {
+      const updPipe = await ctx.sb.db.from("commercial_pipeline").update({ stage: pipelineStage }).eq("company_id", ctx.companyId).eq("ticket_id", ticketId);
+      if (updPipe.error) throw updPipe.error;
+    }
   }
 
   async function listarOrdens(ctx) {
