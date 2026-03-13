@@ -64,6 +64,20 @@
     document.head.appendChild(st);
   }
 
+
+
+  async function syncTicketStatusFromWorkorder(ctx, ticketId, workorderStatus) {
+    if (!ticketId) return;
+    const s = String(workorderStatus || "").toLowerCase();
+    let ticketStatus = null;
+    if (["aberta", "aguardando_material", "aguardando_peca", "em_andamento", "em_instalacao"].includes(s)) ticketStatus = "em_andamento";
+    else if (["concluida", "finalizada"].includes(s)) ticketStatus = "finalizado";
+    else if (s === "cancelada") ticketStatus = "cancelado";
+    if (!ticketStatus) return;
+    const upd = await ctx.sb.db.from("tickets").update({ status: ticketStatus, updated_at: new Date().toISOString() }).eq("company_id", ctx.companyId).eq("id", ticketId);
+    if (upd.error) throw upd.error;
+  }
+
   async function listarOrdens(ctx) {
     injetarCss();
 
@@ -260,6 +274,11 @@
         }).eq("id", state.selecionada.id);
 
         if (r.error) return alert("Falha ao atualizar status: " + (r.error.message || r.error));
+        try {
+          await syncTicketStatusFromWorkorder(ctx, state.selecionada.ticket_id, novoStatus);
+        } catch (syncErr) {
+          return alert("Status da Ordem atualizado, mas falhou ao sincronizar o chamado: " + (syncErr.message || syncErr));
+        }
         state.selecionada.status = novoStatus;
         alert("Status da Ordem atualizado.");
         await carregarLista();

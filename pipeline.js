@@ -15,6 +15,21 @@
     document.head.appendChild(st);
   }
 
+
+
+  async function syncTicketStatusFromPipeline(ctx, ticketId, stage) {
+    if (!ticketId) return;
+    const s = String(stage || "").toLowerCase();
+    let newStatus = null;
+    if (s === "diagnostico" || s === "orcamento") newStatus = "em_analise";
+    else if (s === "aprovacao") newStatus = "aguardando_cliente";
+    else if (s === "aprovado" || s === "execucao") newStatus = "em_andamento";
+    else if (s === "faturado") newStatus = "finalizado";
+    if (!newStatus) return;
+    const upd = await ctx.sb.db.from("tickets").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("company_id", ctx.companyId).eq("id", ticketId);
+    if (upd.error) throw upd.error;
+  }
+
   async function listarPipeline(ctx) {
     injectCss();
     const alvo = document.getElementById(ctx.areaId);
@@ -109,6 +124,11 @@
         if (!reg || !novoStage || reg.stage === novoStage) return;
         const upd = await ctx.sb.db.from("commercial_pipeline").update({ stage: novoStage, updated_at: new Date().toISOString() }).eq("id", id).eq("company_id", ctx.companyId);
         if (upd.error) return alert("Falha ao mover pipeline: " + (upd.error.message || upd.error));
+        try {
+          await syncTicketStatusFromPipeline(ctx, reg.ticket_id, novoStage);
+        } catch (syncErr) {
+          return alert("Pipeline movido, mas falhou ao sincronizar o chamado: " + (syncErr.message || syncErr));
+        }
         reg.stage = novoStage;
         renderBoard();
         renderDetail();

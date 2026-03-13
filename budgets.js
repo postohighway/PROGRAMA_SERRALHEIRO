@@ -48,6 +48,23 @@
     return r.data || [];
   }
 
+
+
+  async function syncTicketStatus(ctx, ticketId, status) {
+    if (!ticketId || !status) return;
+    const upd = await ctx.sb.db.from("tickets").update({ status, updated_at: new Date().toISOString() }).eq("company_id", ctx.companyId).eq("id", ticketId);
+    if (upd.error) throw upd.error;
+  }
+
+  function getTicketStatusFromPipelineStage(stage) {
+    const s = String(stage || "").toLowerCase();
+    if (s === "diagnostico" || s === "orcamento") return "em_analise";
+    if (s === "aprovacao") return "aguardando_cliente";
+    if (s === "aprovado" || s === "execucao") return "em_andamento";
+    if (s === "faturado") return "finalizado";
+    return null;
+  }
+
   async function loadCatalog(ctx) {
     const r = await ctx.sb.db.from("products_services").select("id, item_type, category, name, description, unit, sale_price, cost_price, is_active").eq("company_id", ctx.companyId).eq("is_active", true).order("name", { ascending: true });
     if (r.error) throw r.error;
@@ -84,6 +101,8 @@
     const newStage = payload.status === "approved" ? "aprovado" : payload.status === "rejected" ? "perdido" : payload.status === "sent" ? "aprovacao" : "orcamento";
     const updPipe = await ctx.sb.db.from("commercial_pipeline").update({ stage: newStage, estimated_value: payload.total || 0, approved_value: payload.status === "approved" ? (payload.total || 0) : null, updated_at: new Date().toISOString() }).eq("company_id", ctx.companyId).eq("id", payload.pipeline_id);
     if (updPipe.error) throw updPipe.error;
+    const ticketStatus = getTicketStatusFromPipelineStage(newStage);
+    if (ticketStatus && payload.ticket_id) await syncTicketStatus(ctx, payload.ticket_id, ticketStatus);
     return budgetId;
   }
 
@@ -110,6 +129,7 @@
       const pipeUpd = await ctx.sb.db.from("commercial_pipeline").update({ stage: "execucao", updated_at: new Date().toISOString() }).eq("id", budget.pipeline_id).eq("company_id", ctx.companyId);
       if (pipeUpd.error) throw pipeUpd.error;
     }
+    await syncTicketStatus(ctx, ticket.id, "em_andamento");
     return ins.data.id;
   }
 
