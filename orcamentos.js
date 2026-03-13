@@ -87,8 +87,17 @@
       busca: "",
       status: "",
       orcamentos: [],
-      selecionado: null
+      selecionado: null,
+      focusQuoteId: null,
+      focusTicketId: null
     };
+
+    try {
+      state.focusQuoteId = sessionStorage.getItem("sgb_orcamentos_focus_quote_id") || null;
+      state.focusTicketId = sessionStorage.getItem("sgb_orcamentos_focus_ticket_id") || null;
+      if (state.focusQuoteId && !state.busca) state.busca = state.focusQuoteId;
+      else if (state.focusTicketId && !state.busca) state.busca = state.focusTicketId;
+    } catch (_) {}
 
     alvo.innerHTML = `
       <div class="orc-resumo">
@@ -99,7 +108,7 @@
       </div>
 
       <div class="orc-toolbar">
-        <input id="filtroBuscaOrc" class="field" placeholder="Buscar por cliente, ticket ou ID do orçamento">
+        <input id="filtroBuscaOrc" class="field" placeholder="Buscar por cliente, ticket ou ID do orçamento" value="${escapeHtml(state.busca)}">
         <select id="filtroStatusOrc" class="select">
           <option value="">Todos os status</option>
           <option value="draft">Rascunho</option>
@@ -158,6 +167,19 @@
         if (!busca) return true;
         return [x.id, x.ticket_id, x.customer_id, x.status].join(" ").toLowerCase().includes(busca);
       });
+
+      if (state.focusQuoteId) {
+        const foco = state.orcamentos.find((x) => x.id === state.focusQuoteId) || null;
+        if (foco) {
+          state.selecionado = foco;
+          try {
+            sessionStorage.removeItem("sgb_orcamentos_focus_quote_id");
+            sessionStorage.removeItem("sgb_orcamentos_focus_ticket_id");
+          } catch (_) {}
+          state.focusQuoteId = null;
+          state.focusTicketId = null;
+        }
+      }
 
       $("#resumoTotalOrc").textContent = String(state.orcamentos.length);
       $("#resumoDraft").textContent = String(state.orcamentos.filter((x) => x.status === "draft").length);

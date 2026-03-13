@@ -305,27 +305,6 @@
     await refreshDetalhe();
   }
 
-  async function aprovarOrcamento(ctx, quote, refreshDetalhe) {
-    if (!quote || !quote.id) return;
-    const statusAtual = String(quote.status || "").toLowerCase();
-    if (statusAtual === "approved") {
-      alert("Este orçamento já está aprovado.");
-      return;
-    }
-    if (!window.confirm("Deseja aprovar este orçamento? A ordem de serviço será criada automaticamente, se ainda não existir.")) return;
-
-    const upd = await ctx.sb.db
-      .from("quotes")
-      .update({ status: "approved", approved_at: new Date().toISOString() })
-      .eq("id", quote.id)
-      .eq("company_id", ctx.companyId);
-
-    if (upd.error) return alert("Falha ao aprovar orçamento: " + (upd.error.message || upd.error));
-
-    alert("Orçamento aprovado com sucesso.");
-    if (typeof refreshDetalhe === "function") await refreshDetalhe();
-  }
-
   function abrirModalVisita(ctx, ticket, refreshDetalhe) {
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop";
@@ -529,7 +508,7 @@
         <div class="separator"></div>
         <div class="detail-block"><h3>Visitas Técnicas</h3>${state.visitas.length ? state.visitas.map(v => `<div class="mini-card"><div class="mini-card-top"><div class="mini-card-title">${escapeHtml(v.event_type || "visit")}</div><div>${badgePrioridade(v.priority || "normal")}</div></div><div class="mini-card-meta">Início: ${escapeHtml(formatarDataHora(v.start_at))}</div><div class="mini-card-meta">Duração estimada: ${escapeHtml(v.estimated_minutes || "—")} min</div><div class="mini-card-meta">Endereço: ${escapeHtml(v.address || "—")}</div><div>${escapeHtml(v.notes || "Sem observações")}</div></div>`).join("") : `<div class="empty">Nenhuma visita técnica agendada.</div>`}</div>
         <div class="separator"></div>
-        <div class="detail-block"><h3>Orçamentos</h3>${state.orcamentos.length ? state.orcamentos.map(q => `<div class="mini-card"><div class="mini-card-top"><div class="mini-card-title">Orçamento v${escapeHtml(q.version || 1)}</div><div>${badgeStatus(q.status)}</div></div><div class="mini-card-meta">Criado em: ${escapeHtml(formatarDataHora(q.created_at))}</div><div class="mini-card-meta">Atualizado em: ${escapeHtml(formatarDataHora(q.updated_at))}</div><div><strong>Total:</strong> ${escapeHtml(new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(q.total||0)))}</div>${String(q.status || "").toLowerCase() === "sent" ? `<div class="detail-actions" style="margin-top:10px"><button class="btn btn-success js-aprovar-orcamento" data-id="${escapeHtml(q.id)}">Aprovar</button></div>` : ""}</div>`).join("") : `<div class="empty">Nenhum orçamento gerado para este chamado.</div>`}</div>
+        <div class="detail-block"><h3>Orçamentos</h3>${state.orcamentos.length ? state.orcamentos.map(q => `<div class="mini-card"><div class="mini-card-top"><div class="mini-card-title">Orçamento v${escapeHtml(q.version || 1)}</div><div>${badgeStatus(q.status)}</div></div><div class="mini-card-meta">Criado em: ${escapeHtml(formatarDataHora(q.created_at))}</div><div class="mini-card-meta">Atualizado em: ${escapeHtml(formatarDataHora(q.updated_at))}</div><div><strong>Total:</strong> ${escapeHtml(new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(q.total||0)))}</div><div class="detail-actions" style="margin-top:10px"><button class="btn btn-secondary js-abrir-orcamento" data-quote-id="${escapeHtml(q.id)}" data-ticket-id="${escapeHtml(state.selecionado.id)}">Abrir em Orçamentos</button></div></div>`).join("") : `<div class="empty">Nenhum orçamento gerado para este chamado.</div>`}</div>
       `;
 
       $("#btnGerarLinkAnexos", wrap).addEventListener("click", async () => {
@@ -541,11 +520,12 @@
       $("#btnPortalGeralDetalhe", wrap).addEventListener("click", () => abrirModalLinkPortal({ titulo: "Link público para abertura de chamado", link: state.linkPortalGeral, subtitulo: "Esse link cria um chamado novo e, ao final, o cliente já é levado para a tela de anexar fotos e vídeo." }));
       $("#btnAgendarVisita", wrap).addEventListener("click", () => abrirModalVisita(ctx, state.selecionado, carregarDetalhe));
       $("#btnGerarOrcamento", wrap).addEventListener("click", () => gerarOrcamento(ctx, state.selecionado, carregarDetalhe));
-      $all(".js-aprovar-orcamento", wrap).forEach(btn => btn.addEventListener("click", async () => {
-        const id = btn.getAttribute("data-id");
-        const quote = state.orcamentos.find(q => q.id === id);
-        if (!quote) return;
-        await aprovarOrcamento(ctx, quote, carregarDetalhe);
+      wrap.querySelectorAll(".js-abrir-orcamento").forEach((btn) => btn.addEventListener("click", () => {
+        try {
+          sessionStorage.setItem("sgb_orcamentos_focus_quote_id", btn.getAttribute("data-quote-id") || "");
+          sessionStorage.setItem("sgb_orcamentos_focus_ticket_id", btn.getAttribute("data-ticket-id") || "");
+        } catch (_) {}
+        location.hash = "orcamentos";
       }));
       const btnCopiar = $("#btnCopiarLinkAnexos", wrap);
       if (btnCopiar) btnCopiar.addEventListener("click", async () => { await copiarTexto(state.linkAnexosAtual); alert("Link copiado."); });
