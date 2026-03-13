@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clientes — SGB Serralheria</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { padding: 0; margin: 0; }
+    .clientes-wrapper { padding: 18px; max-width: 1440px; margin: 0 auto; }
+    .clientes-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line-soft, #1a2d4e); }
+    .clientes-header h1 { margin: 0; font-size: 24px; }
+    .clientes-header .sub { font-size: 12px; color: var(--muted, #9fb2cf); margin-top: 4px; }
+    .clientes-info { font-size: 12px; color: var(--muted); padding: 10px 12px; background: rgba(61,134,255,.08); border-radius: 10px; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+  <div class="clientes-wrapper">
+    <div class="clientes-header">
+      <div>
+        <h1>Clientes</h1>
+        <div class="sub">Módulo adaptado ao padrão visual do SGB Serralheria</div>
+      </div>
+      <div class="badge-status" id="badgeConexao">Conectando...</div>
+    </div>
+    <div class="clientes-info">
+      Este HTML é apenas para teste isolado do módulo. No projeto principal, use o <code>clientes.js</code> integrado na área principal do sistema.
+    </div>
+    <div id="erroGlobal" class="alert error"></div>
+    <div id="conteudoTela"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="supabaseClient.js"></script>
+  <script src="clientes.js"></script>
+  <script>
+    (function() {
+      function init() {
+        const badge = document.getElementById("badgeConexao");
+        if (badge) badge.textContent = (window.sb && window.sb.db) ? "Conectado" : "Sem conexão";
+
+        const companyId = (window.sb && window.sb.companyId) || (window.sbConfig && window.sbConfig.defaultCompanyId);
+        if (!companyId) {
+          document.getElementById("conteudoTela").innerHTML = '<div class="empty">Configure defaultCompanyId em config.js</div>';
+          return;
+        }
+
+        if (window.ModuloClientes && typeof window.ModuloClientes.listarClientes === "function") {
+          window.ModuloClientes.listarClientes({
+            areaId: "conteudoTela",
+            sb: window.sb,
+            companyId: companyId,
+            setErro: function(msg) {
+              const box = document.getElementById("erroGlobal");
+              if (box) { box.textContent = msg || ""; box.classList.toggle("show", !!msg); }
+            },
+            setInfo: function() {}
+          });
+        } else {
+          document.getElementById("conteudoTela").innerHTML = '<div class="empty">Módulo clientes não carregado.</div>';
+        }
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        setTimeout(init, 300);
+      }
+    })();
+  </script>
+</body>
+</html>
