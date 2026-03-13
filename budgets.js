@@ -88,13 +88,28 @@
   }
 
   async function convertBudgetToServiceOrder(ctx, budget, ticket) {
-    const existing = await ctx.sb.db.from("service_orders").select("id, status").eq("company_id", ctx.companyId).eq("budget_id", budget.id).maybeSingle();
+    const existing = await ctx.sb.db.from("workorders").select("id, status").eq("company_id", ctx.companyId).eq("budget_id", budget.id).maybeSingle();
     if (existing.error) throw existing.error;
     if (existing.data) return existing.data.id;
-    const ins = await ctx.sb.db.from("service_orders").insert({ company_id: ctx.companyId, ticket_id: ticket.id, budget_id: budget.id, pipeline_id: budget.pipeline_id || null, status: "pending", notes: "OS criada a partir de orçamento aprovado." }).select("id").single();
+
+    const ins = await ctx.sb.db.from("workorders").insert({
+      company_id: ctx.companyId,
+      ticket_id: ticket.id,
+      client_id: budget.customer_id || ticket.customer_id || null,
+      budget_id: budget.id,
+      status: "aberta",
+      source: "budget",
+      desc: "OS criada a partir de orçamento aprovado.",
+      priority: "normal",
+      notes: "OS criada a partir de orçamento aprovado."
+    }).select("id").single();
     if (ins.error) throw ins.error;
+
     await ctx.sb.db.from("budgets").update({ status: "converted", updated_at: new Date().toISOString() }).eq("id", budget.id).eq("company_id", ctx.companyId);
-    if (budget.pipeline_id) await ctx.sb.db.from("commercial_pipeline").update({ stage: "execucao", updated_at: new Date().toISOString() }).eq("id", budget.pipeline_id).eq("company_id", ctx.companyId);
+    if (budget.pipeline_id) {
+      const pipeUpd = await ctx.sb.db.from("commercial_pipeline").update({ stage: "execucao", updated_at: new Date().toISOString() }).eq("id", budget.pipeline_id).eq("company_id", ctx.companyId);
+      if (pipeUpd.error) throw pipeUpd.error;
+    }
     return ins.data.id;
   }
 
