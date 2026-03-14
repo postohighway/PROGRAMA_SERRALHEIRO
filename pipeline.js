@@ -129,7 +129,29 @@
         const novoStage = col.getAttribute("data-stage");
         const reg = state.registros.find(r => r.id === id);
         if (!reg || !novoStage || reg.stage === novoStage) return;
-        const upd = await ctx.sb.db.from("commercial_pipeline").update({ stage: novoStage, updated_at: new Date().toISOString() }).eq("id", id).eq("company_id", ctx.companyId);
+
+        if (novoStage === "aprovado") {
+          if (!reg.latestBudget || !reg.latestBudget.id) {
+            return alert("Não é possível aprovar no pipeline sem orçamento vinculado.");
+          }
+          if (!window.ModuloBudgets || typeof window.ModuloBudgets.approveBudgetAndCreateWorkorder !== "function") {
+            return alert("Módulo de orçamentos não carregado para gerar a OS automaticamente.");
+          }
+          try {
+            await window.ModuloBudgets.approveBudgetAndCreateWorkorder(ctx, reg.latestBudget, reg.ticket || { id: reg.ticket_id, customer_id: reg.ticket?.customer_id || null });
+            await syncTicketStatusFromPipeline(ctx, reg.ticket_id, "execucao");
+            await carregar();
+          } catch (err) {
+            return alert("Falha ao aprovar e gerar OS: " + (err.message || err));
+          }
+          return;
+        }
+
+        const upd = await ctx.sb.db
+          .from("commercial_pipeline")
+          .update({ stage: novoStage, updated_at: new Date().toISOString() })
+          .eq("id", id)
+          .eq("company_id", ctx.companyId);
         if (upd.error) return alert("Falha ao mover pipeline: " + (upd.error.message || upd.error));
         try {
           await syncTicketStatusFromPipeline(ctx, reg.ticket_id, novoStage);

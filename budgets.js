@@ -97,27 +97,31 @@
     if (existing.error) throw existing.error;
     if (existing.data) return existing.data.id;
 
+    const payload = {
+      company_id: ctx.companyId,
+      ticket_id: ticket.id,
+      budget_id: budget.id,
+      client_id: budget.customer_id || ticket.customer_id || null,
+      source: "budget",
+      status: "aberta",
+      desc: "OS criada a partir de orçamento aprovado.",
+      due_date: ticket.due_date || null,
+      created_at: new Date().toISOString()
+    };
+
     const ins = await ctx.sb.db
       .from("workorders")
-      .insert({
-        company_id: ctx.companyId,
-        ticket_id: ticket.id,
-        budget_id: budget.id,
-        client_id: ticket.customer_id || budget.customer_id || null,
-        source: "budget",
-        status: "aberta",
-        desc: "OS criada a partir de orçamento aprovado.",
-        created_at: new Date().toISOString()
-      })
+      .insert(payload)
       .select("id")
       .single();
     if (ins.error) throw ins.error;
 
-    await ctx.sb.db
+    const updBudget = await ctx.sb.db
       .from("budgets")
       .update({ status: "converted", updated_at: new Date().toISOString() })
       .eq("id", budget.id)
       .eq("company_id", ctx.companyId);
+    if (updBudget.error) throw updBudget.error;
 
     if (budget.pipeline_id) {
       const updPipe = await ctx.sb.db
@@ -129,6 +133,44 @@
     }
 
     return ins.data.id;
+  }
+
+  async function approveBudgetAndCreateWorkorder(ctx, budget, ticket) {
+    if (!budget || !budget.id) throw new Error("Budget inválido para aprovação.");
+    if (!ticket || !ticket.id) throw new Error("Ticket inválido para conversão em OS.");
+
+    const budgetPayload = {
+      id: budget.id,
+      pipeline_id: budget.pipeline_id || null,
+      customer_id: budget.customer_id || ticket.customer_id || null
+    };
+
+    const updApproved = await ctx.sb.db
+      .from("budgets")
+      .update({
+        status: "approved",
+        approved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", budget.id)
+      .eq("company_id", ctx.companyId);
+    if (updApproved.error) throw updApproved.error;
+
+    const pipelineId = budget.pipeline_id || null;
+    if (pipelineId) {
+      const updPipe = await ctx.sb.db
+        .from("commercial_pipeline")
+        .update({
+          stage: "aprovado",
+          approved_value: budget.total || 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", pipelineId)
+        .eq("company_id", ctx.companyId);
+      if (updPipe.error) throw updPipe.error;
+    }
+
+    return convertBudgetToServiceOrder(ctx, { ...budget, ...budgetPayload }, ticket);
   }
 
   function renderBudgetsResumoHtml(budgets) {
@@ -307,47 +349,26 @@
         const current = state.budgets.find(b => b.id === state.currentBudgetId) || null;
         const budgetId = await upsertBudget(ctx, { id: state.currentBudgetId, ticket_id: ticket.id, pipeline_id: state.pipeline.id, customer_id: ticket.customer_id || null, client_name: clientName.value.trim(), client_phone: clientPhone.value.trim(), description: description.value.trim(), subtotal: calc.subtotal, discount_value: calc.discount_value, total: calc.total, total_cost: calc.total_cost, margin_value: calc.margin_value, margin_percent: calc.margin_percent, status, version: current ? current.version : existingVersions + 1 }, state.items);
         state.currentBudgetId = budgetId;
-        let osIdGerada = null;
 
+        let createdOsId = null;
         if (status === "approved") {
-          await ctx.sb.db
-            .from("budgets")
-            .update({ approved_at: new Date().toISOString() })
-            .eq("id", budgetId)
-            .eq("company_id", ctx.companyId);
-
-          osIdGerada = await convertBudgetToServiceOrder(
-            ctx,
-            {
-              ...(current || {}),
-              ...calc,
-              id: budgetId,
-              ticket_id: ticket.id,
-              pipeline_id: state.pipeline.id,
-              customer_id: ticket.customer_id || null,
-              client_name: clientName.value.trim(),
-              client_phone: clientPhone.value.trim(),
-              description: description.value.trim(),
-              status: "approved"
-            },
-            ticket
-          );
+          createdOsId = await approveBudgetAndCreateWorkorder(ctx, {
+            id: budgetId,
+            pipeline_id: state.pipeline.id,
+            customer_id: ticket.customer_id || null,
+            total: calc.total
+          }, ticket);
         }
 
         await refreshData();
         if (typeof refreshAfter === "function") await refreshAfter();
-
-        if (status === "approved" && osIdGerada) {
-          alert("Orçamento aprovado e OS criada com sucesso. ID: " + osIdGerada);
-        } else {
-          alert(
-            status === "draft" ? "Rascunho salvo." :
-            status === "sent" ? "Orçamento marcado como enviado." :
-            status === "approved" ? "Orçamento aprovado." :
-            status === "rejected" ? "Orçamento rejeitado." :
-            "Orçamento salvo."
-          );
-        }
+        alert(
+          status === "draft" ? "Rascunho salvo." :
+          status === "sent" ? "Orçamento marcado como enviado." :
+          status === "approved" ? `Orçamento aprovado${createdOsId ? " e OS criada automaticamente" : ""}.` :
+          status === "rejected" ? "Orçamento rejeitado." :
+          "Orçamento salvo."
+        );
       } catch (e) { setError(e.message || String(e)); }
     }
 
@@ -392,5 +413,5 @@
     wrap.innerHTML = budgets.data && budgets.data.length ? renderBudgetsResumoHtml(budgets.data) : '<div class="empty">Nenhum orçamento cadastrado ainda.</div>';
   }
 
-  window.ModuloBudgets = { abrirModalOrcamento, renderBudgetsResumoHtml, ensurePipeline, listarTelaOrcamentos };
+  window.ModuloBudgets = { abrirModalOrcamento, renderBudgetsResumoHtml, ensurePipeline, listarTelaOrcamentos, convertBudgetToServiceOrder, approveBudgetAndCreateWorkorder };
 })();
