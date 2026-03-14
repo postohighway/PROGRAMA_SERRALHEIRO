@@ -60,7 +60,7 @@
     async function carregar() {
       const [pipe, budgets, tickets, workorders] = await Promise.all([
         ctx.sb.db.from("commercial_pipeline").select("id, company_id, ticket_id, stage, estimated_value, approved_value, status, created_at, updated_at").eq("company_id", ctx.companyId),
-        ctx.sb.db.from("budgets").select("id, company_id, ticket_id, pipeline_id, client_name, client_phone, description, total, status, version, created_at, updated_at").eq("company_id", ctx.companyId),
+        ctx.sb.db.from("budgets").select("id, company_id, ticket_id, pipeline_id, customer_id, client_name, client_phone, description, total, status, version, created_at, updated_at").eq("company_id", ctx.companyId),
         ctx.sb.db.from("tickets").select("id, client_name, client_phone, description, priority, status, created_at, due_date, customer_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("workorders").select("id, ticket_id, status, created_at").eq("company_id", ctx.companyId)
       ]);
