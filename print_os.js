@@ -60,7 +60,7 @@ h1{margin:0 0 6px 0;font-size:24px}.sub{color:#555;margin-bottom:18px}
   <div class="box"><div class="label">Cliente</div><div class="value">${esc(ticket?.client_name || "—")}</div></div>
   <div class="box"><div class="label">Telefone</div><div class="value">${esc(ticket?.client_phone || "—")}</div></div>
   <div class="box"><div class="label">Status</div><div class="value">${esc(os.status || "—")}</div></div>
-  <div class="box"><div class="label">Orçamento</div><div class="value">${quote ? esc(money(quote.total)) : "—"}</div></div>
+  <div class="box"><div class="label">Orçamento</div><div class="value">${esc(formatarNumeroOS(os))}</div></div>
 </div>
 <div class="section"><h3>Descrição</h3>${esc(os.desc || ticket?.description || "—")}</div>
 <div class="section"><h3>Vínculos</h3><div><b>OS:</b> ${esc(formatarNumeroOS(os))}</div><div><b>Ticket:</b> ${esc(os.ticket_id || "—")}</div><div><b>Orçamento:</b> ${esc(os.quote_id || "—")}</div><div><b>Prazo:</b> ${esc(fmtDate(os.due_date || ticket?.due_date))}</div></div>
