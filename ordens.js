@@ -53,6 +53,14 @@
     return `<span class="os-stage-chip ${escapeHtml(item[1])}">${escapeHtml(item[0])}</span>`;
   }
 
+
+
+  function formatarNumeroOS(os) {
+    const n = Number(os && os.os_number);
+    if (Number.isFinite(n) && n > 0) return `OS-${String(n).padStart(5, "0")}`;
+    return `OS ${os && os.id ? os.id : "—"}`;
+  }
+
   function injetarCss() {
     if (document.getElementById("css-ordens-pro-v2")) return;
     const st = document.createElement("style");
@@ -152,7 +160,7 @@
       wrap.innerHTML = `<div class="empty">Carregando ordens...</div>`;
 
       let query = ctx.sb.db.from("workorders")
-        .select("id, quote_id, budget_id, ticket_id, client_id, source, desc, status, due_date, created_at, updated_at, priority, notes")
+        .select("id, os_number, quote_id, budget_id, ticket_id, client_id, source, desc, status, due_date, created_at, updated_at, priority, notes")
         .eq("company_id", ctx.companyId)
         .order("created_at", { ascending: false });
 
@@ -177,7 +185,7 @@
         <div class="os-list-item status-${escapeHtml(o.status || "aberta")} ${state.selecionada && state.selecionada.id === o.id ? "active" : ""}" data-id="${o.id}">
           <div class="os-top">
             <div>
-              <div class="os-title">OS ${escapeHtml(o.id)}</div>
+              <div class="os-title">${escapeHtml(formatarNumeroOS(o))}</div>
               <div class="os-meta">Orçamento: ${escapeHtml(o.quote_id || o.budget_id || "—")}</div>
             </div>
             <div>${badgeStatus(o.status)}</div>
@@ -259,7 +267,7 @@
 
         <div class="os-info-box">
           <div class="os-title">Dados da Ordem</div>
-          <div class="os-meta">OS: ${escapeHtml(state.selecionada.id)}</div>
+          <div class="os-meta">OS: ${escapeHtml(formatarNumeroOS(state.selecionada))}</div>
           <div class="os-meta">Orçamento: ${escapeHtml(orcamentoId)}</div>
           <div class="os-meta">Ticket: ${escapeHtml(state.selecionada.ticket_id || "—")}</div>
           <div class="os-meta">Prazo: ${escapeHtml(formatarData(state.selecionada.due_date || ticket?.due_date || null))}</div>
