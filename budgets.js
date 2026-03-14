@@ -87,6 +87,20 @@
     return budgetId;
   }
 
+  async function getNextOsNumber(ctx) {
+    const r = await ctx.sb.db
+      .from("workorders")
+      .select("os_number")
+      .eq("company_id", ctx.companyId)
+      .not("os_number", "is", null)
+      .order("os_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (r.error) return 1;
+    const maxVal = Number(r.data?.os_number);
+    return (Number.isFinite(maxVal) && maxVal > 0 ? maxVal : 0) + 1;
+  }
+
   async function convertBudgetToServiceOrder(ctx, budget, ticket) {
     const existing = await ctx.sb.db
       .from("workorders")
@@ -97,6 +111,7 @@
     if (existing.error) throw existing.error;
     if (existing.data) return existing.data.id;
 
+    const osNumber = await getNextOsNumber(ctx);
     const payload = {
       company_id: ctx.companyId,
       ticket_id: ticket.id,
@@ -106,6 +121,7 @@
       status: "aberta",
       desc: "OS criada a partir de orçamento aprovado.",
       due_date: ticket.due_date || null,
+      os_number: osNumber,
       created_at: new Date().toISOString()
     };
 
