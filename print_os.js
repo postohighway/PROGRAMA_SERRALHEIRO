@@ -18,6 +18,12 @@
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v || 0));
   }
 
+  function formatarNumeroOS(os) {
+    const n = Number(os && os.os_number);
+    if (Number.isFinite(n) && n > 0) return `OS-${String(n).padStart(5, "0")}`;
+    return os && os.id ? os.id : "—";
+  }
+
   async function imprimirOS({ sb, workorderId }) {
     const osResp = await sb.db.from("workorders").select("*").eq("id", workorderId).single();
     if (osResp.error || !osResp.data) return alert("Erro ao carregar OS.");
@@ -57,7 +63,7 @@ h1{margin:0 0 6px 0;font-size:24px}.sub{color:#555;margin-bottom:18px}
   <div class="box"><div class="label">Orçamento</div><div class="value">${quote ? esc(money(quote.total)) : "—"}</div></div>
 </div>
 <div class="section"><h3>Descrição</h3>${esc(os.desc || ticket?.description || "—")}</div>
-<div class="section"><h3>Vínculos</h3><div><b>OS:</b> ${esc(os.id)}</div><div><b>Ticket:</b> ${esc(os.ticket_id || "—")}</div><div><b>Orçamento:</b> ${esc(os.quote_id || "—")}</div><div><b>Prazo:</b> ${esc(fmtDate(os.due_date || ticket?.due_date))}</div></div>
+<div class="section"><h3>Vínculos</h3><div><b>OS:</b> ${esc(formatarNumeroOS(os))}</div><div><b>Ticket:</b> ${esc(os.ticket_id || "—")}</div><div><b>Orçamento:</b> ${esc(os.quote_id || "—")}</div><div><b>Prazo:</b> ${esc(fmtDate(os.due_date || ticket?.due_date))}</div></div>
 <script>window.onload=function(){setTimeout(function(){window.print();},250)}<\/script>
 </body></html>`);
     win.document.close();
