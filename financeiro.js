@@ -217,20 +217,21 @@
 
     async function carregarBaseFinanceira() {
       const [
-        receivablesResp, paymentsResp, purchasesResp, quotesResp,
+        receivablesResp, paymentsResp, purchasesResp, quotesResp, budgetsResp,
         workordersResp, txsResp, customersResp, contractsResp
       ] = await Promise.all([
         ctx.sb.db.from("receivables").select("id, due_date, amount, paid, paid_at, company_id, customer_id, quote_id, workorder_id, contract_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("payments").select("id, amount, paid_at, created_at, note, quote_id, ticket_id, company_id, receivable_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("purchases").select("id, workorder_id, description, total, status, created_at, paid_at, company_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("quotes").select("id, ticket_id, status, total, customer_id, created_at, approved_at, company_id").eq("company_id", ctx.companyId),
-        ctx.sb.db.from("workorders").select("id, quote_id, ticket_id, desc, status, due_date, created_at, company_id").eq("company_id", ctx.companyId),
+        ctx.sb.db.from("budgets").select("id, ticket_id, pipeline_id, customer_id, total, status, approved_at, created_at, company_id").eq("company_id", ctx.companyId),
+        ctx.sb.db.from("workorders").select("id, quote_id, budget_id, ticket_id, desc, status, due_date, created_at, company_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("txs").select('id, type, desc, amount, due_date, status, category, created_at, receivable_id, workorder_id, quote_id, purchase_id, company_id').eq("company_id", ctx.companyId),
         ctx.sb.db.from("customers").select("id, name, phone, email").eq("company_id", ctx.companyId),
         ctx.sb.db.from("contracts").select("id, customer_id, name, amount, status, company_id").eq("company_id", ctx.companyId)
       ]);
 
-      for (const r of [receivablesResp, paymentsResp, purchasesResp, quotesResp, workordersResp, txsResp, customersResp, contractsResp]) {
+      for (const r of [receivablesResp, paymentsResp, purchasesResp, quotesResp, budgetsResp, workordersResp, txsResp, customersResp, contractsResp]) {
         if (r.error) throw r.error;
       }
 
@@ -242,6 +243,7 @@
         payments: paymentsResp.data || [],
         purchases: purchasesResp.data || [],
         quotes: quotesResp.data || [],
+        budgets: budgetsResp.data || [],
         workorders: workordersResp.data || [],
         txs: txsResp.data || [],
         customerMap,
@@ -252,6 +254,7 @@
     function pagamentosNoPeriodo(base) { return base.payments.filter((p) => entreDatas(p.paid_at || p.created_at, state.inicio, state.fim)); }
     function comprasNoPeriodo(base) { return base.purchases.filter((p) => entreDatas(p.created_at || p.paid_at, state.inicio, state.fim)); }
     function quotesNoPeriodo(base) { return base.quotes.filter((q) => entreDatas(q.approved_at || q.created_at, state.inicio, state.fim)); }
+    function budgetsNoPeriodo(base) { return base.budgets.filter((b) => entreDatas(b.approved_at || b.created_at, state.inicio, state.fim)); }
     function txsNoPeriodo(base) { return base.txs.filter((t) => entreDatas(t.created_at || t.due_date, state.inicio, state.fim)); }
     function receivablesNoPeriodo(base) { return base.receivables.filter((r) => entreDatas(r.due_date, state.inicio, state.fim)); }
 
@@ -277,7 +280,9 @@
         .filter((t) => String(t.status || "").toLowerCase() === "quitado")
         .filter((t) => !String(t.category || "").toLowerCase().includes("compra"))
         .reduce((a, t) => a + Number(t.amount || 0), 0);
-      const faturamentoPeriodo = quotesNoPeriodo(base).filter((q) => q.status === "approved").reduce((a, q) => a + Number(q.total || 0), 0);
+      const faturamentoQuotes = quotesNoPeriodo(base).filter((q) => q.status === "approved").reduce((a, q) => a + Number(q.total || 0), 0);
+      const faturamentoBudgets = budgetsNoPeriodo(base).filter((b) => String(b.status || "").toLowerCase() === "approved").reduce((a, b) => a + Number(b.total || 0), 0);
+      const faturamentoPeriodo = faturamentoQuotes + faturamentoBudgets;
       const margemPeriodo = faturamentoPeriodo > 0 ? ((faturamentoPeriodo - comprasPeriodo - despesasPeriodo) / faturamentoPeriodo) * 100 : 0;
       box.innerHTML = `
         <div class="fin-meta" style="margin-bottom:10px">Resultado do período: ${escapeHtml(formatarData(state.inicio))} até ${escapeHtml(formatarData(state.fim))}</div>
@@ -295,15 +300,20 @@
       const base = await carregarBaseFinanceira();
       const obras = base.workorders.map((os) => {
         const quote = base.quotes.find((q) => q.id === os.quote_id) || null;
+        const budget = base.budgets.find((b) => b.id === os.budget_id) || null;
+        const orcado = Number(quote?.total || budget?.total || 0);
         const compras = base.purchases.filter((p) => p.workorder_id === os.id && entreDatas(p.created_at || p.paid_at, state.inicio, state.fim));
-        const pagos = base.payments.filter((p) => p.quote_id === os.quote_id && entreDatas(p.paid_at || p.created_at, state.inicio, state.fim));
+        const pagos = base.payments.filter((p) => {
+          const pertence = p.quote_id === os.quote_id || (() => { const rec = base.receivables.find((r) => r.id === p.receivable_id); return rec && rec.workorder_id === os.id; })();
+          return pertence && entreDatas(p.paid_at || p.created_at, state.inicio, state.fim);
+        });
         const receber = base.receivables.filter((r) => (r.workorder_id === os.id || r.quote_id === os.quote_id) && entreDatas(r.due_date, state.inicio, state.fim));
         const custo = compras.reduce((a, c) => a + Number(c.total || 0), 0);
         const recebido = pagos.reduce((a, p) => a + Number(p.amount || 0), 0);
         const aReceber = receber.filter((r) => !r.paid).reduce((a, r) => a + Number(r.amount || 0), 0);
         const lucro = recebido - custo;
-        const margem = recebido > 0 ? (lucro / recebido) * 100 : 0;
-        return { os, orcado: Number(quote?.total || 0), custo, recebido, aReceber, lucro, margem };
+        const margem = recebido > 0 ? (lucro / recebido) * 100 : (orcado > 0 ? ((orcado - custo) / orcado) * 100 : 0);
+        return { os, orcado, custo, recebido, aReceber, lucro, margem };
       });
       box.innerHTML = obras.map((o) => `
         <div class="fin-obra-card">
@@ -362,7 +372,9 @@
 
     async function renderDRE(box) {
       const base = await carregarBaseFinanceira();
-      const receitaBruta = quotesNoPeriodo(base).filter((q) => q.status === "approved").reduce((a, q) => a + Number(q.total || 0), 0);
+      const receitaQuotes = quotesNoPeriodo(base).filter((q) => q.status === "approved").reduce((a, q) => a + Number(q.total || 0), 0);
+      const receitaBudgets = budgetsNoPeriodo(base).filter((b) => String(b.status || "").toLowerCase() === "approved").reduce((a, b) => a + Number(b.total || 0), 0);
+      const receitaBruta = receitaQuotes + receitaBudgets;
       const custos = comprasNoPeriodo(base).reduce((a, p) => a + Number(p.total || 0), 0);
       const despesas = txsNoPeriodo(base)
         .filter((t) => String(t.type || "").toLowerCase() === "pagar")

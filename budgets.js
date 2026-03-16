@@ -148,6 +148,19 @@
       if (updPipe.error) throw updPipe.error;
     }
 
+    const existenteRec = await ctx.sb.db.from("receivables").select("id").eq("workorder_id", ins.data.id).limit(1);
+    if (!existenteRec.error && (!existenteRec.data || existenteRec.data.length === 0)) {
+      const dueDate = ticket.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      await ctx.sb.db.from("receivables").insert({
+        company_id: ctx.companyId,
+        customer_id: budget.customer_id || ticket.customer_id || null,
+        workorder_id: ins.data.id,
+        amount: Number(budget.total || 0),
+        due_date: dueDate,
+        paid: false
+      });
+    }
+
     return ins.data.id;
   }
 

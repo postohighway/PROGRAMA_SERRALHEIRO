@@ -187,11 +187,15 @@
       let orcamentoTotal = 0;
 
       if (state.workorderId) {
-        const os = await ctx.sb.db.from("workorders").select("quote_id").eq("id", state.workorderId).maybeSingle();
+        const os = await ctx.sb.db.from("workorders").select("quote_id, budget_id").eq("id", state.workorderId).maybeSingle();
         const quoteId = os.data?.quote_id || null;
+        const budgetId = os.data?.budget_id || null;
         if (quoteId) {
           const q = await ctx.sb.db.from("quotes").select("total").eq("id", quoteId).maybeSingle();
           orcamentoTotal = Number(q.data?.total || 0);
+        } else if (budgetId) {
+          const b = await ctx.sb.db.from("budgets").select("total").eq("id", budgetId).maybeSingle();
+          orcamentoTotal = Number(b.data?.total || 0);
         }
       }
 
@@ -367,7 +371,20 @@
         if (r.error) return alert("Falha ao marcar compra como paga: " + (r.error.message || r.error));
         const updated = { ...state.selecionada, status: "paid", paid_at: agora };
         await syncPurchaseToExpense(ctx, updated);
-        alert("Compra marcada como paga e conta a pagar baixada.");
+        const valor = Number(state.selecionada.total || state.selecionada.value || 0);
+        if (valor > 0) {
+          await ctx.sb.db.from("txs").insert({
+            company_id: ctx.companyId,
+            type: "pagar",
+            desc: state.selecionada.description || "Compra",
+            amount: valor,
+            due_date: agora.slice(0, 10),
+            status: "quitado",
+            category: "Compra",
+            purchase_id: state.selecionada.id
+          });
+        }
+        alert("Compra marcada como paga, conta a pagar baixada e lançamento no fluxo de caixa.");
         await carregarLista();
       }
     }

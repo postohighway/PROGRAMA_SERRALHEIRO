@@ -391,12 +391,13 @@
   async function reportOrdensFinalizadas(sb, companyId, start, end) {
     const { data, error } = await sb.db
       .from("workorders")
-      .select("id, client_id, ticket_id, quote_id, desc, status, created_at, updated_at")
+      .select("id, client_id, ticket_id, quote_id, budget_id, desc, status, created_at, updated_at")
       .eq("company_id", companyId)
       .eq("status", "finalizada")
       .order("updated_at", { ascending: false });
     if (error) throw error;
     const rows = (data || []).filter((x) => inRange(x.updated_at || x.created_at, start, end));
+    const orcamentoRef = (r) => r.quote_id || r.budget_id || "—";
     return {
       slug: "ordens_finalizadas",
       title: "Relatório de ordens finalizadas",
@@ -408,12 +409,12 @@
       ],
       columns: ["Data", "OS", "Ticket", "Orçamento", "Descrição"],
       rows,
-      rowToCells: (r) => [fmtDate(r.updated_at || r.created_at), r.id, getValue(r, ["ticket_id"], "—"), getValue(r, ["quote_id"], "—"), getValue(r, ["desc"], "—")],
+      rowToCells: (r) => [fmtDate(r.updated_at || r.created_at), r.id, getValue(r, ["ticket_id"], "—"), orcamentoRef(r), getValue(r, ["desc"], "—")],
       csvHeaders: [
         { label: "Data", value: (r) => fmtDate(r.updated_at || r.created_at) },
         { label: "OS", value: "id" },
         { label: "Ticket", value: "ticket_id" },
-        { label: "Orçamento", value: "quote_id" },
+        { label: "Orçamento", value: (r) => orcamentoRef(r) },
         { label: "Descrição", value: "desc" }
       ]
     };
