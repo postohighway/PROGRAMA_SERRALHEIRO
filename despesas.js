@@ -118,7 +118,7 @@
 
       const { data, error } = await ctx.sb.db
         .from("expenses")
-        .select("id, company_id, description, category, amount, due_date, paid, paid_at, created_at")
+        .select("id, company_id, description, category, amount, due_date, paid, paid_at, created_at, purchase_id")
         .eq("company_id", ctx.companyId)
         .order("due_date", { ascending: true });
 
@@ -158,7 +158,7 @@
           <div class="desp-top">
             <div>
               <div class="desp-title">${escapeHtml(d.description || "Despesa")}</div>
-              <div class="desp-meta">Categoria: ${escapeHtml(d.category || "—")}</div>
+              <div class="desp-meta">Categoria: ${escapeHtml(d.purchase_id ? "Compra (OS)" : (d.category || "—"))}</div>
             </div>
             <div>${badgePago(d.paid)}</div>
           </div>
@@ -190,7 +190,7 @@
 
       wrap.innerHTML = `
         <div class="desp-actions">
-          <button id="btnEditarDespesa" class="btn btn-secondary">Editar</button>
+          ${state.selecionada.purchase_id ? `<span class="desp-meta">Compra vinculada à OS — edite pela tela Compras</span>` : `<button id="btnEditarDespesa" class="btn btn-secondary">Editar</button>`}
           ${state.selecionada.paid ? `<button class="btn btn-secondary" disabled>Já paga</button>` : `<button id="btnPagarDespesa" class="btn btn-success">Baixar / Marcar como Paga</button>`}
         </div>
 
@@ -204,7 +204,8 @@
         </div>
       `;
 
-      $("#btnEditarDespesa", wrap).addEventListener("click", () => abrirModalDespesa(ctx, state.selecionada, carregarLista));
+      const btnEditar = $("#btnEditarDespesa", wrap);
+      if (btnEditar) btnEditar.addEventListener("click", () => abrirModalDespesa(ctx, state.selecionada, carregarLista));
 
       const btnPagar = $("#btnPagarDespesa", wrap);
       if (btnPagar) {
@@ -220,15 +221,25 @@
 
           if (upd.error) return alert("Falha ao baixar despesa: " + (upd.error.message || upd.error));
 
-          const tx = await ctx.sb.db.from("txs").insert({
+          if (state.selecionada.purchase_id) {
+            await ctx.sb.db.from("purchases").update({
+              status: "paid",
+              paid_at: agora,
+              updated_at: agora
+            }).eq("id", state.selecionada.purchase_id);
+          }
+
+          const txPayload = {
             company_id: ctx.companyId,
-            type: "saida",
+            type: "pagar",
             desc: state.selecionada.description || "Despesa",
             amount: Number(state.selecionada.amount || 0),
             due_date: String(agora).slice(0, 10),
-            status: "pago",
-            category: state.selecionada.category || "despesa"
-          });
+            status: "quitado",
+            category: state.selecionada.purchase_id ? "Compra" : (state.selecionada.category || "despesa")
+          };
+          if (state.selecionada.purchase_id) txPayload.purchase_id = state.selecionada.purchase_id;
+          const tx = await ctx.sb.db.from("txs").insert(txPayload);
 
           if (tx.error) return alert("Despesa baixada, mas houve falha ao lançar no caixa: " + (tx.error.message || tx.error));
 

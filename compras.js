@@ -23,10 +23,61 @@
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v || 0));
   }
 
+  function addDiasVencimento(dataISO, dias) {
+    const d = new Date(dataISO + "T12:00:00");
+    d.setDate(d.getDate() + dias);
+    return d.toISOString().slice(0, 10);
+  }
+
   function badgeStatus(status) {
     const s = String(status || "").toLowerCase();
     const mapa = { draft: "Rascunho", open: "Aberta", paid: "Paga", cancelada: "Cancelada" };
     return `<span class="status-pill status-${escapeHtml(s)}">${escapeHtml(mapa[s] || status || "—")}</span>`;
+  }
+
+  async function syncPurchaseToExpense(ctx, purchase) {
+    if (!purchase || !purchase.id) return;
+    const status = String(purchase.status || "").toLowerCase();
+    const total = Number(purchase.total || purchase.value || 0);
+    const dueDate = purchase.due_date || addDiasVencimento(purchase.date || new Date().toISOString().slice(0, 10), 30);
+    const desc = (purchase.description || "Compra").trim();
+
+    const existing = await ctx.sb.db.from("expenses").select("id, amount, paid").eq("company_id", ctx.companyId).eq("purchase_id", purchase.id).maybeSingle();
+    if (existing.error) return;
+
+    if (status === "paid") {
+      if (existing.data) {
+        await ctx.sb.db.from("expenses").update({
+          paid: true,
+          paid_at: purchase.paid_at || new Date().toISOString(),
+          amount: total,
+          due_date: dueDate,
+          description: desc
+        }).eq("id", existing.data.id);
+      }
+      return;
+    }
+
+    if (status === "open") {
+      const payload = {
+        company_id: ctx.companyId,
+        description: desc,
+        category: "Compra",
+        amount: total,
+        due_date: dueDate,
+        paid: false,
+        purchase_id: purchase.id
+      };
+      if (existing.data) {
+        await ctx.sb.db.from("expenses").update({
+          amount: payload.amount,
+          due_date: payload.due_date,
+          description: payload.description
+        }).eq("id", existing.data.id);
+      } else {
+        await ctx.sb.db.from("expenses").insert(payload);
+      }
+    }
   }
 
   function injetarCss() {
@@ -116,7 +167,7 @@
 
       let query = ctx.sb.db
         .from("purchases")
-        .select("id, description, value, invoice_number, date, status, subtotal, total, created_at, updated_at, paid_at, workorder_id")
+        .select("id, description, value, invoice_number, date, due_date, status, subtotal, total, created_at, updated_at, paid_at, workorder_id")
         .eq("company_id", ctx.companyId)
         .order("created_at", { ascending: false });
 
@@ -300,18 +351,23 @@
           updated_at: new Date().toISOString()
         }).eq("id", state.selecionada.id);
         if (r.error) return alert("Falha ao salvar total da compra: " + (r.error.message || r.error));
+        const updated = { ...state.selecionada, total, value: total };
+        if (String(updated.status || "").toLowerCase() === "open") await syncPurchaseToExpense(ctx, updated);
         alert("Compra recalculada.");
         await carregarLista();
       }
 
       async function marcarPaga() {
+        const agora = new Date().toISOString();
         const r = await ctx.sb.db.from("purchases").update({
           status: "paid",
-          paid_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          paid_at: agora,
+          updated_at: agora
         }).eq("id", state.selecionada.id);
         if (r.error) return alert("Falha ao marcar compra como paga: " + (r.error.message || r.error));
-        alert("Compra marcada como paga.");
+        const updated = { ...state.selecionada, status: "paid", paid_at: agora };
+        await syncPurchaseToExpense(ctx, updated);
+        alert("Compra marcada como paga e conta a pagar baixada.");
         await carregarLista();
       }
     }
@@ -334,7 +390,8 @@
           <div class="grid-form">
             <div><label class="label">Descrição</label><input id="compraDescricao" class="field" value="${escapeHtml(compra?.description || "")}"></div>
             <div><label class="label">Nota fiscal</label><input id="compraNF" class="field" value="${escapeHtml(compra?.invoice_number || "")}"></div>
-            <div><label class="label">Data</label><input id="compraData" class="field" type="date" value="${escapeHtml(compra?.date || new Date().toISOString().slice(0,10))}"></div>
+            <div><label class="label">Data da compra</label><input id="compraData" class="field" type="date" value="${escapeHtml(compra?.date || new Date().toISOString().slice(0,10))}"></div>
+            <div><label class="label">Vencimento (pagamento)</label><input id="compraVencimento" class="field" type="date" value="${escapeHtml(compra?.due_date || addDiasVencimento(new Date().toISOString().slice(0,10), 30))}"></div>
             <div><label class="label">Status</label><select id="compraStatus" class="select">
               <option value="draft" ${String(compra?.status || "draft") === "draft" ? "selected" : ""}>Rascunho</option>
               <option value="open" ${String(compra?.status || "") === "open" ? "selected" : ""}>Aberta</option>
@@ -365,6 +422,7 @@
           description: $("#compraDescricao", backdrop).value.trim(),
           invoice_number: $("#compraNF", backdrop).value.trim() || null,
           date: $("#compraData", backdrop).value || new Date().toISOString().slice(0,10),
+          due_date: $("#compraVencimento", backdrop).value || addDiasVencimento(new Date().toISOString().slice(0,10), 30),
           status: $("#compraStatus", backdrop).value,
           updated_at: new Date().toISOString()
         };
@@ -389,6 +447,12 @@
           erroBox.textContent = r.error.message || "Falha ao salvar compra.";
           erroBox.classList.add("show");
           return;
+        }
+
+        const savedId = compra?.id || (Array.isArray(r.data) ? r.data[0]?.id : r.data?.id);
+        if (savedId && (payload.status === "open" || payload.status === "paid")) {
+          const full = await ctx.sb.db.from("purchases").select("id, description, date, due_date, status, total, value, paid_at").eq("id", savedId).single();
+          if (full.data) await syncPurchaseToExpense(ctx, full.data);
         }
 
         fechar();
@@ -483,6 +547,8 @@
             value: total,
             updated_at: new Date().toISOString()
           }).eq("id", purchaseId);
+          const purch = await ctx.sb.db.from("purchases").select("id, description, date, due_date, status, total, value, paid_at").eq("id", purchaseId).single();
+          if (purch.data && String(purch.data.status || "").toLowerCase() === "open") await syncPurchaseToExpense(ctx, { ...purch.data, total });
         }
 
         fechar();
