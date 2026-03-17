@@ -75,7 +75,7 @@
       .agenda-filter-chip{padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;font-size:13px}
       .agenda-filter-chip.active{background:rgba(61,134,255,.2);border-color:var(--primary);color:var(--text)}
       .agenda-cal-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
-      .agenda-week-grid{display:grid;min-width:800px}
+      .agenda-week-grid{display:flex;flex-direction:column;min-width:800px}
       .agenda-week-header{display:grid;grid-template-columns:60px repeat(7,1fr);border-bottom:1px solid var(--line)}
       .agenda-week-header .col-time{font-size:11px;color:var(--muted);padding:8px;text-align:center}
       .agenda-week-header .col-day{font-size:12px;font-weight:700;padding:10px;text-align:center;border-left:1px solid var(--line)}
@@ -135,6 +135,7 @@
       tickets: [],
       workorders: [],
       appointments: [],
+      scheduleEvents: [],
       customers: []
     };
 
@@ -150,24 +151,19 @@
         fim = addDias(inicio, 41);
       }
 
-      const [ticketsRes, workordersRes, appointmentsRes, customersRes] = await Promise.all([
-        sb.db.from("tickets").select("id, status, due_date, client_name, description").eq("company_id", sb.companyId),
-        sb.db.from("workorders").select("id, os_number, status, desc, due_date, notes, client_id").eq("company_id", sb.companyId),
-        (async () => {
-          const r = await sb.db.from("appointments").select("*").eq("company_id", sb.companyId)
-            .lte("start_at", fim.toISOString().slice(0, 10) + "T23:59:59.999Z")
-            .gte("end_at", inicio.toISOString().slice(0, 10) + "T00:00:00.000Z");
-          return r.error ? { data: [] } : r;
-        })(),
-        (async () => {
-          const r = await sb.db.from("customers").select("id, name").eq("company_id", sb.companyId);
-          return r.error ? { data: [] } : r;
-        })()
-      ]);
+      const fimIso = fim.toISOString().slice(0, 10) + "T23:59:59.999Z";
+      const inicioIso = inicio.toISOString().slice(0, 10) + "T00:00:00.000Z";
+
+      const ticketsRes = await sb.db.from("tickets").select("id, status, due_date, client_name, description").eq("company_id", sb.companyId).then(r => r).catch(() => ({ data: [] }));
+      const workordersRes = await sb.db.from("workorders").select("id, os_number, status, \"desc\", due_date, notes, client_id").eq("company_id", sb.companyId).then(r => r).catch(() => ({ data: [] }));
+      const appointmentsRes = await sb.db.from("appointments").select("*").eq("company_id", sb.companyId).lte("start_at", fimIso).gte("end_at", inicioIso).then(r => r).catch(() => ({ data: [] }));
+      const scheduleRes = await sb.db.from("schedule_events").select("id, ticket_id, event_type, start_at, estimated_minutes, address, notes").eq("company_id", sb.companyId).lte("start_at", fimIso).gte("start_at", inicioIso).then(r => r).catch(() => ({ data: [] }));
+      const customersRes = await sb.db.from("customers").select("id, name").eq("company_id", sb.companyId).then(r => r).catch(() => ({ data: [] }));
 
       state.tickets = (ticketsRes.data || []).filter(t => !["finalizado", "cancelado"].includes(normalizarStatus(t.status)));
       state.workorders = (workordersRes.data || []).filter(w => !["finalizada", "cancelada"].includes(normalizarStatus(w.status)));
-      state.appointments = (appointmentsRes.data || []);
+      state.appointments = appointmentsRes.data || [];
+      state.scheduleEvents = scheduleRes.data || [];
       state.customers = customersRes.data || [];
     }
 
@@ -244,6 +240,25 @@
           raw: a,
           link: null,
           draggable: true
+        });
+      });
+
+      (state.scheduleEvents || []).forEach(ev => {
+        if (!filtro("appointment")) return;
+        const start = new Date(ev.start_at);
+        const min = Number(ev.estimated_minutes) || 60;
+        const end = new Date(start.getTime() + min * 60 * 1000);
+        if (end < inicio || start > fim) return;
+        eventos.push({
+          tipo: "visit",
+          id: ev.id,
+          title: "Visita técnica" + (ev.address ? " — " + String(ev.address).slice(0, 30) : ""),
+          start,
+          end,
+          color: "#f6b73c",
+          raw: ev,
+          link: "#chamados",
+          draggable: false
         });
       });
 
@@ -536,6 +551,7 @@
           const id = el.getAttribute("data-id");
           if (tipo === "ticket") location.hash = "chamados";
           else if (tipo === "os") location.hash = "ordens";
+          else if (tipo === "visit") location.hash = "chamados";
           else if (tipo === "appointment") abrirModalEditarCompromisso(id);
         });
       });

@@ -636,6 +636,12 @@
 
       renderAlertasSla();
       renderKanban();
+      let focusId = null;
+      try { focusId = sessionStorage.getItem("sgb_chamados_focus_ticket_id"); if (focusId) sessionStorage.removeItem("sgb_chamados_focus_ticket_id"); } catch (_) {}
+      if (focusId && state.tickets.length) {
+        const f = state.tickets.find((t) => String(t.id) === String(focusId));
+        if (f) state.selecionado = f;
+      }
       if (!state.selecionado && state.tickets.length) state.selecionado = state.tickets[0];
       await carregarDetalhe();
     }
@@ -782,7 +788,24 @@
       $("#btnGerarOrcamento", wrap).addEventListener("click", () => gerarOrcamento(ctx, state.selecionado, carregarDetalhe));
       const btnCriarContrato = $("#btnCriarContrato", wrap);
       if (btnCriarContrato && window.ModuloRecorrencia && typeof window.ModuloRecorrencia.abrirModalContratoFromTicket === "function") {
-        btnCriarContrato.addEventListener("click", () => window.ModuloRecorrencia.abrirModalContratoFromTicket(ctx, state.selecionado, carregarDetalhe));
+        btnCriarContrato.addEventListener("click", async () => {
+          const ticket = state.selecionado;
+          if (!ticket.customer_id && !ticket.client_name && !ticket.client_phone) {
+            alert("Este chamado não possui nome ou telefone do cliente. Edite o chamado e informe pelo menos o nome do cliente antes de criar o contrato.");
+            return;
+          }
+          if (!ticket.customer_id && (ticket.client_name || ticket.client_phone)) {
+            await abrirModalVincularCliente(ctx, ticket, async () => {
+              const r = await ctx.sb.db.from("tickets").select("*").eq("id", ticket.id).eq("company_id", ctx.companyId).single();
+              if (r.data && r.data.customer_id) {
+                state.selecionado = { ...state.selecionado, ...r.data };
+                await window.ModuloRecorrencia.abrirModalContratoFromTicket(ctx, r.data, carregarDetalhe);
+              }
+            });
+          } else {
+            await window.ModuloRecorrencia.abrirModalContratoFromTicket(ctx, ticket, carregarDetalhe);
+          }
+        });
       }
       const btnVincularCliente = $("#btnVincularCliente", wrap);
       if (btnVincularCliente) btnVincularCliente.addEventListener("click", () => abrirModalVincularCliente(ctx, state.selecionado, carregarDetalhe));

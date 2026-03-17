@@ -130,18 +130,22 @@
 
   function renderContratos(contratos) {
     if (!contratos.length) return `<div class="empty">Nenhum contrato cadastrado ainda.</div>`;
-    return `<div class="list-lines">${contratos.map((c) => linha(
-      c.name || "Contrato",
-      statusContratoPill(c.status),
-      `${c.customer_name || "Cliente"}${c.customer_phone ? " — " + c.customer_phone : ""}`,
-      [
+    return `<div class="list-lines">${contratos.map((c) => {
+      const subParts = [
         c.sla_name ? `SLA: ${c.sla_name}` : "",
         `Valor: ${moeda(c.amount || 0)}`,
         c.start_date ? `Início: ${fmtData(c.start_date)}` : "",
         c.next_billing_date ? `Próxima cobrança: ${fmtData(c.next_billing_date)}` : ""
-      ].filter(Boolean).join(" • "),
-      `<button class="btn-secondary" data-action="editar-contrato" data-id="${c.id}">Editar</button><button class="btn-secondary" data-action="cancelar-contrato" data-id="${c.id}">Cancelar</button><button class="btn-secondary" data-action="reativar-contrato" data-id="${c.id}">Reativar</button>`
-    )).join("")}</div>`;
+      ].filter(Boolean);
+      const linkChamado = c.ticket_id ? `<a href="#chamados" class="link-inline" data-action="ir-chamado" data-ticket-id="${c.ticket_id}" style="margin-left:6px;">Ver chamado</a>` : "";
+      return linha(
+        c.name || "Contrato",
+        statusContratoPill(c.status),
+        `${c.customer_name || "Cliente"}${c.customer_phone ? " — " + c.customer_phone : ""}${linkChamado}`,
+        subParts.join(" • "),
+        `<button class="btn-secondary" data-action="editar-contrato" data-id="${c.id}">Editar</button><button class="btn-secondary" data-action="cancelar-contrato" data-id="${c.id}">Cancelar</button><button class="btn-secondary" data-action="reativar-contrato" data-id="${c.id}">Reativar</button>`
+      );
+    }).join("")}</div>`;
   }
 
   function renderRecebiveis(receivables, contratosMap, customersMap) {
@@ -149,11 +153,13 @@
     return `<div class="list-lines">${receivables.slice(0, 12).map((r) => {
       const contrato = contratosMap[r.contract_id] || null;
       const customer = customersMap[r.customer_id] || null;
+      const actions = !r.paid ? `<button class="btn-secondary" data-action="marcar-pago" data-id="${r.id}">Marcar como pago</button>` : "";
       return linha(
         fmtData(r.due_date),
         statusRecebivelPill(r.paid),
         `${customer ? customer.name : "Cliente"} • ${moeda(r.amount || 0)}`,
-        [contrato ? `Contrato: ${contrato.name || "Sem nome"}` : "", r.paid_at ? `Pago em: ${fmtData(r.paid_at)}` : "Aguardando pagamento"].filter(Boolean).join(" • ")
+        [contrato ? `Contrato: ${contrato.name || "Sem nome"}` : "", r.paid_at ? `Pago em: ${fmtData(r.paid_at)}` : "Aguardando pagamento"].filter(Boolean).join(" • "),
+        actions
       );
     }).join("")}</div>`;
   }
@@ -373,14 +379,51 @@
       btnNovoContrato.addEventListener("click", resetForm);
       btnProcessarRecorrencia.addEventListener("click", processarRecorrencia);
 
+      async function marcarRecebivelPago(receivableId) {
+        const hoje = hojeISO();
+        const backdrop = document.createElement("div");
+        backdrop.className = "modal-backdrop";
+        backdrop.innerHTML = `
+          <div class="modal" style="max-width:360px;">
+            <div class="modal-head"><div class="modal-title">Marcar cobrança como paga</div><button class="btn btn-ghost" id="fecharMarcarPago">Fechar</button></div>
+            <div class="grid-form" style="padding:16px;">
+              <div><label class="label">Data do pagamento</label><input id="dataPagamentoRecebivel" class="field" type="date" value="${hoje}"></div>
+            </div>
+            <div class="modal-actions"><button class="btn btn-secondary" id="cancelarMarcarPago">Cancelar</button><button class="btn btn-primary" id="confirmarMarcarPago">Confirmar</button></div>
+          </div>`;
+        document.body.appendChild(backdrop);
+        const fechar = () => document.body.removeChild(backdrop);
+        $("#fecharMarcarPago", backdrop).addEventListener("click", fechar);
+        $("#cancelarMarcarPago", backdrop).addEventListener("click", fechar);
+        $("#confirmarMarcarPago", backdrop).addEventListener("click", async () => {
+          const dataPag = $("#dataPagamentoRecebivel", backdrop).value || hoje;
+          fechar();
+          try {
+            await safeUpdate(sb.db, "receivables", { paid: true, paid_at: dataPag }, [["id", receivableId], ["company_id", sb.companyId]]);
+            setInfo("Cobrança marcada como paga.");
+            await renderizarRecorrencia(opts);
+          } catch (erro) {
+            setErro("Falha ao marcar cobrança: " + (erro.message || erro));
+          }
+        });
+      }
+
       alvo.addEventListener("click", async function (ev) {
-        const btn = ev.target.closest("button[data-action]");
+        const btn = ev.target.closest("[data-action]");
         if (!btn) return;
         const action = btn.getAttribute("data-action");
         const id = btn.getAttribute("data-id");
         const idx = btn.getAttribute("data-idx");
         const customerIdExisting = btn.getAttribute("data-customer-id");
+        const ticketId = btn.getAttribute("data-ticket-id");
 
+        if (action === "ir-chamado" && ticketId) {
+          ev.preventDefault();
+          try { sessionStorage.setItem("sgb_chamados_focus_ticket_id", String(ticketId)); } catch (_) {}
+          window.location.hash = "chamados";
+          return;
+        }
+        if (action === "marcar-pago" && id) return marcarRecebivelPago(id);
         if (action === "editar-contrato") {
           const contrato = state.contratos.find((c) => String(c.id) === String(id));
           if (contrato) preencherForm(contrato);
@@ -425,6 +468,19 @@
     if (!ticket) return;
     const sb = ctx.sb;
     const companyId = ctx.companyId;
+
+    const existenteResp = await sb.db.from("contracts").select("id, name").eq("company_id", companyId).eq("ticket_id", ticket.id).limit(1);
+    if (!existenteResp.error && existenteResp.data && existenteResp.data.length > 0) {
+      const existente = existenteResp.data[0];
+      const criarNovo = window.confirm(
+        `Este chamado já possui um contrato associado (${existente.name || "Contrato"}). Deseja criar um novo contrato mesmo assim? Clique em OK para criar novo ou Cancelar para editar o existente em Recorrência.`
+      );
+      if (!criarNovo) {
+        if (typeof onSalvo === "function") await onSalvo();
+        window.location.hash = "recorrencia";
+        return;
+      }
+    }
 
     let customerId = ticket.customer_id;
     let customer = null;
@@ -594,7 +650,24 @@
       }
       fechar();
       if (typeof onSalvo === "function") await onSalvo();
-      alert("Contrato criado com sucesso. O conteúdo pode ser editado e a assinatura digital registrada em Recorrência.");
+      const backdropFeedback = document.createElement("div");
+      backdropFeedback.className = "modal-backdrop";
+      backdropFeedback.innerHTML = `
+        <div class="modal" style="max-width:420px;">
+          <div class="modal-head"><div class="modal-title">Contrato criado com sucesso</div><button class="btn btn-ghost" id="fecharFeedbackContrato">Fechar</button></div>
+          <div class="panel" style="margin:16px 0;">
+            <p style="margin:0;">O conteúdo pode ser editado e a assinatura digital registrada em Recorrência.</p>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="fecharFeedbackContrato2">Fechar</button>
+            <a href="#recorrencia" class="btn btn-primary" id="irRecorrencia">Ir para Recorrência</a>
+          </div>
+        </div>`;
+      document.body.appendChild(backdropFeedback);
+      const fecharFeedback = () => document.body.removeChild(backdropFeedback);
+      $("#fecharFeedbackContrato", backdropFeedback).addEventListener("click", fecharFeedback);
+      $("#fecharFeedbackContrato2", backdropFeedback).addEventListener("click", fecharFeedback);
+      $("#irRecorrencia", backdropFeedback).addEventListener("click", fecharFeedback);
     });
   }
 
