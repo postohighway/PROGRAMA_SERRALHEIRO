@@ -422,15 +422,55 @@
   }
 
   async function abrirModalContratoFromTicket(ctx, ticket, onSalvo) {
-    if (!ticket || !ticket.customer_id) {
-      alert("Este chamado não possui cliente vinculado. Vincule um cliente antes de criar o contrato.");
-      return;
-    }
+    if (!ticket) return;
     const sb = ctx.sb;
     const companyId = ctx.companyId;
 
+    let customerId = ticket.customer_id;
+    let customer = null;
+
+    if (!customerId && (ticket.client_name || ticket.client_phone)) {
+      const nome = String(ticket.client_name || "").trim().toLowerCase();
+      const fone = String(ticket.client_phone || "").replace(/\D/g, "");
+      const existentes = await sb.db.from("customers").select("id, name, phone, email, address").eq("company_id", companyId);
+      if (!existentes.error && existentes.data && existentes.data.length) {
+        const match = existentes.data.find((c) => {
+          const cn = String(c.name || "").trim().toLowerCase();
+          const cp = String(c.phone || "").replace(/\D/g, "");
+          return (nome && cn === nome) || (fone && cp && cp === fone) || (nome && cn.includes(nome));
+        });
+        if (match) {
+          customerId = match.id;
+          customer = match;
+          await sb.db.from("tickets").update({ customer_id: customerId }).eq("id", ticket.id).eq("company_id", companyId);
+        }
+      }
+      if (!customerId) {
+        const key = "cl" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const novo = await sb.db.from("customers").insert({
+          company_id: companyId,
+          name: ticket.client_name || "Cliente",
+          phone: ticket.client_phone || null,
+          origem_cadastro: "consultor",
+          status_cliente: "ativo",
+          data_inicio_relacionamento: new Date().toISOString().slice(0, 10),
+          recurring_key: key
+        }).select("id, name, phone, email, address").single();
+        if (!novo.error && novo.data) {
+          customerId = novo.data.id;
+          customer = novo.data;
+          await sb.db.from("tickets").update({ customer_id: customerId }).eq("id", ticket.id).eq("company_id", companyId);
+        }
+      }
+    }
+
+    if (!customerId) {
+      alert("Este chamado não possui nome ou telefone do cliente. Edite o chamado e informe pelo menos o nome do cliente.");
+      return;
+    }
+
     const [customerResp, slaResp, templateResp] = await Promise.all([
-      sb.db.from("customers").select("id, name, phone, email, address").eq("id", ticket.customer_id).single(),
+      customer ? Promise.resolve({ data: customer }) : sb.db.from("customers").select("id, name, phone, email, address").eq("id", customerId).single(),
       sb.db.from("sla_plans").select("id, name, hours_to_expire").eq("company_id", companyId).order("name"),
       window.ModuloConfiguracoes && typeof window.ModuloConfiguracoes.obterTemplateContrato === "function"
         ? window.ModuloConfiguracoes.obterTemplateContrato(sb)
@@ -448,6 +488,10 @@
     const hojeStr = hoje.toLocaleDateString("pt-BR");
     const hojeISO = hoje.toISOString().slice(0, 10);
     const slaOptions = slaPlans.map((p) => `<option value="${p.id}">${p.name || "Plano"} • ${p.hours_to_expire || 0}h</option>`).join("");
+    if (!slaPlans.length) {
+      alert("Cadastre pelo menos um Plano SLA em Recorrência antes de criar contratos.");
+      return;
+    }
 
     const dadosPlaceholder = {
       NOME_CLIENTE: customer.name || ticket.client_name || "",
@@ -518,7 +562,7 @@
 
       const payload = {
         company_id: companyId,
-        customer_id: ticket.customer_id,
+        customer_id: customerId,
         sla_plan_id: slaId,
         ticket_id: ticket.id,
         start_date: startDate,
@@ -542,7 +586,7 @@
         await sb.db.from("receivables").insert({
           company_id: companyId,
           contract_id: contrato.id,
-          customer_id: ticket.customer_id,
+          customer_id: customerId,
           due_date: nextDate,
           amount,
           paid: false
