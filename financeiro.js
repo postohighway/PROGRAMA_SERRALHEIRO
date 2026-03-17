@@ -143,6 +143,7 @@
     alvo.innerHTML = `
       <div class="fin-tabs">
         <button class="fin-tab active" data-tab="executivo">Executivo</button>
+        <button class="fin-tab" data-tab="clientes">Por Cliente</button>
         <button class="fin-tab" data-tab="obras">Por Obra</button>
         <button class="fin-tab" data-tab="receber">Contas a Receber</button>
         <button class="fin-tab" data-tab="caixa">Fluxo de Caixa</button>
@@ -225,7 +226,7 @@
         ctx.sb.db.from("purchases").select("id, workorder_id, description, total, status, created_at, paid_at, company_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("quotes").select("id, ticket_id, status, total, customer_id, created_at, approved_at, company_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("budgets").select("id, ticket_id, pipeline_id, customer_id, total, status, approved_at, created_at, company_id").eq("company_id", ctx.companyId),
-        ctx.sb.db.from("workorders").select("id, quote_id, budget_id, ticket_id, desc, status, due_date, created_at, company_id").eq("company_id", ctx.companyId),
+        ctx.sb.db.from("workorders").select("id, quote_id, budget_id, ticket_id, client_id, desc, status, due_date, created_at, company_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("txs").select('id, type, desc, amount, due_date, status, category, created_at, receivable_id, workorder_id, quote_id, purchase_id, company_id').eq("company_id", ctx.companyId),
         ctx.sb.db.from("customers").select("id, name, phone, email").eq("company_id", ctx.companyId),
         ctx.sb.db.from("contracts").select("id, customer_id, name, amount, status, company_id").eq("company_id", ctx.companyId)
@@ -262,11 +263,56 @@
       const box = $("#financeiroConteudo", alvo);
       box.innerHTML = `<div class="empty">Carregando financeiro...</div>`;
       if (state.aba === "executivo") return renderExecutivo(box);
+      if (state.aba === "clientes") return renderPorCliente(box);
       if (state.aba === "obras") return renderObras(box);
       if (state.aba === "receber") return renderReceber(box);
       if (state.aba === "caixa") return renderCaixa(box);
       if (state.aba === "dre") return renderDRE(box);
       if (state.aba === "previsao") return renderPrevisao(box);
+    }
+
+    async function renderPorCliente(box) {
+      const base = await carregarBaseFinanceira();
+      const customers = Array.from(base.customerMap.values());
+      const clientesComDados = customers.map((c) => {
+        const recs = base.receivables.filter((r) => r.customer_id === c.id);
+        const pagos = base.payments.filter((p) => {
+          const rec = base.receivables.find((r) => r.id === p.receivable_id);
+          return rec && rec.customer_id === c.id;
+        });
+        const workordersCliente = base.workorders.filter((w) => {
+          if (w.client_id === c.id) return true;
+          const quote = base.quotes.find((q) => q.id === w.quote_id);
+          const budget = base.budgets.find((b) => b.id === w.budget_id);
+          return (quote?.customer_id === c.id) || (budget?.customer_id === c.id);
+        });
+        const custoCompras = base.purchases
+          .filter((p) => workordersCliente.some((w) => w.id === p.workorder_id))
+          .filter((p) => entreDatas(p.created_at || p.paid_at, state.inicio, state.fim))
+          .reduce((a, p) => a + Number(p.total || 0), 0);
+        const receita = recs.filter((r) => entreDatas(r.due_date, state.inicio, state.fim)).reduce((a, r) => a + Number(r.amount || 0), 0);
+        const recebido = pagos.filter((p) => entreDatas(p.paid_at || p.created_at, state.inicio, state.fim)).reduce((a, p) => a + Number(p.amount || 0), 0);
+        const margem = recebido > 0 ? ((recebido - custoCompras) / recebido) * 100 : (receita > 0 ? ((receita - custoCompras) / receita) * 100 : 0);
+        return { customer: c, receita, recebido, custoCompras, margem };
+      }).filter((x) => x.receita > 0 || x.recebido > 0 || x.custoCompras > 0).sort((a, b) => (b.recebido || b.receita) - (a.recebido || a.receita));
+
+      box.innerHTML = `
+        <div class="fin-meta" style="margin-bottom:10px">Rentabilidade por cliente — ${escapeHtml(formatarData(state.inicio))} até ${escapeHtml(formatarData(state.fim))}</div>
+        <div class="fin-grid">
+          ${clientesComDados.length ? clientesComDados.map((x) => `
+            <div class="fin-obra-card">
+              <div class="fin-obra-top">
+                <div><div class="fin-title">${escapeHtml(x.customer.name || "Cliente")}</div><div class="fin-meta">${escapeHtml(x.customer.phone || "")}</div></div>
+                <div>${x.margem >= 0 ? `<span class="status-pill status-approved">${x.margem.toFixed(1)}%</span>` : `<span class="status-pill status-rejected">${x.margem.toFixed(1)}%</span>`}</div>
+              </div>
+              <div class="fin-subgrid" style="margin-top:12px">
+                <div class="fin-card"><div class="fin-meta">Receita período</div><div class="fin-title">${formatarMoeda(x.receita)}</div></div>
+                <div class="fin-card"><div class="fin-meta">Recebido período</div><div class="fin-title">${formatarMoeda(x.recebido)}</div></div>
+                <div class="fin-card"><div class="fin-meta">Custo compras</div><div class="fin-title">${formatarMoeda(x.custoCompras)}</div></div>
+                <div class="fin-card"><div class="fin-meta">Margem</div><div class="fin-title">${x.margem.toFixed(1)}%</div></div>
+              </div>
+            </div>`).join("") : `<div class="fin-card"><div class="fin-meta">Nenhum cliente com movimentação no período.</div></div>`}
+        </div>`;
     }
 
     async function renderExecutivo(box) {
