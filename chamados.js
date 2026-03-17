@@ -231,20 +231,29 @@
     $("#copiarModalLinkPortal", backdrop).addEventListener("click", async () => { await copiarTexto(link || ""); alert("Link copiado."); });
   }
 
-  function abrirModalNovoChamado(ctx, refreshLista) {
+  async function abrirModalNovoChamado(ctx, refreshLista) {
+    const { data: customers = [] } = await ctx.sb.db.from("customers").select("id, name, phone, recurring_key").eq("company_id", ctx.companyId).order("name", { ascending: true });
+    const customerOpts = customers.map((c) => `<option value="${c.id}" data-phone="${escapeHtml(c.phone || "")}" data-name="${escapeHtml(c.name || "")}" data-key="${escapeHtml(c.recurring_key || "")}">${escapeHtml(c.name || "Sem nome")}${c.phone ? " — " + escapeHtml(c.phone) : ""}</option>`).join("");
+
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop";
     backdrop.innerHTML = `
       <div class="modal">
-        <div class="modal-head"><div><div class="modal-title">Novo Chamado</div><div class="panel-sub">Cadastre um novo chamado manualmente.</div></div><button class="btn btn-ghost" id="fecharModalNovoChamado">Fechar</button></div>
+        <div class="modal-head"><div><div class="modal-title">Novo Chamado</div><div class="panel-sub">Selecione o cliente recorrente ou cadastre um novo.</div></div><button class="btn btn-ghost" id="fecharModalNovoChamado">Fechar</button></div>
         <div class="alert error" id="erroModalNovoChamado"></div>
         <div class="grid-form">
-          <div><label class="label">Cliente</label><input id="novoChamadoCliente" class="field" placeholder="Nome do cliente"></div>
-          <div><label class="label">Telefone</label><input id="novoChamadoTelefone" class="field" placeholder="Telefone"></div>
+          <div class="full"><label class="label">Cliente *</label><select id="novoChamadoCustomerId" class="select"><option value="">Selecione o cliente</option>${customerOpts}<option value="__novo__">➕ Cadastrar novo cliente</option></select></div>
+          <div id="novoChamadoNovoClienteWrap" style="display:none;grid-column:1/-1;border:1px solid rgba(108,152,232,.2);border-radius:10px;padding:12px;background:rgba(0,0,0,.2);">
+            <div style="margin-bottom:10px;font-weight:700;">Novo cliente</div>
+            <div class="grid-form" style="grid-template-columns:1fr 1fr;">
+              <div><label class="label">Nome *</label><input id="novoChamadoClienteNome" class="field" placeholder="Nome do cliente"></div>
+              <div><label class="label">Telefone</label><input id="novoChamadoClienteTelefone" class="field" placeholder="(11) 99999-9999"></div>
+            </div>
+          </div>
           <div><label class="label">Prazo</label><input id="novoChamadoPrazo" class="field" type="date"></div>
           <div><label class="label">Status</label><select id="novoChamadoStatus" class="select"><option value="aberto">Aberto</option><option value="aguardando_analise">Aguardando análise</option><option value="em_analise">Em análise</option></select></div>
           <div><label class="label">Prioridade</label><select id="novoChamadoPrioridade" class="select"><option value="baixa">Baixa</option><option value="normal" selected>Normal</option><option value="alta">Alta</option><option value="critica">Crítica</option></select></div>
-          <div class="full"><label class="label">Descrição</label><textarea id="novoChamadoDescricao" class="textarea" placeholder="Descreva o problema relatado pelo cliente"></textarea></div>
+          <div class="full"><label class="label">Descrição *</label><textarea id="novoChamadoDescricao" class="textarea" placeholder="Descreva o problema relatado pelo cliente"></textarea></div>
         </div>
         <div class="modal-actions"><button class="btn btn-secondary" id="cancelarModalNovoChamado">Cancelar</button><button class="btn btn-primary" id="salvarModalNovoChamado">Salvar Chamado</button></div>
       </div>`;
@@ -253,18 +262,60 @@
     $("#fecharModalNovoChamado", backdrop).addEventListener("click", fechar);
     $("#cancelarModalNovoChamado", backdrop).addEventListener("click", fechar);
     const erroBox = $("#erroModalNovoChamado", backdrop);
+    const selCustomer = $("#novoChamadoCustomerId", backdrop);
+    const wrapNovo = $("#novoChamadoNovoClienteWrap", backdrop);
+
+    selCustomer.addEventListener("change", () => {
+      wrapNovo.style.display = selCustomer.value === "__novo__" ? "block" : "none";
+    });
+
     $("#salvarModalNovoChamado", backdrop).addEventListener("click", async () => {
       erroBox.textContent = ""; erroBox.classList.remove("show");
-      const client_name = $("#novoChamadoCliente", backdrop).value.trim();
-      const client_phone = $("#novoChamadoTelefone", backdrop).value.trim() || null;
+      const customerId = selCustomer.value;
       const due_date = $("#novoChamadoPrazo", backdrop).value || null;
       const status = $("#novoChamadoStatus", backdrop).value || "aberto";
       const priority = $("#novoChamadoPrioridade", backdrop).value || "normal";
       const description = $("#novoChamadoDescricao", backdrop).value.trim();
-      if (!client_name) { erroBox.textContent = "Informe o nome do cliente."; erroBox.classList.add("show"); return; }
+
+      let finalCustomerId = null;
+      let client_name = "";
+      let client_phone = null;
+      let recurring_key = null;
+
+      if (customerId === "__novo__") {
+        const nome = $("#novoChamadoClienteNome", backdrop).value.trim();
+        const telefone = $("#novoChamadoClienteTelefone", backdrop).value.trim() || null;
+        if (!nome) { erroBox.textContent = "Informe o nome do novo cliente."; erroBox.classList.add("show"); return; }
+        const key = "cl" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const insC = await ctx.sb.db.from("customers").insert({
+          company_id: ctx.companyId,
+          name: nome,
+          phone: telefone,
+          origem_cadastro: "consultor",
+          status_cliente: "ativo",
+          data_inicio_relacionamento: new Date().toISOString().slice(0, 10),
+          recurring_key: key
+        }).select("id, name, phone, recurring_key").single();
+        if (insC.error) { erroBox.textContent = insC.error.message || "Falha ao cadastrar cliente."; erroBox.classList.add("show"); return; }
+        finalCustomerId = insC.data.id;
+        client_name = insC.data.name;
+        client_phone = insC.data.phone;
+        recurring_key = insC.data.recurring_key;
+      } else if (customerId) {
+        const opt = selCustomer.options[selCustomer.selectedIndex];
+        finalCustomerId = customerId;
+        client_name = opt.getAttribute("data-name") || "";
+        client_phone = opt.getAttribute("data-phone") || null;
+        recurring_key = opt.getAttribute("data-key") || null;
+      }
+
+      if (!finalCustomerId) { erroBox.textContent = "Selecione um cliente ou cadastre um novo."; erroBox.classList.add("show"); return; }
       if (!description) { erroBox.textContent = "Informe a descrição do chamado."; erroBox.classList.add("show"); return; }
+
       const token = gerarTokenLocal();
-      const ins = await ctx.sb.db.from("tickets").insert({ company_id: ctx.companyId, client_name, client_phone, description, due_date, status, priority, token });
+      const payload = { company_id: ctx.companyId, customer_id: finalCustomerId, client_name, client_phone, description, due_date, status, priority, token };
+      if (recurring_key) payload.recurring_key = recurring_key;
+      const ins = await ctx.sb.db.from("tickets").insert(payload);
       if (ins.error) { erroBox.textContent = ins.error.message || "Falha ao salvar chamado."; erroBox.classList.add("show"); return; }
       fechar(); if (typeof refreshLista === "function") await refreshLista(); alert("Chamado criado com sucesso.");
     });
@@ -428,7 +479,7 @@
       <div id="alertaSlaBar" class="alerta-bar"></div>
       <div class="kanban-wrap">
         <div class="panel"><h2>Kanban operacional</h2><div class="panel-sub">Arraste o chamado entre as colunas para atualizar o status.</div><div id="kanbanBoard" class="kanban-board">${statusCols.map(col => `<div class="kanban-col"><div class="kanban-head"><div class="kanban-title"><span>${escapeHtml(col.titulo)}</span><span class="kanban-count" data-count="${col.id}">0</span></div><div class="kanban-sub">${escapeHtml(col.sub)}</div></div><div class="kanban-body" data-status="${col.id}"></div></div>`).join("")}</div></div>
-        <div class="panel"><h2>Detalhe do chamado</h2><div class="panel-sub">Selecione um card para visualizar.</div><div id="detalheChamadoWrap" class="empty">Nenhum chamado selecionado.</div></div>
+        <div class="panel"><h2>Detalhe do chamado</h2><div class="panel-sub">Selecione um card. Use "Criar Contrato" para gerar contrato com dados preenchidos automaticamente.</div><div id="detalheChamadoWrap" class="empty">Nenhum chamado selecionado.</div></div>
       </div>
     `;
 
@@ -441,7 +492,7 @@
 
     async function carregarLista() {
       const [ticketsResp, pipelineResp, quotesResp, workordersResp] = await Promise.all([
-        ctx.sb.db.from("tickets").select("id, created_at, client_name, client_phone, description, status, priority, due_date, token, photo1_path, photo2_path, photo3_path, photo4_path, photo5_path, video1_path").eq("company_id", ctx.companyId),
+        ctx.sb.db.from("tickets").select("id, created_at, client_name, client_phone, description, status, priority, due_date, token, customer_id, photo1_path, photo2_path, photo3_path, photo4_path, photo5_path, video1_path").eq("company_id", ctx.companyId),
         ctx.sb.db.from("commercial_pipeline").select("ticket_id, stage, updated_at").eq("company_id", ctx.companyId),
         ctx.sb.db.from("quotes").select("ticket_id, status, total, created_at, version").eq("company_id", ctx.companyId),
         ctx.sb.db.from("workorders").select("ticket_id, status, created_at").eq("company_id", ctx.companyId)
@@ -605,6 +656,7 @@
           <button id="btnGerarLinkAnexos" class="btn btn-primary">Gerar Link de Anexos</button>
           <button id="btnAgendarVisita" class="btn btn-warning">Agendar Visita Técnica</button>
           <button id="btnGerarOrcamento" class="btn btn-success">Gerar Orçamento</button>
+          <button id="btnCriarContrato" class="btn btn-primary" title="Criar contrato com dados do cliente e atendimento preenchidos automaticamente">Criar Contrato</button>
           <button id="btnPortalGeralDetalhe" class="btn btn-ghost">Portal de Abertura</button>
         </div>
         <div class="detail-block"><h3>Dados</h3><div class="kv-list">
@@ -642,6 +694,10 @@
       $("#btnPortalGeralDetalhe", wrap).addEventListener("click", () => abrirModalLinkPortal({ titulo: "Link público para abertura de chamado", link: state.linkPortalGeral, subtitulo: "Esse link cria um chamado novo e, ao final, o cliente já é levado para a tela de anexar fotos e vídeo." }));
       $("#btnAgendarVisita", wrap).addEventListener("click", () => abrirModalVisita(ctx, state.selecionado, carregarDetalhe));
       $("#btnGerarOrcamento", wrap).addEventListener("click", () => gerarOrcamento(ctx, state.selecionado, carregarDetalhe));
+      const btnCriarContrato = $("#btnCriarContrato", wrap);
+      if (btnCriarContrato && window.ModuloRecorrencia && typeof window.ModuloRecorrencia.abrirModalContratoFromTicket === "function") {
+        btnCriarContrato.addEventListener("click", () => window.ModuloRecorrencia.abrirModalContratoFromTicket(ctx, state.selecionado, carregarDetalhe));
+      }
       const btnCopiar = $("#btnCopiarLinkAnexos", wrap);
       if (btnCopiar) btnCopiar.addEventListener("click", async () => { await copiarTexto(state.linkAnexosAtual); alert("Link copiado."); });
 

@@ -172,7 +172,7 @@
   function formHtml(customers, slaPlans) {
     const customerOptions = (customers || []).map((c) => `<option value="${c.id}">${c.name}${c.phone ? " — " + c.phone : ""}</option>`).join("");
     const slaOptions = (slaPlans || []).map((p) => `<option value="${p.id}">${slaDescricao(p)}</option>`).join("");
-    return `<form id="formRecorrencia" class="form-grid-2"><input type="hidden" id="rcContratoId" value="" /><div class="field"><label>Cliente</label><select id="rcCustomerId" required><option value="">Selecione</option>${customerOptions}</select></div><div class="field"><label>Nome do Contrato</label><input id="rcName" type="text" placeholder="Ex.: Plano mensal manutenção" /></div><div class="field"><label>Plano SLA</label><select id="rcSlaPlanId" required><option value="">Selecione</option>${slaOptions}</select></div><div class="field"><label>Valor Mensal</label><input id="rcAmount" type="number" min="0" step="0.01" placeholder="0,00" /></div><div class="field"><label>Início do Contrato</label><input id="rcStartDate" type="date" /></div><div class="field"><label>Próxima Cobrança</label><input id="rcNextBillingDate" type="date" /></div><div class="field"><label>Status</label><select id="rcStatus"><option value="ativo">ativo</option><option value="suspenso">suspenso</option><option value="cancelado">cancelado</option></select></div><div class="field"><label>Resumo</label><div class="muted">A data da recorrência é definida pelo operador. O sistema não armazena dados de cartão.</div></div><div style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;"><button type="submit" class="btn-primary">Salvar contrato</button><button type="button" id="btnNovoContrato" class="btn-secondary">Novo contrato</button><button type="button" id="btnProcessarRecorrencia" class="btn-secondary">Processar recorrências agora</button></div></form>`;
+    return `<form id="formRecorrencia" class="form-grid-2"><input type="hidden" id="rcContratoId" value="" /><div class="field"><label>Cliente</label><select id="rcCustomerId" required><option value="">Selecione</option>${customerOptions}</select></div><div class="field"><label>Nome do Contrato</label><input id="rcName" type="text" placeholder="Ex.: Plano mensal manutenção" /></div><div class="field"><label>Plano SLA</label><select id="rcSlaPlanId" required><option value="">Selecione</option>${slaOptions}</select></div><div class="field"><label>Valor Mensal</label><input id="rcAmount" type="number" min="0" step="0.01" placeholder="0,00" /></div><div class="field"><label>Início do Contrato</label><input id="rcStartDate" type="date" /></div><div class="field"><label>Próxima Cobrança</label><input id="rcNextBillingDate" type="date" /></div><div class="field"><label>Status</label><select id="rcStatus"><option value="ativo">ativo</option><option value="suspenso">suspenso</option><option value="cancelado">cancelado</option></select></div><div class="field" style="grid-column:1/-1"><label>Conteúdo do contrato</label><textarea id="rcContractContent" class="textarea" rows="12" placeholder="Preenchido automaticamente ao criar a partir do chamado. Edite conforme necessário." style="font-family:monospace;font-size:13px"></textarea><div class="muted" style="margin-top:6px">Placeholders: {{NOME_CLIENTE}}, {{TELEFONE}}, {{ENDERECO}}, {{EMAIL}}, {{PLANO_SLA}}, {{VALOR_MENSAL}}, {{DATA_INICIO}}, {{DATA_HOJE}}, {{DESCRICAO_ATENDIMENTO}}</div></div><div class="field"><label>Assinatura digital</label><input id="rcSignedBy" type="text" placeholder="Nome de quem assinou (cliente)" /></div><div class="field"><label>Data da assinatura</label><input id="rcSignedAt" type="datetime-local" placeholder="Quando o cliente assinou" /></div><div class="field"><label>Resumo</label><div class="muted">Marque a assinatura quando o cliente assinar digitalmente.</div></div><div style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;"><button type="submit" class="btn-primary">Salvar contrato</button><button type="button" id="btnNovoContrato" class="btn-secondary">Novo contrato</button><button type="button" id="btnProcessarRecorrencia" class="btn-secondary">Processar recorrências agora</button></div></form>`;
   }
 
   async function renderizarRecorrencia(opts) {
@@ -200,7 +200,7 @@
       const [ticketsResp, customersResp, contractsResp, slaResp, receivablesResp] = await Promise.all([
         safeSelect(sb.db, "tickets", "id, client_name, client_phone, status, created_at", sb.companyId),
         safeSelect(sb.db, "customers", "id, name, phone, email, address, notes, created_at", sb.companyId),
-        safeSelect(sb.db, "contracts", "id, company_id, customer_id, sla_plan_id, start_date, next_billing_date, status, created_at, name, amount", sb.companyId),
+        safeSelect(sb.db, "contracts", "id, company_id, customer_id, sla_plan_id, ticket_id, start_date, next_billing_date, status, created_at, name, amount, contract_content, signed_at, signed_by", sb.companyId),
         safeSelect(sb.db, "sla_plans", "id, company_id, name, hours_to_expire, created_at", sb.companyId),
         safeSelect(sb.db, "receivables", "id, contract_id, due_date, amount, paid, paid_at, created_at, company_id, customer_id", sb.companyId, (q) => q.order("due_date", { ascending: false }))
       ]);
@@ -235,6 +235,9 @@
       const rcStartDate = $("#rcStartDate", alvo);
       const rcNextBillingDate = $("#rcNextBillingDate", alvo);
       const rcStatus = $("#rcStatus", alvo);
+      const rcContractContent = $("#rcContractContent", alvo);
+      const rcSignedBy = $("#rcSignedBy", alvo);
+      const rcSignedAt = $("#rcSignedAt", alvo);
       const btnNovoContrato = $("#btnNovoContrato", alvo);
       const btnProcessarRecorrencia = $("#btnProcessarRecorrencia", alvo);
 
@@ -250,6 +253,9 @@
         rcStartDate.value = hojeISO();
         rcNextBillingDate.value = hojeISO();
         rcStatus.value = "ativo";
+        if (rcContractContent) rcContractContent.value = "";
+        if (rcSignedBy) rcSignedBy.value = "";
+        if (rcSignedAt) rcSignedAt.value = "";
       }
 
       function preencherForm(c) {
@@ -261,6 +267,12 @@
         rcStartDate.value = c.start_date ? String(c.start_date).slice(0, 10) : hojeISO();
         rcNextBillingDate.value = c.next_billing_date ? String(c.next_billing_date).slice(0, 10) : hojeISO();
         rcStatus.value = c.status || "ativo";
+        if (rcContractContent) rcContractContent.value = c.contract_content || "";
+        if (rcSignedBy) rcSignedBy.value = c.signed_by || "";
+        if (rcSignedAt && c.signed_at) {
+          const d = new Date(c.signed_at);
+          rcSignedAt.value = d.toISOString().slice(0, 16);
+        } else if (rcSignedAt) rcSignedAt.value = "";
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
 
@@ -298,7 +310,10 @@
           next_billing_date: rcNextBillingDate.value,
           status: rcStatus.value || "ativo",
           name: rcName.value || null,
-          amount: Number(rcAmount.value || 0)
+          amount: Number(rcAmount.value || 0),
+          contract_content: rcContractContent ? rcContractContent.value.trim() || null : null,
+          signed_by: rcSignedBy ? rcSignedBy.value.trim() || null : null,
+          signed_at: rcSignedAt && rcSignedAt.value ? new Date(rcSignedAt.value).toISOString() : null
         };
 
         try {
@@ -398,5 +413,146 @@
     }
   }
 
-  window.ModuloRecorrencia = { renderizarRecorrencia: renderizarRecorrencia };
+  function substituirPlaceholders(template, dados) {
+    let s = String(template || "");
+    Object.entries(dados || {}).forEach(([k, v]) => {
+      s = s.replace(new RegExp("\\{\\{" + k + "\\}\\}", "gi"), String(v ?? ""));
+    });
+    return s;
+  }
+
+  async function abrirModalContratoFromTicket(ctx, ticket, onSalvo) {
+    if (!ticket || !ticket.customer_id) {
+      alert("Este chamado não possui cliente vinculado. Vincule um cliente antes de criar o contrato.");
+      return;
+    }
+    const sb = ctx.sb;
+    const companyId = ctx.companyId;
+
+    const [customerResp, slaResp, templateResp] = await Promise.all([
+      sb.db.from("customers").select("id, name, phone, email, address").eq("id", ticket.customer_id).single(),
+      sb.db.from("sla_plans").select("id, name, hours_to_expire").eq("company_id", companyId).order("name"),
+      window.ModuloConfiguracoes && typeof window.ModuloConfiguracoes.obterTemplateContrato === "function"
+        ? window.ModuloConfiguracoes.obterTemplateContrato(sb)
+        : Promise.resolve("")
+    ]);
+
+    const customer = customerResp.data || {};
+    const slaPlans = slaResp.data || [];
+    let template = String(templateResp || "");
+    if (!template) {
+      template = "CONTRATO - CONTRATANTE: {{NOME_CLIENTE}}, Tel: {{TELEFONE}}, End: {{ENDERECO}}. Valor: {{VALOR_MENSAL}}. Data: {{DATA_HOJE}}. Atendimento: {{DESCRICAO_ATENDIMENTO}}";
+    }
+
+    const hoje = new Date();
+    const hojeStr = hoje.toLocaleDateString("pt-BR");
+    const hojeISO = hoje.toISOString().slice(0, 10);
+    const slaOptions = slaPlans.map((p) => `<option value="${p.id}">${p.name || "Plano"} • ${p.hours_to_expire || 0}h</option>`).join("");
+
+    const dadosPlaceholder = {
+      NOME_CLIENTE: customer.name || ticket.client_name || "",
+      TELEFONE: customer.phone || ticket.client_phone || "",
+      ENDERECO: customer.address || "",
+      EMAIL: customer.email || "",
+      PLANO_SLA: "",
+      VALOR_MENSAL: "0,00",
+      DATA_INICIO: hojeISO,
+      DATA_HOJE: hojeStr,
+      DESCRICAO_ATENDIMENTO: (ticket.description || "").slice(0, 500) || "Conforme atendimento registrado no chamado."
+    };
+    const conteudoPreenchido = substituirPlaceholders(template, dadosPlaceholder);
+
+    function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    backdrop.innerHTML = `
+      <div class="modal" style="max-width:700px;">
+        <div class="modal-head">
+          <div><div class="modal-title">Criar contrato a partir do chamado</div><div class="panel-sub">Dados do cliente e atendimento preenchidos automaticamente</div></div>
+          <button class="btn btn-ghost" id="fecharModalContratoTicket">Fechar</button>
+        </div>
+        <div class="alert error" id="erroModalContratoTicket"></div>
+        <div class="grid-form">
+          <div><label class="label">Cliente</label><input class="field" value="${esc(customer.name || ticket.client_name)}" readonly></div>
+          <div><label class="label">Plano SLA *</label><select id="modalContratoSla" class="select" required><option value="">Selecione</option>${slaOptions}</select></div>
+          <div><label class="label">Valor mensal *</label><input id="modalContratoAmount" class="field" type="number" min="0" step="0.01" value="0" required></div>
+          <div><label class="label">Início</label><input id="modalContratoStart" class="field" type="date" value="${hojeISO}"></div>
+          <div><label class="label">Próxima cobrança</label><input id="modalContratoNext" class="field" type="date" value="${hojeISO}"></div>
+          <div class="full"><label class="label">Nome do contrato</label><input id="modalContratoName" class="field" placeholder="Ex.: Plano mensal manutenção" value="${esc("Contrato - " + (customer.name || ticket.client_name))}"></div>
+          <div class="full"><label class="label">Conteúdo do contrato (editável)</label><textarea id="modalContratoContent" class="textarea" rows="14" style="font-family:monospace;font-size:13px">${esc(conteudoPreenchido)}</textarea></div>
+          <div><label class="label">Assinatura digital</label><input id="modalContratoSignedBy" class="field" placeholder="Nome de quem assinou"></div>
+          <div><label class="label">Data da assinatura</label><input id="modalContratoSignedAt" class="field" type="datetime-local"></div>
+        </div>
+        <div class="modal-actions"><button class="btn btn-secondary" id="cancelarModalContratoTicket">Cancelar</button><button class="btn btn-primary" id="salvarModalContratoTicket">Salvar contrato</button></div>
+      </div>`;
+    document.body.appendChild(backdrop);
+
+    const fechar = () => document.body.removeChild(backdrop);
+    $("#fecharModalContratoTicket", backdrop).addEventListener("click", fechar);
+    $("#cancelarModalContratoTicket", backdrop).addEventListener("click", fechar);
+    const erroBox = $("#erroModalContratoTicket", backdrop);
+
+    $("#salvarModalContratoTicket", backdrop).addEventListener("click", async () => {
+      erroBox.textContent = "";
+      erroBox.classList.remove("show");
+      const slaId = $("#modalContratoSla", backdrop).value;
+      const amount = Number($("#modalContratoAmount", backdrop).value || 0);
+      const startDate = $("#modalContratoStart", backdrop).value;
+      const nextDate = $("#modalContratoNext", backdrop).value;
+      const name = $("#modalContratoName", backdrop).value.trim();
+      const content = $("#modalContratoContent", backdrop).value.trim();
+      const signedBy = $("#modalContratoSignedBy", backdrop).value.trim() || null;
+      const signedAtVal = $("#modalContratoSignedAt", backdrop).value;
+
+      if (!slaId) {
+        erroBox.textContent = "Selecione o plano SLA.";
+        erroBox.classList.add("show");
+        return;
+      }
+      if (!startDate || !nextDate) {
+        erroBox.textContent = "Informe as datas de início e próxima cobrança.";
+        erroBox.classList.add("show");
+        return;
+      }
+
+      const payload = {
+        company_id: companyId,
+        customer_id: ticket.customer_id,
+        sla_plan_id: slaId,
+        ticket_id: ticket.id,
+        start_date: startDate,
+        next_billing_date: nextDate,
+        status: "ativo",
+        name: name || null,
+        amount,
+        contract_content: content || null,
+        signed_by: signedBy,
+        signed_at: signedAtVal ? new Date(signedAtVal).toISOString() : null
+      };
+
+      const ins = await sb.db.from("contracts").insert(payload).select().limit(1);
+      if (ins.error) {
+        erroBox.textContent = ins.error.message || "Falha ao salvar contrato.";
+        erroBox.classList.add("show");
+        return;
+      }
+      const contrato = ins.data[0];
+      if (contrato && contrato.status === "ativo") {
+        await sb.db.from("receivables").insert({
+          company_id: companyId,
+          contract_id: contrato.id,
+          customer_id: ticket.customer_id,
+          due_date: nextDate,
+          amount,
+          paid: false
+        });
+      }
+      fechar();
+      if (typeof onSalvo === "function") await onSalvo();
+      alert("Contrato criado com sucesso. O conteúdo pode ser editado e a assinatura digital registrada em Recorrência.");
+    });
+  }
+
+  window.ModuloRecorrencia = { renderizarRecorrencia, abrirModalContratoFromTicket, substituirPlaceholders };
 })();

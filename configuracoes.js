@@ -51,6 +51,34 @@
       if (!r.error && r.data) valorAtual = r.data.setting_value || "";
     } catch (_) {}
 
+    let templateContrato = "";
+    try {
+      const r2 = await sb.db.from("company_settings")
+        .select("setting_value")
+        .eq("company_id", sb.companyId)
+        .eq("setting_key", "contract_template_default")
+        .maybeSingle();
+      if (!r2.error && r2.data) templateContrato = r2.data.setting_value || "";
+    } catch (_) {}
+    const templatePadrao = `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE MANUTENÇÃO
+
+CONTRATANTE: {{NOME_CLIENTE}}
+Telefone: {{TELEFONE}}
+Endereço: {{ENDERECO}}
+E-mail: {{EMAIL}}
+
+Pelo presente instrumento, as partes celebram o contrato de prestação de serviços de manutenção.
+
+1. OBJETO: Manutenção conforme plano SLA {{PLANO_SLA}}.
+2. VALOR: R$ {{VALOR_MENSAL}} (mensal).
+3. VIGÊNCIA: Início em {{DATA_INICIO}}.
+4. ATENDIMENTO: {{DESCRICAO_ATENDIMENTO}}
+
+Data: {{DATA_HOJE}}
+
+_________________________________________
+Assinatura do Contratante`;
+
     alvo.innerHTML = `
       <div class="panel">
         <h2>WhatsApp de plantão</h2>
@@ -66,6 +94,18 @@
         <div id="previewPlantao" style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel-2);display:none">
           <div class="muted" style="margin-bottom:8px">Preview do link (cliente verá isso no portal):</div>
           <a id="linkPreviewPlantao" href="#" target="_blank" rel="noopener" style="color:var(--primary);font-weight:700">Clique para abrir WhatsApp</a>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h2>Template padrão do contrato</h2>
+        <div class="panel-sub">Use os placeholders para preenchimento automático ao criar contrato a partir do chamado: {{NOME_CLIENTE}}, {{TELEFONE}}, {{ENDERECO}}, {{EMAIL}}, {{PLANO_SLA}}, {{VALOR_MENSAL}}, {{DATA_INICIO}}, {{DATA_HOJE}}, {{DESCRICAO_ATENDIMENTO}}</div>
+        <div style="margin-top:16px">
+          <label class="label">Conteúdo do contrato (editável)</label>
+          <textarea id="templateContrato" class="textarea" rows="18" placeholder="Modelo de contrato..." style="font-family:monospace;font-size:13px">${escapeHtml(templateContrato || templatePadrao)}</textarea>
+        </div>
+        <div style="margin-top:16px">
+          <button id="btnSalvarTemplateContrato" class="btn btn-primary">Salvar template</button>
         </div>
       </div>
     `;
@@ -112,11 +152,62 @@
       setInfo("Número de plantão salvo. O link será exibido no portal do cliente.");
       valorAtual = v;
     });
+
+    $("#btnSalvarTemplateContrato", alvo).addEventListener("click", async () => {
+      const v = $("#templateContrato", alvo).value.trim();
+      setErro("");
+      const payload = {
+        company_id: sb.companyId,
+        setting_key: "contract_template_default",
+        setting_value: v || templatePadrao,
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await sb.db.from("company_settings").upsert(payload, {
+        onConflict: "company_id,setting_key",
+        ignoreDuplicates: false
+      });
+      if (error) {
+        setErro("Erro ao salvar template: " + (error.message || error));
+        return;
+      }
+      setInfo("Template do contrato salvo. Será usado ao criar contratos a partir de chamados.");
+    });
+  }
+
+  async function obterTemplateContrato(sb) {
+    if (!sb || !sb.db || !sb.companyId) return "";
+    try {
+      const r = await sb.db.from("company_settings")
+        .select("setting_value")
+        .eq("company_id", sb.companyId)
+        .eq("setting_key", "contract_template_default")
+        .maybeSingle();
+      if (!r.error && r.data && r.data.setting_value) return r.data.setting_value;
+    } catch (_) {}
+    return `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE MANUTENÇÃO
+
+CONTRATANTE: {{NOME_CLIENTE}}
+Telefone: {{TELEFONE}}
+Endereço: {{ENDERECO}}
+E-mail: {{EMAIL}}
+
+Pelo presente instrumento, as partes celebram o contrato de prestação de serviços de manutenção.
+
+1. OBJETO: Manutenção conforme plano SLA {{PLANO_SLA}}.
+2. VALOR: R$ {{VALOR_MENSAL}} (mensal).
+3. VIGÊNCIA: Início em {{DATA_INICIO}}.
+4. ATENDIMENTO: {{DESCRICAO_ATENDIMENTO}}
+
+Data: {{DATA_HOJE}}
+
+_________________________________________
+Assinatura do Contratante`;
   }
 
   window.ModuloConfiguracoes = {
     renderizarConfiguracoes,
     montarLinkWhatsApp,
-    normalizarWhatsApp
+    normalizarWhatsApp,
+    obterTemplateContrato
   };
 })();
