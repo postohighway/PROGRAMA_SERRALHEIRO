@@ -221,6 +221,91 @@
     document.head.appendChild(st);
   }
 
+  async function abrirModalVincularCliente(ctx, ticket, onSalvo) {
+    if (!ticket) return;
+    const { data: customers = [] } = await ctx.sb.db.from("customers").select("id, name, phone, recurring_key").eq("company_id", ctx.companyId).order("name", { ascending: true });
+    const opts = customers.map((c) => `<option value="${c.id}" data-name="${escapeHtml(c.name || "")}" data-phone="${escapeHtml(c.phone || "")}" data-key="${escapeHtml(c.recurring_key || "")}">${escapeHtml(c.name || "Sem nome")}${c.phone ? " — " + escapeHtml(c.phone) : ""}</option>`).join("");
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    backdrop.innerHTML = `
+      <div class="modal">
+        <div class="modal-head"><div><div class="modal-title">Vincular cliente ao chamado</div><div class="panel-sub">Selecione o cliente cadastrado para vincular a este chamado.</div></div><button class="btn btn-ghost" id="fecharVincularCliente">Fechar</button></div>
+        <div class="alert error" id="erroVincularCliente"></div>
+        <div class="grid-form">
+          <div class="full"><label class="label">Cliente *</label><select id="selClienteVincular" class="select"><option value="">Selecione o cliente</option>${opts}<option value="__novo__">➕ Cadastrar novo cliente</option></select></div>
+          <div id="wrapNovoClienteVincular" style="display:none;grid-column:1/-1;padding:12px;border:1px solid rgba(108,152,232,.2);border-radius:10px;background:rgba(0,0,0,.2);">
+            <div style="margin-bottom:10px;font-weight:700;">Novo cliente</div>
+            <div class="grid-form" style="grid-template-columns:1fr 1fr;"><div><label class="label">Nome *</label><input id="novoClienteNome" class="field" value="${escapeHtml(ticket.client_name || "")}" placeholder="Nome"></div><div><label class="label">Telefone</label><input id="novoClienteTelefone" class="field" value="${escapeHtml(ticket.client_phone || "")}" placeholder="Telefone"></div></div>
+          </div>
+        </div>
+        <div class="modal-actions"><button class="btn btn-secondary" id="cancelarVincularCliente">Cancelar</button><button class="btn btn-primary" id="salvarVincularCliente">Vincular</button></div>
+      </div>`;
+    document.body.appendChild(backdrop);
+
+    const fechar = () => document.body.removeChild(backdrop);
+    $("#fecharVincularCliente", backdrop).addEventListener("click", fechar);
+    $("#cancelarVincularCliente", backdrop).addEventListener("click", fechar);
+    const sel = $("#selClienteVincular", backdrop);
+    const wrapNovo = $("#wrapNovoClienteVincular", backdrop);
+    const erroBox = $("#erroVincularCliente", backdrop);
+
+    if (ticket.customer_id) sel.value = ticket.customer_id;
+    sel.addEventListener("change", () => { wrapNovo.style.display = sel.value === "__novo__" ? "block" : "none"; });
+
+    $("#salvarVincularCliente", backdrop).addEventListener("click", async () => {
+      erroBox.textContent = "";
+      erroBox.classList.remove("show");
+      let customerId = sel.value;
+      let client_name = ticket.client_name;
+      let client_phone = ticket.client_phone;
+      let recurring_key = null;
+
+      if (customerId === "__novo__") {
+        const nome = $("#novoClienteNome", backdrop).value.trim();
+        const telefone = $("#novoClienteTelefone", backdrop).value.trim() || null;
+        if (!nome) { erroBox.textContent = "Informe o nome do cliente."; erroBox.classList.add("show"); return; }
+        recurring_key = "cl" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const ins = await ctx.sb.db.from("customers").insert({
+          company_id: ctx.companyId,
+          name: nome,
+          phone: telefone,
+          origem_cadastro: "consultor",
+          status_cliente: "ativo",
+          data_inicio_relacionamento: new Date().toISOString().slice(0, 10),
+          recurring_key
+        }).select("id, name, phone, recurring_key").single();
+        if (ins.error) { erroBox.textContent = ins.error.message || "Falha ao cadastrar."; erroBox.classList.add("show"); return; }
+        customerId = ins.data.id;
+        client_name = ins.data.name;
+        client_phone = ins.data.phone;
+        recurring_key = ins.data.recurring_key;
+      } else if (customerId) {
+        const opt = sel.options[sel.selectedIndex];
+        client_name = opt.getAttribute("data-name") || "";
+        client_phone = opt.getAttribute("data-phone") || null;
+        recurring_key = opt.getAttribute("data-key") || null;
+      } else {
+        erroBox.textContent = "Selecione um cliente ou cadastre um novo.";
+        erroBox.classList.add("show");
+        return;
+      }
+
+      const payload = {
+        customer_id: customerId,
+        client_name: client_name || ticket.client_name,
+        client_phone: client_phone !== null && client_phone !== "" ? client_phone : ticket.client_phone
+      };
+      if (recurring_key) payload.recurring_key = recurring_key;
+      const upd = await ctx.sb.db.from("tickets").update(payload).eq("id", ticket.id).eq("company_id", ctx.companyId);
+
+      if (upd.error) { erroBox.textContent = upd.error.message || "Falha ao vincular."; erroBox.classList.add("show"); return; }
+      fechar();
+      if (typeof onSalvo === "function") await onSalvo();
+      alert("Cliente vinculado com sucesso.");
+    });
+  }
+
   function abrirModalLinkPortal({ titulo, link, subtitulo }) {
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop";
@@ -657,10 +742,11 @@
           <button id="btnAgendarVisita" class="btn btn-warning">Agendar Visita Técnica</button>
           <button id="btnGerarOrcamento" class="btn btn-success">Gerar Orçamento</button>
           <button id="btnCriarContrato" class="btn btn-primary" title="Criar contrato com dados do cliente e atendimento preenchidos automaticamente">Criar Contrato</button>
+          <button id="btnVincularCliente" class="btn btn-secondary" title="Vincular ou alterar o cliente cadastrado">Vincular Cliente</button>
           <button id="btnPortalGeralDetalhe" class="btn btn-ghost">Portal de Abertura</button>
         </div>
         <div class="detail-block"><h3>Dados</h3><div class="kv-list">
-          <div class="muted">Cliente</div><div>${escapeHtml(state.selecionado.client_name || "Sem nome")}</div>
+          <div class="muted">Cliente</div><div>${escapeHtml(state.selecionado.client_name || "Sem nome")}${state.selecionado.customer_id ? ' <span class="muted" style="font-size:11px">(vinculado)</span>' : ' <span class="muted" style="font-size:11px;color:#f59e0b">(não vinculado)</span>'}</div>
           <div class="muted">Telefone</div><div>${escapeHtml(state.selecionado.client_phone || "—")}</div>
           <div class="muted">Status</div><div>${badgeStatus(state.selecionado.status)}</div>
           <div class="muted">Prioridade</div><div class="detail-grid-priority">${badgePrioridade(state.selecionado.priority || "normal")}</div>
@@ -698,6 +784,8 @@
       if (btnCriarContrato && window.ModuloRecorrencia && typeof window.ModuloRecorrencia.abrirModalContratoFromTicket === "function") {
         btnCriarContrato.addEventListener("click", () => window.ModuloRecorrencia.abrirModalContratoFromTicket(ctx, state.selecionado, carregarDetalhe));
       }
+      const btnVincularCliente = $("#btnVincularCliente", wrap);
+      if (btnVincularCliente) btnVincularCliente.addEventListener("click", () => abrirModalVincularCliente(ctx, state.selecionado, carregarDetalhe));
       const btnCopiar = $("#btnCopiarLinkAnexos", wrap);
       if (btnCopiar) btnCopiar.addEventListener("click", async () => { await copiarTexto(state.linkAnexosAtual); alert("Link copiado."); });
 
