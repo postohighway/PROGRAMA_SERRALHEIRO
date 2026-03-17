@@ -82,7 +82,7 @@
       .agenda-week-body{display:grid;grid-template-columns:60px repeat(7,1fr);grid-template-rows:repeat(16,60px)}
       .agenda-time-col{font-size:11px;color:var(--muted);padding:4px 8px;border-bottom:1px solid var(--line-soft)}
       .agenda-day-col{min-height:960px;border-left:1px solid var(--line);position:relative;grid-row:1/-1}
-      .agenda-event{position:absolute;left:2px;right:2px;border-radius:6px;padding:4px 6px;font-size:11px;overflow:hidden;cursor:pointer;border-left:3px solid}
+      .agenda-event{position:absolute;left:2px;right:2px;border-radius:6px;padding:4px 6px;font-size:11px;overflow:hidden;cursor:pointer;border-left:3px solid;white-space:nowrap;text-overflow:ellipsis;line-height:1.2}
       .agenda-event:hover{opacity:.95;box-shadow:0 2px 8px rgba(0,0,0,.3)}
       .agenda-event[data-draggable="1"]{cursor:grab}
       .agenda-event[data-draggable="1"]:active{cursor:grabbing}
@@ -175,6 +175,24 @@
     function formatarOS(w) {
       const n = Number(w && w.os_number);
       return Number.isFinite(n) && n > 0 ? `OS-${String(n).padStart(5, "0")}` : `OS ${w?.id || "—"}`;
+    }
+
+    function atribuirLanes(evts) {
+      if (!evts.length) return [];
+      const sorted = [...evts].sort((a, b) => a.start - b.start);
+      const assigned = [];
+      for (const ev of sorted) {
+        let lane = 0;
+        while (assigned.some((a) => a.lane === lane && ev.start < a.end && ev.end > a.start)) lane++;
+        assigned.push({ ev, lane, start: ev.start, end: ev.end });
+      }
+      const maxLane = Math.max(...assigned.map((a) => a.lane)) + 1;
+      const gap = 2;
+      return assigned.map(({ ev, lane }) => ({
+        ...ev,
+        leftPct: (lane / maxLane) * 100 + gap / maxLane / 2,
+        widthPct: (100 / maxLane) - gap / maxLane
+      }));
     }
 
     function eventosParaPeriodo() {
@@ -431,10 +449,12 @@
         }).join("");
         const dayCols = dias.map((dia, colIdx) => {
           const evts = eventos.filter(e => ymd(e.start) === ymd(dia));
-          const slots = evts.map(ev => {
+          const comLanes = atribuirLanes(evts);
+          const slots = comLanes.map(ev => {
             const topPct = ((ev.start.getHours() - HORA_INICIO) * 60 + ev.start.getMinutes()) / 60 * 100 / (HORA_FIM - HORA_INICIO);
             const heightPct = Math.max(4, (ev.end - ev.start) / (60 * 60 * 1000) * 100 / (HORA_FIM - HORA_INICIO));
-            return `<div class="agenda-event" style="top:${topPct}%;height:${heightPct}%;background:${ev.color}22;border-left-color:${ev.color}" data-tipo="${ev.tipo}" data-id="${ev.id}" data-draggable="${ev.draggable ? "1" : "0"}">${escapeHtml(ev.title)}</div>`;
+            const left = ev.leftPct != null ? `left:${ev.leftPct}%;width:${ev.widthPct}%` : "left:2px;right:2px";
+            return `<div class="agenda-event" style="top:${topPct}%;height:${heightPct}%;${left};background:${ev.color}22;border-left-color:${ev.color}" data-tipo="${ev.tipo}" data-id="${ev.id}" data-draggable="${ev.draggable ? "1" : "0"}">${escapeHtml((ev.title || "").slice(0, 50))}</div>`;
           });
           return `<div class="agenda-day-col" style="grid-column:${colIdx + 2};grid-row:1/-1" data-date="${ymd(dia)}" data-col="${colIdx}">${slots.join("")}</div>`;
         }).join("");
