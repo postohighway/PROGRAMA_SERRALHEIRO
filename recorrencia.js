@@ -477,7 +477,7 @@
         : Promise.resolve("")
     ]);
 
-    const customer = customerResp.data || {};
+    const customerData = customerResp.data || {};
     const slaPlans = slaResp.data || [];
     let template = String(templateResp || "");
     if (!template) {
@@ -494,10 +494,10 @@
     }
 
     const dadosPlaceholder = {
-      NOME_CLIENTE: customer.name || ticket.client_name || "",
-      TELEFONE: customer.phone || ticket.client_phone || "",
-      ENDERECO: customer.address || "",
-      EMAIL: customer.email || "",
+      NOME_CLIENTE: customerData.name || ticket.client_name || "",
+      TELEFONE: customerData.phone || ticket.client_phone || "",
+      ENDERECO: customerData.address || "",
+      EMAIL: customerData.email || "",
       PLANO_SLA: "",
       VALOR_MENSAL: "0,00",
       DATA_INICIO: hojeISO,
@@ -518,12 +518,12 @@
         </div>
         <div class="alert error" id="erroModalContratoTicket"></div>
         <div class="grid-form">
-          <div><label class="label">Cliente</label><input class="field" value="${esc(customer.name || ticket.client_name)}" readonly></div>
+          <div><label class="label">Cliente</label><input class="field" value="${esc(customerData.name || ticket.client_name)}" readonly></div>
           <div><label class="label">Plano SLA *</label><select id="modalContratoSla" class="select" required><option value="">Selecione</option>${slaOptions}</select></div>
           <div><label class="label">Valor mensal *</label><input id="modalContratoAmount" class="field" type="number" min="0" step="0.01" value="0" required></div>
           <div><label class="label">Início</label><input id="modalContratoStart" class="field" type="date" value="${hojeISO}"></div>
           <div><label class="label">Próxima cobrança</label><input id="modalContratoNext" class="field" type="date" value="${hojeISO}"></div>
-          <div class="full"><label class="label">Nome do contrato</label><input id="modalContratoName" class="field" placeholder="Ex.: Plano mensal manutenção" value="${esc("Contrato - " + (customer.name || ticket.client_name))}"></div>
+          <div class="full"><label class="label">Nome do contrato</label><input id="modalContratoName" class="field" placeholder="Ex.: Plano mensal manutenção" value="${esc("Contrato - " + (customerData.name || ticket.client_name))}"></div>
           <div class="full"><label class="label">Conteúdo do contrato (editável)</label><textarea id="modalContratoContent" class="textarea" rows="14" style="font-family:monospace;font-size:13px">${esc(conteudoPreenchido)}</textarea></div>
           <div><label class="label">Assinatura digital</label><input id="modalContratoSignedBy" class="field" placeholder="Nome de quem assinou"></div>
           <div><label class="label">Data da assinatura</label><input id="modalContratoSignedAt" class="field" type="datetime-local"></div>
