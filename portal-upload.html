@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anexar Fotos e Vídeo</title>
-<link rel="stylesheet" href="./portal-upload.css?v=20260310-1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anexar Fotos e Vídeo</title>
+  <link rel="stylesheet" href="portal-upload.css" />
 </head>
 <body>
   <div class="portal-wrap">
@@ -13,33 +13,38 @@
       <h1>Anexar Fotos e Vídeo</h1>
       <p class="portal-sub">Agora envie até 5 fotos e 1 vídeo explicativo do problema.</p>
 
-      <div class="status-box" id="status"></div>
-      <div class="context-box" id="contextoChamado"></div>
+      <div id="status" class="status-box"></div>
+      <div id="whatsappPlantaoBox" class="whatsapp-plantao-box" style="display:none;margin-bottom:16px;padding:12px;background:#e8f5e9;border-radius:8px;border:1px solid #a5d6a7">
+        <div style="font-size:13px;color:#2e7d32;margin-bottom:6px">Atendimento urgente?</div>
+        <a id="linkWhatsAppPlantao" href="#" target="_blank" rel="noopener" style="font-weight:700;color:#1b5e20;text-decoration:none">Falar no WhatsApp</a>
+      </div>
+      <div id="contextoChamado" class="context-box"></div>
 
       <div class="grid-upload">
         <div>
-          <label class="label">Foto 1</label>
-          <input type="file" id="foto1" class="field file" accept="image/*">
+          <label class="label" for="foto1">Foto 1</label>
+          <input class="field file" type="file" id="foto1" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif" />
         </div>
         <div>
-          <label class="label">Foto 2</label>
-          <input type="file" id="foto2" class="field file" accept="image/*">
+          <label class="label" for="foto2">Foto 2</label>
+          <input class="field file" type="file" id="foto2" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif" />
         </div>
         <div>
-          <label class="label">Foto 3</label>
-          <input type="file" id="foto3" class="field file" accept="image/*">
+          <label class="label" for="foto3">Foto 3</label>
+          <input class="field file" type="file" id="foto3" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif" />
         </div>
         <div>
-          <label class="label">Foto 4</label>
-          <input type="file" id="foto4" class="field file" accept="image/*">
+          <label class="label" for="foto4">Foto 4</label>
+          <input class="field file" type="file" id="foto4" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif" />
         </div>
         <div>
-          <label class="label">Foto 5</label>
-          <input type="file" id="foto5" class="field file" accept="image/*">
+          <label class="label" for="foto5">Foto 5</label>
+          <input class="field file" type="file" id="foto5" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif" />
         </div>
         <div>
-          <label class="label">Vídeo explicativo</label>
-          <input type="file" id="video1" class="field file" accept="video/*">
+          <label class="label" for="video1">Vídeo</label>
+          <input class="field file" type="file" id="video1" accept="video/*,.mov,.mp4,.m4v,.webm,.avi,.qt,.hevc" />
+          <div class="muted">iPhone / QuickTime (.MOV) aceito.</div>
         </div>
       </div>
 
@@ -47,9 +52,8 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="./config.js?v=20260310-1"></script>
-  <script src="./config.local.js?v=20260310-1"></script>
-  <script src="./portal-upload.js?v=20260310-1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="portal-upload.js"></script>
 </body>
 </html>

@@ -574,16 +574,29 @@
       const wrap = $("#detalheChamadoWrap", alvo);
       if (!state.selecionado) { wrap.innerHTML = `<div class="empty">Nenhum chamado selecionado.</div>`; return; }
 
-      const [historicoResp, mensagensResp, visitasResp, quotesResp] = await Promise.all([
+      const [historicoResp, mensagensResp, visitasResp, quotesResp, plantaoResp] = await Promise.all([
         ctx.sb.db.from("ticket_history").select("created_at, action, from_status, to_status, note").eq("ticket_id", state.selecionado.id).order("created_at", { ascending: false }),
         ctx.sb.db.from("ticket_messages").select("created_at, author_type, author_name, message, event_type").eq("ticket_id", state.selecionado.id).order("created_at", { ascending: false }),
         ctx.sb.db.from("schedule_events").select("id, event_type, start_at, priority, estimated_minutes, address, notes").eq("ticket_id", state.selecionado.id).order("start_at", { ascending: false }),
-        ctx.sb.db.from("quotes").select("id, status, total, created_at, updated_at, version").eq("ticket_id", state.selecionado.id).order("created_at", { ascending: false })
+        ctx.sb.db.from("quotes").select("id, status, total, created_at, updated_at, version").eq("ticket_id", state.selecionado.id).order("created_at", { ascending: false }),
+        ctx.sb.db.from("company_settings").select("setting_value").eq("company_id", ctx.companyId).eq("setting_key", "whatsapp_plantao").maybeSingle()
       ]);
       state.historico = historicoResp.data || [];
       state.mensagens = mensagensResp.data || [];
       state.visitas = visitasResp.data || [];
       state.orcamentos = quotesResp.data || [];
+      let linkWhatsAppPlantao = "";
+      if (!plantaoResp.error && plantaoResp.data && plantaoResp.data.setting_value) {
+        const num = String(plantaoResp.data.setting_value).replace(/\D/g, "");
+        if (num.length >= 12) {
+          const waNum = num.startsWith("55") ? num : "55" + num;
+          const msg = encodeURIComponent("Preciso de atendimento urgente - Chamado " + (state.selecionado.id || ""));
+          linkWhatsAppPlantao = "https://wa.me/" + waNum + "?text=" + msg;
+        }
+      }
+      const htmlWhatsAppPlantao = linkWhatsAppPlantao
+        ? `<div class="muted">WhatsApp de plantão</div><div><a class="link-inline" href="${escapeHtml(linkWhatsAppPlantao)}" target="_blank" rel="noopener">Falar no WhatsApp (atendimento urgente)</a></div>`
+        : "";
       const midias = caminhosMidia(state.selecionado);
       const sla = calcularSla(state.selecionado);
 
@@ -608,6 +621,7 @@
         </div></div>
         <div class="separator"></div>
         <div class="detail-block"><h3>Links do Cliente</h3><div class="kv-list">
+          ${htmlWhatsAppPlantao}
           <div class="muted">Link para abrir novo chamado</div><div><a class="link-inline" href="${escapeHtml(state.linkPortalGeral)}" target="_blank" rel="noopener">Abrir portal público</a></div>
           <div class="muted">Link de anexos deste chamado</div><div id="boxLinkAnexos">${state.linkAnexosAtual ? `<div class="link-box">${escapeHtml(state.linkAnexosAtual)}</div><div class="detail-actions"><button id="btnCopiarLinkAnexos" class="btn btn-secondary">Copiar Link</button><a class="btn btn-ghost" href="${escapeHtml(state.linkAnexosAtual)}" target="_blank" rel="noopener">Abrir</a></div>` : `<div class="empty">Clique em "Gerar Link de Anexos" para enviar este chamado ao cliente e permitir anexar fotos e vídeo.</div>`}</div>
         </div></div>

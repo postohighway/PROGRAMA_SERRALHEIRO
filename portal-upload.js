@@ -1,61 +1,27 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "sgb_portal_upload_params";
-
-  function getParamFromUrl(name) {
+  function getParam(name) {
     try {
       const url = new URL(window.location.href);
-
       let value = url.searchParams.get(name);
-      if (value != null && String(value).trim() !== "") return String(value).trim();
-
+      if (value) return value;
       if (url.hash) {
-        const hashLimpo = url.hash.replace(/^#/, "");
-        const hashParams = new URLSearchParams(hashLimpo);
+        const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
         value = hashParams.get(name);
-        if (value != null && String(value).trim() !== "") return String(value).trim();
+        if (value) return value;
       }
-
       const regex = new RegExp("[?&#]" + name + "=([^&#]*)", "i");
       const match = window.location.href.match(regex);
-      if (match && match[1]) return decodeURIComponent(match[1]).trim();
+      if (match && match[1]) return decodeURIComponent(match[1]);
     } catch (_) {}
-
     return null;
   }
 
-  function readStoredParams() {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (!raw) return {};
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === "object" ? parsed : {};
-    } catch (_) {
-      return {};
+  function firstNonEmpty() {
+    for (const value of arguments) {
+      if (value != null && String(value).trim() !== "") return value;
     }
-  }
-
-  function storeParams(params) {
-    try {
-      const atual = readStoredParams();
-      const merged = {
-        company_id: params.company_id || atual.company_id || null,
-        ticket_id: params.ticket_id || atual.ticket_id || null,
-        ticket_token: params.ticket_token || atual.ticket_token || null,
-        upload_token: params.upload_token || atual.upload_token || null
-      };
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-    } catch (_) {}
-  }
-
-  function getParam(name) {
-    const byUrl = getParamFromUrl(name);
-    if (byUrl) return byUrl;
-
-    const stored = readStoredParams();
-    if (stored && stored[name]) return stored[name];
-
     return null;
   }
 
@@ -68,9 +34,39 @@
       .replaceAll("'", "&#039;");
   }
 
+  function ext(name) {
+    const s = String(name || "").toLowerCase();
+    const i = s.lastIndexOf(".");
+    return i >= 0 ? s.slice(i + 1) : "";
+  }
+
+  function isAllowedImage(file) {
+    if (!file) return false;
+    const type = String(file.type || "").toLowerCase();
+    const extension = ext(file.name);
+    return type.startsWith("image/") || ["jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif"].includes(extension);
+  }
+
+  function isAllowedVideo(file) {
+    if (!file) return false;
+    const type = String(file.type || "").toLowerCase();
+    const extension = ext(file.name);
+    const okType = type.startsWith("video/");
+    return okType || ["mov", "mp4", "m4v", "webm", "avi", "qt", "hevc"].includes(extension) || type == "video/quicktime" || type == "application/octet-stream";
+  }
+
+  function sanitizeFileName(name) {
+    const s = String(name || "arquivo")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9._-]/g, "_");
+    return s || "arquivo";
+  }
+
   const cfg = window.sbConfig || {};
-  const supabaseUrl = cfg.url || cfg.supabaseUrl;
-  const supabaseAnonKey = cfg.anon || cfg.supabaseAnonKey;
+  const supabaseUrl = firstNonEmpty(cfg.url, cfg.supabaseUrl);
+  const supabaseAnonKey = firstNonEmpty(cfg.anon, cfg.supabaseAnonKey);
 
   if (!window.supabase || !supabaseUrl || !supabaseAnonKey) {
     alert("Configuração do portal não encontrada.");
@@ -78,28 +74,15 @@
   }
 
   const sb = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-  const endpoint = supabaseUrl.replace(/\/$/, "") + "/functions/v1/upload-ticket-media";
-
-  let companyId = getParam("company_id");
-  let ticketId = getParam("ticket_id");
-  let ticketToken = getParam("ticket_token");
-  let uploadToken = getParam("upload_token");
-
-  storeParams({
-    company_id: companyId,
-    ticket_id: ticketId,
-    ticket_token: ticketToken,
-    upload_token: uploadToken
-  });
-
-  companyId = getParam("company_id");
-  ticketId = getParam("ticket_id");
-  ticketToken = getParam("ticket_token");
-  uploadToken = getParam("upload_token");
+  const companyId = getParam("company_id");
+  const ticketId = getParam("ticket_id");
+  const ticketToken = getParam("ticket_token");
+  const uploadToken = getParam("upload_token");
 
   const statusBox = document.getElementById("status");
   const contextoBox = document.getElementById("contextoChamado");
   const btn = document.getElementById("btnEnviarMidia");
+  const endpoint = supabaseUrl.replace(/\/$/, "") + "/functions/v1/upload-ticket-media";
 
   function setStatus(msg, tipo) {
     statusBox.textContent = msg || "";
@@ -107,35 +90,25 @@
   }
 
   async function carregarContexto() {
-
     if (!companyId) {
       setStatus("Link inválido. company_id ausente.", "error");
       return;
     }
 
-    if (!ticketId || !ticketToken) {
-      setStatus("Link inválido. ticket ou token ausente.", "error");
-      return;
-    }
-
-    try {
-      const r = await sb
-        .from("tickets")
-        .select("client_name, client_phone, description")
-        .eq("company_id", companyId)
-        .eq("id", ticketId)
-        .eq("token", ticketToken)
-        .maybeSingle();
+    if (uploadToken) {
+      const r = await sb.rpc("public_get_ticket_upload_context", {
+        p_company_id: companyId,
+        p_upload_token: uploadToken
+      });
 
       if (r.error) {
-        setStatus("Erro ao carregar chamado: " + (r.error.message || r.error), "error");
+        setStatus("Erro ao carregar contexto: " + (r.error.message || r.error), "error");
         return;
       }
 
-      const dados = r.data;
-
+      const dados = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
       if (!dados) {
-        setStatus("Chamado não encontrado para este link.", "error");
+        setStatus("Contexto do chamado não encontrado.", "error");
         return;
       }
 
@@ -144,21 +117,90 @@
         <div><strong>Telefone:</strong> ${escapeHtml(dados.client_phone || "—")}</div>
         <div><strong>Descrição:</strong> ${escapeHtml(dados.description || "—")}</div>
       `;
-
-    } catch (erro) {
-      setStatus("Erro ao carregar chamado: " + (erro.message || erro), "error");
+      return;
     }
+
+    if (!ticketId) {
+      setStatus("Link inválido. ticket_id ausente.", "error");
+      return;
+    }
+
+    const r = await sb
+      .from("tickets")
+      .select("client_name, client_phone, description")
+      .eq("company_id", companyId)
+      .eq("id", ticketId)
+      .limit(1);
+
+    if (r.error) {
+      setStatus("Erro ao carregar contexto: " + (r.error.message || r.error), "error");
+      return;
+    }
+
+    const dados = Array.isArray(r.data) ? (r.data[0] || null) : null;
+    if (!dados) {
+      setStatus("Chamado não encontrado para este link.", "error");
+      return;
+    }
+
+    contextoBox.innerHTML = `
+      <div><strong>Cliente:</strong> ${escapeHtml(dados.client_name || "—")}</div>
+      <div><strong>Telefone:</strong> ${escapeHtml(dados.client_phone || "—")}</div>
+      <div><strong>Descrição:</strong> ${escapeHtml(dados.description || "—")}</div>
+    `;
+  }
+
+  function collectFiles() {
+    const fotos = [];
+    for (let i = 1; i <= 5; i++) {
+      const input = document.getElementById("foto" + i);
+      const file = input && input.files ? input.files[0] : null;
+      if (!file) continue;
+
+      if (!isAllowedImage(file)) {
+        throw new Error("A foto " + i + " não está em formato suportado. Use JPG, PNG, WEBP ou HEIC.");
+      }
+      fotos.push({
+        field: "photo" + i,
+        file: new File([file], sanitizeFileName(file.name), { type: file.type || "image/jpeg" })
+      });
+    }
+
+    const videoInput = document.getElementById("video1");
+    const video = videoInput && videoInput.files ? videoInput.files[0] : null;
+    let videoObj = null;
+
+    if (video) {
+      if (!isAllowedVideo(video)) {
+        throw new Error("O vídeo não está em formato suportado. No iPhone, o .MOV (QuickTime) agora é aceito.");
+      }
+      videoObj = {
+        field: "video1",
+        file: new File([video], sanitizeFileName(video.name), {
+          type: video.type || (ext(video.name) === "mov" ? "video/quicktime" : "video/mp4")
+        })
+      };
+    }
+
+    return { fotos, videoObj };
   }
 
   async function enviar() {
+    if (!companyId) {
+      setStatus("Link inválido: company_id ausente.", "error");
+      return;
+    }
 
-    companyId = getParam("company_id");
-    ticketId = getParam("ticket_id");
-    ticketToken = getParam("ticket_token");
-    uploadToken = getParam("upload_token");
-
-    if (!companyId || !ticketToken) {
+    if (!ticketToken && !uploadToken) {
       setStatus("Link inválido: token ausente.", "error");
+      return;
+    }
+
+    let files;
+    try {
+      files = collectFiles();
+    } catch (erro) {
+      setStatus(erro.message || String(erro), "error");
       return;
     }
 
@@ -172,22 +214,14 @@
     fd.append("token", ticketToken || uploadToken || "");
     fd.append("mode", uploadToken ? "upload_token" : "ticket_token");
 
-    for (let i = 1; i <= 5; i++) {
-      const input = document.getElementById("foto" + i);
-      const arquivo = input && input.files ? input.files[0] : null;
-      if (arquivo) fd.append("photo" + i, arquivo);
-    }
-
-    const videoInput = document.getElementById("video1");
-    const video = videoInput && videoInput.files ? videoInput.files[0] : null;
-    if (video) fd.append("video1", video);
+    files.fotos.forEach((item) => fd.append(item.field, item.file));
+    if (files.videoObj) fd.append(files.videoObj.field, files.videoObj.file);
 
     btn.disabled = true;
     btn.textContent = "Enviando anexos...";
     setStatus("Enviando anexos, aguarde...", "info");
 
     try {
-
       const res = await fetch(endpoint, {
         method: "POST",
         body: fd
@@ -203,36 +237,53 @@
       }
 
       if (ticketToken && ticketId) {
-        await sb.rpc("public_finalize_portal_upload", {
+        const fin = await sb.rpc("public_finalize_portal_upload", {
           p_company_id: companyId,
           p_ticket_id: ticketId,
           p_ticket_token: ticketToken
         });
+
+        if (fin.error) {
+          console.warn("Finalização do chamado falhou:", fin.error);
+          setStatus("Anexos enviados com sucesso. O chamado foi registrado, mesmo que a finalização automática não tenha concluído.", "success");
+          btn.textContent = "Enviado com sucesso";
+          return;
+        }
       }
 
-      setStatus("Anexos enviados com sucesso.", "success");
+      setStatus("Anexos enviados com sucesso. Obrigado!", "success");
       btn.textContent = "Enviado com sucesso";
-
     } catch (erro) {
-
       setStatus("Erro ao enviar: " + (erro.message || erro), "error");
       btn.disabled = false;
       btn.textContent = "Enviar anexos";
-
     }
   }
 
   document.getElementById("btnEnviarMidia").addEventListener("click", enviar);
-
-  window.addEventListener("pageshow", function () {
-    storeParams({
-      company_id: getParam("company_id"),
-      ticket_id: getParam("ticket_id"),
-      ticket_token: getParam("ticket_token"),
-      upload_token: getParam("upload_token")
-    });
-  });
-
   carregarContexto();
 
+  async function carregarWhatsAppPlantao() {
+    if (!companyId) return;
+    try {
+      const r = await sb.from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "whatsapp_plantao")
+        .maybeSingle();
+      if (r.error || !r.data || !r.data.setting_value) return;
+      const num = String(r.data.setting_value).replace(/\D/g, "");
+      if (num.length < 12) return;
+      const waNum = num.length >= 12 && num.startsWith("55") ? num : "55" + num;
+      const link = "https://wa.me/" + waNum + "?text=" + encodeURIComponent("Preciso de atendimento urgente");
+      const box = document.getElementById("whatsappPlantaoBox");
+      const linkEl = document.getElementById("linkWhatsAppPlantao");
+      if (box && linkEl) {
+        linkEl.href = link;
+        linkEl.textContent = "Falar no WhatsApp";
+        box.style.display = "block";
+      }
+    } catch (_) {}
+  }
+  carregarWhatsAppPlantao();
 })();

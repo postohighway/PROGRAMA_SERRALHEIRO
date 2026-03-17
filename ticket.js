@@ -103,4 +103,29 @@
   }
 
   document.getElementById("btnEnviarPortal").addEventListener("click", submit);
+
+  async function carregarWhatsAppPlantao() {
+    const companyId = getParam("c");
+    if (!companyId) return;
+    try {
+      const r = await sb.from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "whatsapp_plantao")
+        .maybeSingle();
+      if (r.error || !r.data || !r.data.setting_value) return;
+      const num = String(r.data.setting_value).replace(/\D/g, "");
+      if (num.length < 12) return;
+      const waNum = num.length >= 12 && num.startsWith("55") ? num : "55" + num;
+      const link = "https://wa.me/" + waNum + "?text=" + encodeURIComponent("Preciso de atendimento urgente");
+      const box = document.getElementById("whatsappPlantaoBox");
+      const linkEl = document.getElementById("linkWhatsAppPlantao");
+      if (box && linkEl) {
+        linkEl.href = link;
+        linkEl.textContent = "Falar no WhatsApp";
+        box.style.display = "block";
+      }
+    } catch (_) {}
+  }
+  carregarWhatsAppPlantao();
 })();
