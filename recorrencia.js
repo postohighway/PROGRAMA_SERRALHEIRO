@@ -749,13 +749,24 @@
       fechar();
       if (typeof onSalvo === "function") await onSalvo();
       const linkAssinatura = linkAssinaturaUrl(sigToken);
+      let vigenciaLinha = "";
+      try {
+        const d0 = startDate ? new Date(startDate + "T12:00:00") : null;
+        if (d0 && !Number.isNaN(d0.getTime())) {
+          const dFim = new Date(d0);
+          dFim.setMonth(dFim.getMonth() + 12);
+          const mesAno = dFim.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+          vigenciaLinha = `<p style="margin:0 0 12px;font-size:13px;color:var(--muted);">Após assinar, o comprovante mostrará a vigência até <strong>${mesAno}</strong> (12 meses a partir do início: ${new Date(startDate + "T12:00:00").toLocaleDateString("pt-BR")}).</p>`;
+        }
+      } catch (_) {}
       const backdropFeedback = document.createElement("div");
       backdropFeedback.className = "modal-backdrop";
       backdropFeedback.innerHTML = `
         <div class="modal" style="max-width:480px;">
           <div class="modal-head"><div class="modal-title">Contrato criado com sucesso</div><button class="btn btn-ghost" id="fecharFeedbackContrato">Fechar</button></div>
           <div class="panel" style="margin:16px 0;">
-            <p style="margin:0 0 12px;">Envie o link abaixo ao cliente para assinatura digital. O cliente abrirá, lerá o contrato e assinará.</p>
+            ${vigenciaLinha}
+            <p style="margin:0 0 12px;">Envie o link abaixo para o cliente assinar digitalmente (Lei 14.063/2020). Ele deverá ler o texto, aceitar o termo e desenhar a assinatura.</p>
             <div class="link-box" style="word-break:break-all;padding:10px;background:rgba(0,0,0,.2);border-radius:8px;font-size:12px;margin-bottom:12px;">${linkAssinatura}</div>
             <button class="btn btn-secondary" id="copiarLinkFeedback">Copiar link</button>
           </div>
