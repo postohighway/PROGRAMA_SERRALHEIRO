@@ -248,29 +248,27 @@
       const path = (window.location.pathname || "").replace(/\/[^/]*$/, "") || "";
       const base = path ? (path.endsWith("/") ? path : path + "/") : "/";
       const linkAssinatura = contratoPendente ? (window.location.origin || "") + base + "assinatura-contrato.html?t=" + encodeURIComponent(contratoPendente.signature_token || "") : "";
-      const htmlBtnAssinatura = contratoPendente ? `<button id="btnEnviarContratoAssinatura" class="btn btn-primary" data-link="${escapeHtml(linkAssinatura)}">Enviar contrato para assinatura</button>` : "";
-      wrap.innerHTML = `
-        <div class="cli-actions">
-          <button id="btnEditarCliente" class="btn btn-secondary">Editar</button>
-          <button id="btnHubCliente" class="btn btn-primary">Ver hub do cliente</button>
-          <a href="#chamados" class="btn btn-secondary">Ver chamados</a>
-          <a href="#recorrencia" class="btn btn-secondary">Recorrência</a>
-          ${htmlBtnAssinatura}
-        </div>
-
-        <div class="quote-info-box">
-          <div><strong>Nome:</strong> ${escapeHtml(c.name || "—")}</div>
-          <div><strong>Telefone:</strong> ${escapeHtml(c.phone || "—")}</div>
-          <div><strong>E-mail:</strong> ${escapeHtml(c.email || "—")}</div>
-          <div><strong>Endereço:</strong> ${escapeHtml(c.address || "—")}</div>
-          <div><strong>Status:</strong> ${statusClientePill(c.status_cliente)}</div>
-          <div><strong>Origem cadastro:</strong> ${escapeHtml(c.origem_cadastro || "—")}</div>
-          <div><strong>Início relacionamento:</strong> ${formatarData(c.data_inicio_relacionamento)}</div>
-          <div><strong>Chave recorrência:</strong> ${escapeHtml(c.recurring_key || "—")}</div>
-          ${c.observacoes_comerciais ? `<div><strong>Observações:</strong> ${escapeHtml(c.observacoes_comerciais)}</div>` : ""}
-          ${c.notes ? `<div><strong>Notas:</strong> ${escapeHtml(c.notes)}</div>` : ""}
-        </div>
-      `;
+      const htmlBtnAssinatura = contratoPendente ? "<button id=\"btnEnviarContratoAssinatura\" class=\"btn btn-primary\" data-link=\"" + escapeHtml(linkAssinatura) + "\">Enviar contrato para assinatura</button>" : "";
+      const htmlObs = c.observacoes_comerciais ? "<div><strong>Observações:</strong> " + escapeHtml(c.observacoes_comerciais) + "</div>" : "";
+      const htmlNotes = c.notes ? "<div><strong>Notas:</strong> " + escapeHtml(c.notes) + "</div>" : "";
+      wrap.innerHTML = "<div class=\"cli-actions\">" +
+        "<button id=\"btnEditarCliente\" class=\"btn btn-secondary\">Editar</button>" +
+        "<button id=\"btnHubCliente\" class=\"btn btn-primary\">Ver hub do cliente</button>" +
+        "<a href=\"#chamados\" class=\"btn btn-secondary\">Ver chamados</a>" +
+        "<a href=\"#recorrencia\" class=\"btn btn-secondary\">Recorrência</a>" +
+        htmlBtnAssinatura +
+        "</div>" +
+        "<div class=\"quote-info-box\">" +
+        "<div><strong>Nome:</strong> " + escapeHtml(c.name || "—") + "</div>" +
+        "<div><strong>Telefone:</strong> " + escapeHtml(c.phone || "—") + "</div>" +
+        "<div><strong>E-mail:</strong> " + escapeHtml(c.email || "—") + "</div>" +
+        "<div><strong>Endereço:</strong> " + escapeHtml(c.address || "—") + "</div>" +
+        "<div><strong>Status:</strong> " + statusClientePill(c.status_cliente) + "</div>" +
+        "<div><strong>Origem cadastro:</strong> " + escapeHtml(c.origem_cadastro || "—") + "</div>" +
+        "<div><strong>Início relacionamento:</strong> " + formatarData(c.data_inicio_relacionamento) + "</div>" +
+        "<div><strong>Chave recorrência:</strong> " + escapeHtml(c.recurring_key || "—") + "</div>" +
+        htmlObs + htmlNotes +
+        "</div>";
 
       $("#btnEditarCliente", wrap).addEventListener("click", () => abrirModalCliente(ctx, c, carregarLista));
       const btnHub = $("#btnHubCliente", wrap);
@@ -352,9 +350,9 @@
         const gateOpts = (gates.data || []).map((g) => `<option value="${g.id}" data-w="${g.default_width_cm || ""}" data-h="${g.default_height_cm || ""}">${escapeHtml(g.name)} (${g.gate_type})</option>`).join("");
         const motorOpts = (motors.data || []).map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("");
         const slaOpts = (slas.data || []).map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
-        $("#cliGateModel", backdrop).innerHTML = "<option value="">Selecione</option>" + gateOpts;
-        $("#cliMotorModel", backdrop).innerHTML = "<option value="">Selecione</option>" + motorOpts;
-        $("#cliContratoSla", backdrop).innerHTML = "<option value="">Selecione</option>" + slaOpts;
+        $("#cliGateModel", backdrop).innerHTML = "<option value=\"\">Selecione</option>" + gateOpts;
+        $("#cliMotorModel", backdrop).innerHTML = "<option value=\"\">Selecione</option>" + motorOpts;
+        $("#cliContratoSla", backdrop).innerHTML = "<option value=\"\">Selecione</option>" + slaOpts;
       } catch (_) {}
     }
     carregarGateMotorModels();
