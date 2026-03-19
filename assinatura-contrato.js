@@ -130,8 +130,22 @@
     contractData = data;
     document.getElementById("nomeContrato").textContent = data.name || "Contrato de Prestação de Serviços";
     document.getElementById("textoContrato").textContent = data.contract_content || "Conteúdo do contrato.";
+
+    const idBox = document.getElementById("idClienteResumo");
+    if (idBox) {
+      const parts = [];
+      if (data.customer_name) parts.push("<strong>Contratante:</strong> " + String(data.customer_name));
+      if (data.customer_document) parts.push("<strong>CPF/CNPJ:</strong> " + String(data.customer_document));
+      if (data.customer_phone) parts.push("<strong>Tel.:</strong> " + String(data.customer_phone));
+      if (data.customer_email) parts.push("<strong>E-mail:</strong> " + String(data.customer_email));
+      if (parts.length) {
+        idBox.innerHTML = parts.join("<br>");
+        idBox.style.display = "block";
+      }
+    }
+
     document.getElementById("conteudoContrato").style.display = "block";
-    document.getElementById("nomeAssinante").placeholder = "Ex.: " + (data.customer_name || "Seu nome completo");
+    document.getElementById("nomeAssinante").placeholder = "Ex.: " + (data.customer_name || "Nome completo");
     initCanvas();
   }
 
@@ -139,34 +153,53 @@
 
   document.getElementById("btnEnviarAssinatura").addEventListener("click", async () => {
     const nome = document.getElementById("nomeAssinante").value.trim();
-    if (!nome) {
-      alert("Informe seu nome completo.");
+    if (!nome || nome.length < 3) {
+      alert("Informe seu nome completo (mínimo 3 caracteres).");
       return;
     }
 
-    const signatureData = temAssinaturaNoCanvas() ? canvasToBase64() : null;
+    const aceite = document.getElementById("aceiteTermo");
+    if (!aceite || !aceite.checked) {
+      alert("Marque a declaração de que leu e aceita o contrato integralmente.");
+      return;
+    }
+
+    if (!temAssinaturaNoCanvas()) {
+      alert("Desenhe sua assinatura manuscrita no quadro branco (obrigatório para registro da assinatura eletrônica).");
+      return;
+    }
+
+    const signatureData = canvasToBase64();
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+    let tz = "";
+    try {
+      tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    } catch (_) {}
 
     document.getElementById("btnEnviarAssinatura").disabled = true;
-    document.getElementById("btnEnviarAssinatura").textContent = "Enviando...";
+    document.getElementById("btnEnviarAssinatura").textContent = "Registrando...";
 
     const r = await sb.rpc("public_submit_contract_signature", {
       p_token: token,
       p_signed_by: nome,
-      p_signature_data: signatureData
+      p_signature_data: signatureData,
+      p_accepted_terms: true,
+      p_user_agent: ua.slice(0, 2000),
+      p_client_timezone: tz.slice(0, 120)
     });
 
     const data = r.data;
 
     if (r.error) {
       document.getElementById("btnEnviarAssinatura").disabled = false;
-      document.getElementById("btnEnviarAssinatura").textContent = "Confirmar e assinar";
+      document.getElementById("btnEnviarAssinatura").textContent = "Confirmar leitura e assinar";
       alert("Erro ao enviar: " + (r.error.message || r.error));
       return;
     }
 
     if (data && data.error) {
       document.getElementById("btnEnviarAssinatura").disabled = false;
-      document.getElementById("btnEnviarAssinatura").textContent = "Confirmar e assinar";
+      document.getElementById("btnEnviarAssinatura").textContent = "Confirmar leitura e assinar";
       alert(data.error);
       return;
     }
@@ -177,7 +210,7 @@
       document.getElementById("sucessoMsg").classList.add("show");
     } else {
       document.getElementById("btnEnviarAssinatura").disabled = false;
-      document.getElementById("btnEnviarAssinatura").textContent = "Confirmar e assinar";
+      document.getElementById("btnEnviarAssinatura").textContent = "Confirmar leitura e assinar";
       alert("Não foi possível processar a assinatura.");
     }
   });

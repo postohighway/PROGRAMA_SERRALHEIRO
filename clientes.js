@@ -26,6 +26,30 @@
     return prefix + ts + rand;
   }
 
+  /**
+   * Dados mínimos para contrato com assinatura digital (identificação + prova — Lei 14.063/2020).
+   * @param {object} d — objeto com document, phone, email, address (como no payload do cliente)
+   */
+  function validarClienteParaAssinaturaDigital(d) {
+    const doc = String(d && d.document ? d.document : "").replace(/\D/g, "");
+    if (doc.length !== 11 && doc.length !== 14) {
+      return { ok: false, mensagem: "Informe CPF (11 dígitos) ou CNPJ (14 dígitos) válido do cliente." };
+    }
+    const phone = String(d && d.phone ? d.phone : "").replace(/\D/g, "");
+    if (phone.length < 10) {
+      return { ok: false, mensagem: "Informe telefone com DDD (mínimo 10 dígitos)." };
+    }
+    const email = String(d && d.email ? d.email : "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { ok: false, mensagem: "Informe e-mail válido do cliente (registro e comunicações do contrato)." };
+    }
+    const addr = String(d && d.address ? d.address : "").trim();
+    if (addr.length < 15) {
+      return { ok: false, mensagem: "Informe endereço completo (rua, número, bairro, cidade/UF ou CEP) — mínimo 15 caracteres." };
+    }
+    return { ok: true };
+  }
+
   function mostrarModalLinkAssinatura(linkUrl, nomeCliente) {
     const b = document.createElement("div");
     b.className = "modal-backdrop";
@@ -162,7 +186,7 @@
       const wrap = $("#listaClientesWrap", alvo);
       wrap.innerHTML = `<div class="empty">Carregando clientes...</div>`;
 
-      const cols = "id, name, phone, email, address, notes, origem_cadastro, data_inicio_relacionamento, status_cliente, observacoes_comerciais, recurring_key, created_at";
+      const cols = "id, name, document, phone, email, address, notes, origem_cadastro, data_inicio_relacionamento, status_cliente, observacoes_comerciais, recurring_key, created_at";
       const { data, error } = await ctx.sb.db
         .from("customers")
         .select(cols)
@@ -260,6 +284,7 @@
         "</div>" +
         "<div class=\"quote-info-box\">" +
         "<div><strong>Nome:</strong> " + escapeHtml(c.name || "—") + "</div>" +
+        "<div><strong>CPF/CNPJ:</strong> " + escapeHtml(c.document || "—") + "</div>" +
         "<div><strong>Telefone:</strong> " + escapeHtml(c.phone || "—") + "</div>" +
         "<div><strong>E-mail:</strong> " + escapeHtml(c.email || "—") + "</div>" +
         "<div><strong>Endereço:</strong> " + escapeHtml(c.address || "—") + "</div>" +
@@ -315,7 +340,7 @@
           <div class="field"><label>Motorização</label><select id="cliMotorModel"><option value="">Selecione</option></select></div>
           <div class="field"><label>Largura (cm)</label><input id="cliGateLargura" type="number" placeholder="Ex: 300" min="0" step="1"></div>
           <div class="field"><label>Altura (cm)</label><input id="cliGateAltura" type="number" placeholder="Ex: 220" min="0" step="1"></div>
-          <div class="field" style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px;margin-top:8px;"><label><input type="checkbox" id="cliCriarContrato"> Criar contrato e enviar link de assinatura</label></div>
+          <div class="field" style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px;margin-top:8px;"><label><input type="checkbox" id="cliCriarContrato"> Criar contrato e enviar link de assinatura</label><div class="muted" style="font-size:12px;margin-top:6px;line-height:1.4">Serão exigidos <strong>CPF/CNPJ</strong>, <strong>telefone</strong>, <strong>e-mail</strong> e <strong>endereço completo</strong> para identificação legal (Lei 14.063/2020).</div></div>
           <div id="cliContratoCampos" style="grid-column:1/-1;display:none;grid-template-columns:1fr 1fr;gap:12px;" class="form-grid">
             <div class="field"><label>Plano SLA *</label><select id="cliContratoSla"><option value="">Selecione</option></select></div>
             <div class="field"><label>Valor mensal *</label><input id="cliContratoValor" type="number" min="0" step="0.01" placeholder="0,00"></div>
@@ -412,6 +437,11 @@
       const valorContrato = criarContrato ? Number($("#cliContratoValor", backdrop).value || 0) : 0;
       if (criarContrato && (!slaId || valorContrato <= 0)) return ctx.setErro("Para criar contrato, selecione o SLA e informe o valor mensal.");
 
+      if (criarContrato) {
+        const v = validarClienteParaAssinaturaDigital(payload);
+        if (!v.ok) return ctx.setErro(v.mensagem + " (obrigatório para assinatura digital com validade jurídica.)");
+      }
+
       try {
         let customerId;
         if (isNovo) {
@@ -477,4 +507,8 @@
   window.ModuloClientes = window.ModuloClientes || {};
   window.ModuloClientes.listarClientes = listarClientes;
   window.ModuloClientes.abrirModalCliente = abrirModalCliente;
+
+  window.SGBValidacaoContrato = {
+    validarClienteParaAssinaturaDigital: validarClienteParaAssinaturaDigital
+  };
 })();

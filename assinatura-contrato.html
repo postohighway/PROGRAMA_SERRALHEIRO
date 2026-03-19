@@ -10,7 +10,11 @@
     .assinatura-actions { display:flex; gap:10px; margin-top:8px; }
     .assinatura-actions button { padding:8px 14px; border-radius:10px; font-weight:700; cursor:pointer; border:none; }
     .btn-limpar { background:rgba(255,93,108,.2); color:#ff5d6c; }
-    .btn-assinar { background:var(--primary); color:#fff; }
+    .legal-box { font-size:13px; line-height:1.5; color:var(--muted); margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.15); }
+    .legal-box strong { color:var(--text); }
+    .id-cliente { font-size:13px; margin:10px 0;padding:10px;border-radius:10px;background:rgba(61,134,255,.08);border:1px solid rgba(61,134,255,.25); }
+    .aceite-row { display:flex; gap:10px; align-items:flex-start; margin:16px 0; }
+    .aceite-row input { margin-top:4px; flex-shrink:0; }
     .status-msg { margin-top:14px; padding:14px; border-radius:12px; display:none; }
     .status-msg.show { display:block; }
     .status-msg.success { background:rgba(20,195,142,.15); border:1px solid rgba(20,195,142,.4); }
@@ -21,32 +25,44 @@
   <div class="portal-wrap">
     <div class="portal-card">
       <div class="portal-kicker">SGB Serralheria</div>
-      <h1>Assinatura Digital do Contrato</h1>
-      <p class="portal-sub">Leia o contrato abaixo e assine digitalmente para confirmar sua aceitação.</p>
+      <h1>Assinatura eletrônica do contrato</h1>
+      <p class="portal-sub">Leia o documento completo abaixo. A assinatura será registrada nos termos da <strong>Lei nº 14.063/2020</strong> (assinatura eletrônica em geral).</p>
+
+      <div class="legal-box">
+        Ao concluir, você declara ciência de que esta assinatura eletrônica vincula-se ao contrato exibido, com os dados de identificação do contratante cadastrados pela empresa, e manifesta sua <strong>aceitação integral</strong> das cláusulas.
+      </div>
 
       <div id="erroInicial" class="status-msg error" style="display:none"></div>
       <div id="sucessoMsg" class="status-msg success" style="display:none">
         <strong>Contrato assinado com sucesso!</strong><br>
-        O documento foi registrado. Você pode fechar esta página.
+        O documento e os dados de registro foram armazenados. Você pode fechar esta página.
       </div>
 
       <div id="conteudoContrato" style="display:none">
         <div class="contrato-section">
           <div class="contrato-header"><span id="nomeContrato"></span></div>
-          <div id="textoContrato" class="contrato-conteudo" style="display:block;max-height:320px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;padding:12px;background:rgba(0,0,0,.2);border-radius:10px"></div>
+          <div id="idClienteResumo" class="id-cliente" style="display:none"></div>
+          <div id="textoContrato" class="contrato-conteudo" style="display:block;max-height:min(50vh,420px);overflow-y:auto;white-space:pre-wrap;line-height:1.6;padding:12px;background:rgba(0,0,0,.2);border-radius:10px"></div>
         </div>
 
-        <label class="label" style="margin-top:18px">Seu nome completo (assinatura) *</label>
-        <input id="nomeAssinante" class="field" placeholder="Digite seu nome como consta no documento" required>
+        <label class="label" style="margin-top:18px">Seu nome completo (como no documento de identificação) *</label>
+        <input id="nomeAssinante" class="field" placeholder="Nome completo do contratante" required autocomplete="name">
 
-        <label class="label" style="margin-top:14px">Assinatura (desenhe no quadro abaixo)</label>
+        <label class="label" style="margin-top:14px">Assinatura manuscrita *</label>
+        <p class="muted" style="font-size:12px;margin:0 0 8px;line-height:1.4">Desenhe no quadro abaixo com o dedo ou o mouse. O traço compõe a assinatura eletrônica junto ao seu nome.</p>
         <canvas id="canvasAssinatura" class="assinatura-pad" width="400" height="180"></canvas>
         <div class="assinatura-actions">
-          <button type="button" id="btnLimpar" class="btn-limpar">Limpar</button>
-          <span class="muted" style="align-self:center;font-size:12px">Ou digite seu nome acima</span>
+          <button type="button" id="btnLimpar" class="btn-limpar">Limpar quadro</button>
         </div>
 
-        <button id="btnEnviarAssinatura" class="btn-primary big" style="margin-top:20px">Confirmar e assinar</button>
+        <div class="aceite-row">
+          <input type="checkbox" id="aceiteTermo" value="1">
+          <label for="aceiteTermo" style="margin:0;font-size:14px;line-height:1.45;cursor:pointer">
+            Declaro que <strong>li integralmente</strong> o contrato acima, compreendi seu conteúdo e <strong>aceito todos os termos e condições</strong>, nos moldes da Lei nº 14.063/2020.
+          </label>
+        </div>
+
+        <button id="btnEnviarAssinatura" class="btn-primary big" style="margin-top:8px" type="button">Confirmar leitura e assinar</button>
       </div>
     </div>
   </div>

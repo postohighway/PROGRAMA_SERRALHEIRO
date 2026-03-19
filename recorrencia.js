@@ -562,7 +562,7 @@
     if (!customerId && (ticket.client_name || ticket.client_phone)) {
       const nome = String(ticket.client_name || "").trim().toLowerCase();
       const fone = String(ticket.client_phone || "").replace(/\D/g, "");
-      const existentes = await sb.db.from("customers").select("id, name, phone, email, address").eq("company_id", companyId);
+      const existentes = await sb.db.from("customers").select("id, name, phone, email, address, document").eq("company_id", companyId);
       if (!existentes.error && existentes.data && existentes.data.length) {
         const match = existentes.data.find((c) => {
           const cn = String(c.name || "").trim().toLowerCase();
@@ -585,7 +585,7 @@
           status_cliente: "ativo",
           data_inicio_relacionamento: new Date().toISOString().slice(0, 10),
           recurring_key: key
-        }).select("id, name, phone, email, address").single();
+        }).select("id, name, phone, email, address, document").single();
         if (!novo.error && novo.data) {
           customerId = novo.data.id;
           customer = novo.data;
@@ -695,6 +695,19 @@
       }
       if (!startDate || !nextDate) {
         erroBox.textContent = "Informe as datas de início e próxima cobrança.";
+        erroBox.classList.add("show");
+        return;
+      }
+
+      if (!window.SGBValidacaoContrato || typeof window.SGBValidacaoContrato.validarClienteParaAssinaturaDigital !== "function") {
+        erroBox.textContent = "Validação jurídica indisponível. Recarregue a página (módulo Clientes).";
+        erroBox.classList.add("show");
+        return;
+      }
+      const v = window.SGBValidacaoContrato.validarClienteParaAssinaturaDigital(customerData);
+      if (!v.ok) {
+        erroBox.textContent =
+          v.mensagem + " Atualize o cadastro completo em Clientes antes de gerar o link de assinatura (Lei 14.063/2020).";
         erroBox.classList.add("show");
         return;
       }
