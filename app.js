@@ -38,7 +38,17 @@
     if (rota === "financeiro") { setTitulo("Financeiro", "Executivo, contas a receber, fluxo de caixa, DRE e previsão"); if (window.ModuloFinanceiro && typeof window.ModuloFinanceiro.listarFinanceiro === "function" && window.sb && window.sb.db && window.sb.companyId) return window.ModuloFinanceiro.listarFinanceiro({ areaId: "conteudoTela", sb: window.sb, companyId: window.sb.companyId }); return placeholder("Financeiro", "Módulo financeiro não carregado."); }
     if (rota === "agenda") { setTitulo("Agenda", "Agenda operacional da equipe"); if (window.ModuloAgenda && typeof window.ModuloAgenda.renderizarAgenda === "function") return window.ModuloAgenda.renderizarAgenda({ areaId: "conteudoTela", sb: window.sb, setErro, setInfo, setTitulo }); return placeholder("Agenda", "Módulo de agenda não carregado."); }
     if (rota === "recorrencia") { setTitulo("Recorrência", "Clientes avulsos, contratos e SLA"); if (window.ModuloRecorrencia && typeof window.ModuloRecorrencia.renderizarRecorrencia === "function") return window.ModuloRecorrencia.renderizarRecorrencia({ areaId: "conteudoTela", sb: window.sb, setErro, setInfo, setTitulo }); return placeholder("Recorrência", "Módulo de recorrência não carregado."); }
-    if (rota === "clientes") { setTitulo("Clientes", "Cadastro e consulta de clientes"); if (window.ModuloClientes && typeof window.ModuloClientes.listarClientes === "function" && window.sb && window.sb.db && window.sb.companyId) return window.ModuloClientes.listarClientes({ areaId: "conteudoTela", sb: window.sb, companyId: window.sb.companyId, setErro, setInfo, setTitulo }); return placeholder("Clientes", "Módulo de clientes não carregado."); }
+    if (rota === "clientes") {
+      setTitulo("Clientes", "Cadastro e consulta de clientes");
+      const sb = window.sb;
+      const companyId = sb && sb.companyId;
+      const ok = window.ModuloClientes && typeof window.ModuloClientes.listarClientes === "function" && sb && sb.db && companyId;
+      if (ok) return window.ModuloClientes.listarClientes({ areaId: "conteudoTela", sb, companyId, setErro, setInfo, setTitulo });
+      let msg = "Módulo de clientes não carregado.";
+      if (!sb || !sb.db) msg += " Verifique a conexão Supabase em config.js.";
+      else if (!companyId) msg += " Configure defaultCompanyId em config.js.";
+      return placeholder("Clientes", msg);
+    }
     if (rota === "relatorios") { setTitulo("Relatórios", "Geração de documentos para impressão e exportação"); if (window.ModuloRelatorios && typeof window.ModuloRelatorios.carregarRelatorios === "function" && window.sb && window.sb.db && window.sb.companyId) return window.ModuloRelatorios.carregarRelatorios({ areaId: "conteudoTela", sb: window.sb, companyId: window.sb.companyId, setErro, setInfo, setTitulo }); return placeholder("Relatórios", "Módulo de relatórios não carregado."); }
     if (rota === "configuracoes") { setTitulo("Configurações", "Ajustes do sistema"); if (window.ModuloConfiguracoes && typeof window.ModuloConfiguracoes.renderizarConfiguracoes === "function" && window.sb && window.sb.db && window.sb.companyId) return window.ModuloConfiguracoes.renderizarConfiguracoes({ areaId: "conteudoTela", sb: window.sb, setErro, setInfo, setTitulo }); return placeholder("Configurações", "Ajustes do sistema."); }
   }
