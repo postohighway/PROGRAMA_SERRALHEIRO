@@ -21,46 +21,7 @@
     return "https://wa.me/" + n + "?text=" + msg;
   }
 
-  async function renderizarConfiguracoes(opts) {
-    const areaId = (opts && opts.areaId) || "conteudoTela";
-    const sb = (opts && opts.sb) || window.sb;
-    const setErro = (opts && opts.setErro) || (function () {});
-    const setInfo = (opts && opts.setInfo) || (function () {});
-    const setTitulo = (opts && opts.setTitulo) || (function () {});
-
-    setTitulo("Configurações", "Ajustes do sistema");
-    setErro("");
-    setInfo("");
-
-    const alvo = document.getElementById(areaId);
-    if (!alvo) return;
-
-    if (!(sb && sb.db && sb.companyId)) {
-      alvo.innerHTML = `<div class="panel"><h2>Configurações</h2><div class="panel-sub">Conexão ou companyId não disponível.</div></div>`;
-      return;
-    }
-
-    let valorAtual = "";
-
-    try {
-      const r = await sb.db.from("company_settings")
-        .select("setting_value")
-        .eq("company_id", sb.companyId)
-        .eq("setting_key", "whatsapp_plantao")
-        .maybeSingle();
-      if (!r.error && r.data) valorAtual = r.data.setting_value || "";
-    } catch (_) {}
-
-    let templateContrato = "";
-    try {
-      const r2 = await sb.db.from("company_settings")
-        .select("setting_value")
-        .eq("company_id", sb.companyId)
-        .eq("setting_key", "contract_template_default")
-        .maybeSingle();
-      if (!r2.error && r2.data) templateContrato = r2.data.setting_value || "";
-    } catch (_) {}
-    const templatePadrao = `CONTRATO DE PRESTAÇÃO DE SERVIÇOS
+  const TEMPLATE_CONTRATO_COMPLETO = `CONTRATO DE PRESTAÇÃO DE SERVIÇOS
 Manutenção de Portões Eletrônicos — Plano Recorrente
 ________________________________________
 CONTRATADA
@@ -145,6 +106,46 @@ Plano SLA: {{PLANO_SLA}}
 _________________________________________
 Assinatura do Contratante`;
 
+  async function renderizarConfiguracoes(opts) {
+    const areaId = (opts && opts.areaId) || "conteudoTela";
+    const sb = (opts && opts.sb) || window.sb;
+    const setErro = (opts && opts.setErro) || (function () {});
+    const setInfo = (opts && opts.setInfo) || (function () {});
+    const setTitulo = (opts && opts.setTitulo) || (function () {});
+
+    setTitulo("Configurações", "Ajustes do sistema");
+    setErro("");
+    setInfo("");
+
+    const alvo = document.getElementById(areaId);
+    if (!alvo) return;
+
+    if (!(sb && sb.db && sb.companyId)) {
+      alvo.innerHTML = `<div class="panel"><h2>Configurações</h2><div class="panel-sub">Conexão ou companyId não disponível.</div></div>`;
+      return;
+    }
+
+    let valorAtual = "";
+
+    try {
+      const r = await sb.db.from("company_settings")
+        .select("setting_value")
+        .eq("company_id", sb.companyId)
+        .eq("setting_key", "whatsapp_plantao")
+        .maybeSingle();
+      if (!r.error && r.data) valorAtual = r.data.setting_value || "";
+    } catch (_) {}
+
+    let templateContrato = "";
+    try {
+      const r2 = await sb.db.from("company_settings")
+        .select("setting_value")
+        .eq("company_id", sb.companyId)
+        .eq("setting_key", "contract_template_default")
+        .maybeSingle();
+      if (!r2.error && r2.data) templateContrato = r2.data.setting_value || "";
+    } catch (_) {}
+    const templatePadrao = TEMPLATE_CONTRATO_COMPLETO || "";
     alvo.innerHTML = `
       <div class="panel">
         <h2>WhatsApp de plantão</h2>
@@ -290,7 +291,7 @@ Assinatura do Contratante`;
       const payload = {
         company_id: sb.companyId,
         setting_key: "contract_template_default",
-        setting_value: v || templatePadrao,
+        setting_value: v || TEMPLATE_CONTRATO_COMPLETO,
         updated_at: new Date().toISOString()
       };
       const { error } = await sb.db.from("company_settings").upsert(payload, {
@@ -305,18 +306,6 @@ Assinatura do Contratante`;
     });
   }
 
-  const templateContratoFallback = `CONTRATO DE PRESTAÇÃO DE SERVIÇOS
-Manutenção de Portões Eletrônicos — Plano Recorrente
-________________________________________
-CONTRATADA: SGB SERRALHERIA LTDA | CNPJ: {{CONTRATADA_CNPJ}} | Endereço: {{CONTRATADA_ENDERECO}}
-CONTRATANTE: {{NOME_CLIENTE}} | CPF/CNPJ: {{CPF_CNPJ}} | Tel: {{TELEFONE}} | End: {{ENDERECO}} | E-mail: {{EMAIL}}
-________________________________________
-OBJETO: Manutenção preventiva, corretiva, emergencial. SLA Emergência: {{SLA_EMERGENCIA_HORAS}}. Manutenção: {{SLA_MANUTENCAO_HORAS}}. Periodicidade: {{PERIODICIDADE_PREVENTIVA}}.
-VALOR: R$ {{VALOR_MENSAL}}/mês. Vigência 12 meses, permanência mínima 3 meses. Foro: Uberlândia.
-ATENDIMENTO: {{DESCRICAO_ATENDIMENTO}}
-Data: {{DATA_HOJE}} | Início: {{DATA_INICIO}} | Plano: {{PLANO_SLA}}
-_________________________________________ Assinatura do Contratante`;
-
   async function obterTemplateContrato(sb) {
     if (!sb || !sb.db || !sb.companyId) return "";
     try {
@@ -327,7 +316,7 @@ _________________________________________ Assinatura do Contratante`;
         .maybeSingle();
       if (!r.error && r.data && r.data.setting_value) return r.data.setting_value;
     } catch (_) {}
-    return templateContratoFallback;
+    return TEMPLATE_CONTRATO_COMPLETO;
   }
 
   window.ModuloConfiguracoes = {
