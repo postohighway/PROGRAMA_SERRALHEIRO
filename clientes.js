@@ -226,16 +226,19 @@
   }
 
   function abrirModalCliente(ctx, cliente, onSalvo) {
-    const modal = document.createElement("div");
-    modal.className = "modal-overlay";
-    modal.id = "modalCliente";
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    backdrop.id = "modalCliente";
     const hoje = new Date().toISOString().slice(0, 10);
     const isNovo = !cliente;
 
-    modal.innerHTML = `
-      <div class="modal-box" style="max-width:520px;">
-        <h2>${isNovo ? "Novo Cliente" : "Editar Cliente"}</h2>
-        <form id="formCliente" class="form-grid-2">
+    backdrop.innerHTML = `
+      <div class="modal" style="max-width:520px;">
+        <div class="modal-head">
+          <div class="modal-title">${isNovo ? "Novo Cliente" : "Editar Cliente"}</div>
+          <button type="button" class="btn btn-ghost" id="btnFecharModalClienteX">Fechar</button>
+        </div>
+        <form id="formCliente" class="form-grid">
           <input type="hidden" id="cliId" value="${cliente ? cliente.id : ""}">
           <div class="field" style="grid-column:1/-1;"><label>Nome *</label><input id="cliName" type="text" required placeholder="Nome do cliente" value="${escapeHtml(cliente ? cliente.name : "")}"></div>
           <div class="field"><label>Telefone</label><input id="cliPhone" type="text" placeholder="(11) 99999-9999" value="${escapeHtml(cliente ? cliente.phone : "")}"></div>
@@ -248,38 +251,38 @@
           <div class="field" style="grid-column:1/-1;"><label>Observações comerciais</label><textarea id="cliObsComerciais" rows="2" placeholder="Observações do consultor">${escapeHtml(cliente ? cliente.observacoes_comerciais : "")}</textarea></div>
           <div class="field" style="grid-column:1/-1;"><label>Notas</label><textarea id="cliNotes" rows="2" placeholder="Notas gerais">${escapeHtml(cliente ? cliente.notes : "")}</textarea></div>
           <div style="grid-column:1/-1;display:flex;gap:10px;margin-top:10px;">
-            <button type="submit" class="btn-primary">Salvar</button>
-            <button type="button" id="btnFecharModalCliente" class="btn-secondary">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+            <button type="button" id="btnFecharModalCliente" class="btn btn-secondary">Cancelar</button>
           </div>
         </form>
       </div>
     `;
 
-    document.body.appendChild(modal);
+    document.body.appendChild(backdrop);
 
     if (isNovo) {
-      $("#cliRecurringKey", modal).value = gerarRecurringKey();
+      $("#cliRecurringKey", backdrop).value = gerarRecurringKey();
     }
 
-    $("#formCliente", modal).addEventListener("submit", async (e) => {
+    $("#formCliente", backdrop).addEventListener("submit", async (e) => {
       e.preventDefault();
       ctx.setErro("");
       ctx.setInfo("");
 
       const payload = {
         company_id: ctx.companyId,
-        name: $("#cliName", modal).value.trim(),
-        phone: $("#cliPhone", modal).value.trim() || null,
-        email: $("#cliEmail", modal).value.trim() || null,
-        address: $("#cliAddress", modal).value.trim() || null,
-        origem_cadastro: $("#cliOrigem", modal).value || "consultor",
-        status_cliente: $("#cliStatus", modal).value || "ativo",
-        data_inicio_relacionamento: $("#cliDataInicio", modal).value || null,
-        observacoes_comerciais: $("#cliObsComerciais", modal).value.trim() || null,
-        notes: $("#cliNotes", modal).value.trim() || null
+        name: $("#cliName", backdrop).value.trim(),
+        phone: $("#cliPhone", backdrop).value.trim() || null,
+        email: $("#cliEmail", backdrop).value.trim() || null,
+        address: $("#cliAddress", backdrop).value.trim() || null,
+        origem_cadastro: $("#cliOrigem", backdrop).value || "consultor",
+        status_cliente: $("#cliStatus", backdrop).value || "ativo",
+        data_inicio_relacionamento: $("#cliDataInicio", backdrop).value || null,
+        observacoes_comerciais: $("#cliObsComerciais", backdrop).value.trim() || null,
+        notes: $("#cliNotes", backdrop).value.trim() || null
       };
 
-      const recurringKey = $("#cliRecurringKey", modal).value.trim();
+      const recurringKey = $("#cliRecurringKey", backdrop).value.trim();
       if (recurringKey) payload.recurring_key = recurringKey;
 
       if (!payload.name) return ctx.setErro("Informe o nome do cliente.");
@@ -290,24 +293,25 @@
           if (r.error) throw r.error;
           ctx.setInfo("Cliente cadastrado com sucesso.");
         } else {
-          const id = $("#cliId", modal).value;
+          const id = $("#cliId", backdrop).value;
           const r = await ctx.sb.db.from("customers").update(payload).eq("id", id).select().limit(1);
           if (r.error) throw r.error;
           ctx.setInfo("Cliente atualizado com sucesso.");
         }
-        document.body.removeChild(modal);
+        document.body.removeChild(backdrop);
         if (typeof onSalvo === "function") await onSalvo();
       } catch (err) {
         ctx.setErro("Erro ao salvar: " + (err.message || err));
       }
     });
 
-    $("#btnFecharModalCliente", modal).addEventListener("click", () => {
-      document.body.removeChild(modal);
-    });
+    const fechar = () => { if (backdrop.parentNode) document.body.removeChild(backdrop); };
+    $("#btnFecharModalCliente", backdrop).addEventListener("click", fechar);
+    const btnFecharX = $("#btnFecharModalClienteX", backdrop);
+    if (btnFecharX) btnFecharX.addEventListener("click", fechar);
 
-    modal.addEventListener("click", (e) => {
-      if (e.target === modal) document.body.removeChild(modal);
+    backdrop.addEventListener("click", (e) => {
+      if (e.target === backdrop) fechar();
     });
   }
 
