@@ -26,6 +26,40 @@
     return prefix + ts + rand;
   }
 
+  function mostrarModalLinkAssinatura(linkUrl, nomeCliente) {
+    const b = document.createElement("div");
+    b.className = "modal-backdrop";
+    b.id = "modalLinkAssinatura";
+    b.innerHTML = `
+      <div class="modal" style="max-width:520px;">
+        <div class="modal-head">
+          <div class="modal-title">Link para assinatura do contrato</div>
+          <button type="button" class="btn btn-ghost" id="btnFecharLinkAssinatura">Fechar</button>
+        </div>
+        <p style="margin:0 0 12px;color:var(--muted);">Cliente <strong style="color:var(--text);">${escapeHtml(nomeCliente)}</strong>. Envie o link abaixo para o cliente assinar o contrato digitalmente.</p>
+        <div style="margin-bottom:14px;">
+          <input type="text" id="inputLinkAssinatura" class="field" value="${escapeHtml(linkUrl)}" readonly style="font-size:12px;word-break:break-all;">
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button type="button" id="btnCopiarLinkAssinatura" class="btn btn-primary">Copiar link</button>
+          <a href="${escapeHtml(linkUrl)}" target="_blank" rel="noopener" class="btn btn-secondary">Abrir página de assinatura</a>
+          <a href="#recorrencia" class="btn btn-secondary">Ir para Recorrência</a>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(b);
+    const input = $("#inputLinkAssinatura", b);
+    const copiar = () => {
+      input.select();
+      navigator.clipboard?.writeText(linkUrl).then(() => { $("#btnCopiarLinkAssinatura", b).textContent = "Copiado!"; setTimeout(() => { $("#btnCopiarLinkAssinatura", b).textContent = "Copiar link"; }, 2000); }).catch(() => document.execCommand("copy"));
+    };
+    $("#btnCopiarLinkAssinatura", b).addEventListener("click", copiar);
+    copiar();
+    const fechar = () => { if (b.parentNode) document.body.removeChild(b); };
+    $("#btnFecharLinkAssinatura", b).addEventListener("click", fechar);
+    b.addEventListener("click", (e) => { if (e.target === b) fechar(); });
+  }
+
   function statusClientePill(status) {
     const s = String(status || "").toLowerCase().trim();
     let cls = "status-pill";
@@ -206,11 +240,22 @@
       }
 
       const c = state.selecionado;
+      let contratoPendente = null;
+      try {
+        const r = await ctx.sb.db.from("contracts").select("id, signature_token, signed_at").eq("company_id", ctx.companyId).eq("customer_id", c.id).is("signed_at", null).not("signature_token", "is", null).limit(1);
+        if (!r.error && r.data && r.data[0]) contratoPendente = r.data[0];
+      } catch (_) {}
+      const path = (window.location.pathname || "").replace(/\/[^/]*$/, "") || "";
+      const base = path ? (path.endsWith("/") ? path : path + "/") : "/";
+      const linkAssinatura = contratoPendente ? (window.location.origin || "") + base + "assinatura-contrato.html?t=" + encodeURIComponent(contratoPendente.signature_token || "") : "";
+      const btnAssinatura = contratoPendente ? `<button id="btnEnviarContratoAssinatura" class="btn btn-primary" data-link="${escapeHtml(linkAssinatura)}">Enviar contrato para assinatura</button>` : "";
       wrap.innerHTML = `
         <div class="cli-actions">
           <button id="btnEditarCliente" class="btn btn-secondary">Editar</button>
           <button id="btnHubCliente" class="btn btn-primary">Ver hub do cliente</button>
           <a href="#chamados" class="btn btn-secondary">Ver chamados</a>
+          <a href="#recorrencia" class="btn btn-secondary">Recorrência</a>
+          ${btnAssinatura}
         </div>
 
         <div class="quote-info-box">
@@ -232,6 +277,11 @@
       if (btnHub && window.ModuloClientesRecorrentes && typeof window.ModuloClientesRecorrentes.abrirHubCliente === "function") {
         btnHub.addEventListener("click", () => window.ModuloClientesRecorrentes.abrirHubCliente({ sb: ctx.sb, companyId: ctx.companyId }, c));
       }
+      const btnAssinatura = $("#btnEnviarContratoAssinatura", wrap);
+      if (btnAssinatura) {
+        const link = btnAssinatura.getAttribute("data-link") || "";
+        btnAssinatura.addEventListener("click", () => mostrarModalLinkAssinatura(link, c.name || "Cliente"));
+      }
     }
   }
 
@@ -241,11 +291,18 @@
     backdrop.id = "modalCliente";
     const hoje = new Date().toISOString().slice(0, 10);
     const isNovo = !cliente;
+    const tituloModal = isNovo ? "Novo Cliente" : "Editar Cliente";
+    const selOrigem = cliente && cliente.origem_cadastro === "consultor" ? "selected" : "";
+    const selOrigemTel = cliente && cliente.origem_cadastro === "telefone" ? "selected" : "";
+    const selAtivo = cliente && cliente.status_cliente === "ativo" ? "selected" : "";
+    const selSuspenso = cliente && cliente.status_cliente === "suspenso" ? "selected" : "";
+    const selInativo = cliente && cliente.status_cliente === "inativo" ? "selected" : "";
+    const readonlyKey = cliente ? "" : "readonly";
 
     backdrop.innerHTML = `
       <div class="modal" style="max-width:520px;">
         <div class="modal-head">
-          <div class="modal-title">${isNovo ? "Novo Cliente" : "Editar Cliente"}</div>
+          <div class="modal-title">${tituloModal}</div>
           <button type="button" class="btn btn-ghost" id="btnFecharModalClienteX">Fechar</button>
         </div>
         <form id="formCliente" class="form-grid">
@@ -265,10 +322,10 @@
             <div class="field"><label>Plano SLA *</label><select id="cliContratoSla"><option value="">Selecione</option></select></div>
             <div class="field"><label>Valor mensal *</label><input id="cliContratoValor" type="number" min="0" step="0.01" placeholder="0,00"></div>
           </div>
-          <div class="field"><label>Origem cadastro</label><select id="cliOrigem"><option value="consultor" ${cliente && cliente.origem_cadastro === "consultor" ? "selected" : ""}>Consultor</option><option value="telefone" ${cliente && cliente.origem_cadastro === "telefone" ? "selected" : ""}>Telefone</option></select></div>
-          <div class="field"><label>Status</label><select id="cliStatus"><option value="ativo" ${cliente && cliente.status_cliente === "ativo" ? "selected" : ""}>Ativo</option><option value="suspenso" ${cliente && cliente.status_cliente === "suspenso" ? "selected" : ""}>Suspenso</option><option value="inativo" ${cliente && cliente.status_cliente === "inativo" ? "selected" : ""}>Inativo</option></select></div>
+          <div class="field"><label>Origem cadastro</label><select id="cliOrigem"><option value="consultor" ${selOrigem}>Consultor</option><option value="telefone" ${selOrigemTel}>Telefone</option></select></div>
+          <div class="field"><label>Status</label><select id="cliStatus"><option value="ativo" ${selAtivo}>Ativo</option><option value="suspenso" ${selSuspenso}>Suspenso</option><option value="inativo" ${selInativo}>Inativo</option></select></div>
           <div class="field"><label>Início relacionamento</label><input id="cliDataInicio" type="date" value="${cliente && cliente.data_inicio_relacionamento ? String(cliente.data_inicio_relacionamento).slice(0, 10) : hoje}"></div>
-          <div class="field"><label>Chave recorrência</label><input id="cliRecurringKey" type="text" placeholder="Gerada automaticamente" value="${escapeHtml(cliente ? cliente.recurring_key : "")}" ${cliente ? "" : "readonly"}></div>
+          <div class="field"><label>Chave recorrência</label><input id="cliRecurringKey" type="text" placeholder="Gerada automaticamente" value="${escapeHtml(cliente ? cliente.recurring_key : "")}" ${readonlyKey}></div>
           <div class="field" style="grid-column:1/-1;"><label>Observações comerciais</label><textarea id="cliObsComerciais" rows="2" placeholder="Observações do consultor">${escapeHtml(cliente ? cliente.observacoes_comerciais : "")}</textarea></div>
           <div class="field" style="grid-column:1/-1;"><label>Notas</label><textarea id="cliNotes" rows="2" placeholder="Notas gerais">${escapeHtml(cliente ? cliente.notes : "")}</textarea></div>
           <div style="grid-column:1/-1;display:flex;gap:10px;margin-top:10px;">
@@ -392,11 +449,12 @@
           const insContract = await ctx.sb.db.from("contracts").insert({ company_id: ctx.companyId, customer_id: customerId, sla_plan_id: slaId, start_date: hoje, next_billing_date: hoje, status: "ativo", name: "Contrato - " + (customerData.name || "Cliente"), amount: valorContrato, contract_content: content, signature_token: sigToken }).select().limit(1);
           if (!insContract.error && insContract.data[0]) {
             await ctx.sb.db.from("receivables").insert({ company_id: ctx.companyId, contract_id: insContract.data[0].id, customer_id: customerId, due_date: hoje, amount: valorContrato, paid: false });
-            const linkUrl = (window.location.origin || "") + (window.location.pathname || "").replace(/\/[^/]*$/, "") + "/assinatura-contrato.html?t=" + encodeURIComponent(sigToken);
+            const path = (window.location.pathname || "").replace(/\/[^/]*$/, "") || "";
+            const base = path ? (path.endsWith("/") ? path : path + "/") : "/";
+            const linkUrl = (window.location.origin || "") + base + "assinatura-contrato.html?t=" + encodeURIComponent(sigToken);
             document.body.removeChild(backdrop);
             if (typeof onSalvo === "function") await onSalvo();
-            const msg = "Cliente e contrato criados. Envie o link ao cliente para assinatura:\n\n" + linkUrl;
-            if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(linkUrl); alert("Link copiado! " + msg.slice(0, 80) + "..."); } else { alert(msg); }
+            mostrarModalLinkAssinatura(linkUrl, customerData.name || "Cliente");
             return;
           }
         }
