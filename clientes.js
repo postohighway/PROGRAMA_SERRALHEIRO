@@ -331,7 +331,7 @@
         <form id="formCliente" class="form-grid">
           <input type="hidden" id="cliId" value="${cliente ? cliente.id : ""}">
           <div class="field" style="grid-column:1/-1;"><label>Nome *</label><input id="cliName" type="text" required placeholder="Nome do cliente" value="${escapeHtml(cliente ? cliente.name : "")}"></div>
-          <div class="field"><label>CPF/CNPJ</label><input id="cliDocument" type="text" placeholder="Apenas números - preenche automático" value="${escapeHtml(cliente ? cliente.document : "")}" maxlength="18"></div>
+          <div class="field"><label>CPF/CNPJ</label><div style="display:flex;gap:8px;align-items:center"><input id="cliDocument" type="text" placeholder="14 dígitos (CNPJ) — preenche automático ao sair do campo" value="${escapeHtml(cliente ? cliente.document : "")}" maxlength="18" style="flex:1"><button type="button" id="btnBuscarCnpj" class="btn btn-secondary" title="Buscar dados na Receita Federal">Buscar</button></div></div>
           <div class="field"><label>Telefone</label><input id="cliPhone" type="text" placeholder="(11) 99999-9999" value="${escapeHtml(cliente ? cliente.phone : "")}"></div>
           <div class="field"><label>E-mail</label><input id="cliEmail" type="email" placeholder="email@exemplo.com" value="${escapeHtml(cliente ? cliente.email : "")}"></div>
           <div class="field" style="grid-column:1/-1;"><label>Endereço</label><input id="cliAddress" type="text" placeholder="Endereço completo" value="${escapeHtml(cliente ? cliente.address : "")}"></div>
@@ -392,20 +392,49 @@
       if (this.checked) $("#cliContratoCampos", backdrop).style.gridTemplateColumns = "1fr 1fr";
     });
 
-    $("#cliDocument", backdrop).addEventListener("blur", async function () {
-      const doc = this.value.replace(/\D/g, "");
-      if (doc.length !== 14) return;
+    async function buscarCnpj() {
+      const inp = $("#cliDocument", backdrop);
+      const doc = (inp && inp.value ? inp.value : "").replace(/\D/g, "");
+      if (doc.length !== 14) {
+        alert("Informe um CNPJ válido com 14 dígitos para buscar os dados.");
+        return;
+      }
+      const btn = $("#btnBuscarCnpj", backdrop);
+      const txtOrig = btn ? btn.textContent : "";
+      if (btn) { btn.disabled = true; btn.textContent = "Buscando..."; }
       try {
         const r = await fetch("https://brasilapi.com.br/api/cnpj/v1/" + doc);
-        if (!r.ok) return;
+        if (!r.ok) {
+          if (r.status === 404) alert("CNPJ não encontrado na base da Receita Federal.");
+          else alert("Não foi possível buscar. Tente novamente.");
+          return;
+        }
         const d = await r.json();
-        if (d.razao_social && !$("#cliName", backdrop).value.trim()) $("#cliName", backdrop).value = d.razao_social || d.nome_fantasia || "";
-        if (d.logradouro && !$("#cliAddress", backdrop).value.trim()) {
+        if (d.razao_social || d.nome_fantasia) $("#cliName", backdrop).value = d.razao_social || d.nome_fantasia || "";
+        if (d.logradouro || d.bairro || d.municipio) {
           const end = [d.logradouro, d.numero, d.complemento, d.bairro, d.municipio, d.uf, d.cep].filter(Boolean).join(", ");
           $("#cliAddress", backdrop).value = end;
         }
-      } catch (_) {}
+        if (d.email) $("#cliEmail", backdrop).value = d.email;
+        if (d.ddd_telefone_1) {
+          const tel = String(d.ddd_telefone_1).replace(/\D/g, "");
+          const fmt = tel.length >= 10 ? "(" + tel.slice(0, 2) + ") " + (tel.length >= 11 ? tel.slice(2, 7) + "-" + tel.slice(7) : tel.slice(2, 6) + "-" + tel.slice(6)) : tel;
+          $("#cliPhone", backdrop).value = fmt;
+        }
+        if (btn) { btn.textContent = "Preenchido!"; setTimeout(() => { btn.textContent = txtOrig; }, 1500); }
+      } catch (e) {
+        alert("Erro ao buscar CNPJ. Verifique sua conexão ou tente mais tarde.");
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    $("#cliDocument", backdrop).addEventListener("blur", function () {
+      const doc = (this.value || "").replace(/\D/g, "");
+      if (doc.length === 14) buscarCnpj();
     });
+    const btnCnpj = $("#btnBuscarCnpj", backdrop);
+    if (btnCnpj) btnCnpj.addEventListener("click", buscarCnpj);
 
     $("#formCliente", backdrop).addEventListener("submit", async (e) => {
       e.preventDefault();
