@@ -110,6 +110,21 @@
       .cli-title{font-weight:800;color:#eff6ff}
       .cli-meta{font-size:12px;color:#9db3d6;margin-top:4px}
       .cli-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+      #modalCliente .modal{max-width:560px;width:100%;padding:20px;border-radius:16px}
+      #modalCliente .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;align-items:start}
+      #modalCliente .form-grid .field{display:flex;flex-direction:column;gap:6px;min-width:0}
+      #modalCliente .form-grid .field label{font-size:13px;font-weight:700;color:#c8d8f4;order:-1}
+      #modalCliente .form-grid input,#modalCliente .form-grid select,#modalCliente .form-grid textarea{
+        width:100%;min-height:42px;padding:10px 12px;border-radius:10px;border:1px solid rgba(61,134,255,.3);
+        background:rgba(61,134,255,.1);color:var(--text);font-size:14px;outline:none
+      }
+      #modalCliente .form-grid input[type="checkbox"]{width:auto;min-height:auto;background:transparent}
+      #modalCliente .form-grid input:focus,#modalCliente .form-grid select:focus,#modalCliente .form-grid textarea:focus{
+        border-color:var(--primary);box-shadow:0 0 0 2px rgba(61,134,255,.2)
+      }
+      #modalCliente .form-grid textarea{min-height:72px;resize:vertical}
+      #modalCliente .form-grid .btn{padding:10px 16px;min-height:42px;border-radius:10px}
+      #modalCliente .form-grid .field[style*="grid-column:1/-1"] input,#modalCliente .form-grid .field[style*="grid-column:1/-1"] textarea{width:100%}
       @media (max-width: 1100px){.cli-grid,.cli-kpis{grid-template-columns:1fr}}
       @media (max-width: 600px){
         .cli-kpis{grid-template-columns:1fr 1fr;gap:8px}
@@ -117,6 +132,7 @@
         .toolbar{grid-template-columns:1fr;gap:8px}
         .toolbar .btn{padding:14px 18px;min-height:48px;font-size:15px}
         #modalCliente .modal{max-width:100%;max-height:90vh;overflow-y:auto;padding:14px}
+        #modalCliente .form-grid{grid-template-columns:1fr}
         #modalCliente .form-grid input,#modalCliente .form-grid select,#modalCliente .form-grid textarea{min-height:48px;font-size:16px}
         #modalCliente .form-grid .btn{padding:14px 20px;min-height:48px;font-size:15px}
         #cliContratoCampos.form-grid{grid-template-columns:1fr!important}
