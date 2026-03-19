@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assinar Contrato — SGB Serralheria</title>
+  <link rel="stylesheet" href="portal-upload.css">
+  <style>
+    .assinatura-pad { border:2px solid var(--line); border-radius:12px; background:#fff; cursor:crosshair; touch-action:none; }
+    .assinatura-actions { display:flex; gap:10px; margin-top:8px; }
+    .assinatura-actions button { padding:8px 14px; border-radius:10px; font-weight:700; cursor:pointer; border:none; }
+    .btn-limpar { background:rgba(255,93,108,.2); color:#ff5d6c; }
+    .btn-assinar { background:var(--primary); color:#fff; }
+    .status-msg { margin-top:14px; padding:14px; border-radius:12px; display:none; }
+    .status-msg.show { display:block; }
+    .status-msg.success { background:rgba(20,195,142,.15); border:1px solid rgba(20,195,142,.4); }
+    .status-msg.error { background:rgba(255,93,108,.15); border:1px solid rgba(255,93,108,.4); }
+  </style>
+</head>
+<body>
+  <div class="portal-wrap">
+    <div class="portal-card">
+      <div class="portal-kicker">SGB Serralheria</div>
+      <h1>Assinatura Digital do Contrato</h1>
+      <p class="portal-sub">Leia o contrato abaixo e assine digitalmente para confirmar sua aceitação.</p>
+
+      <div id="erroInicial" class="status-msg error" style="display:none"></div>
+      <div id="sucessoMsg" class="status-msg success" style="display:none">
+        <strong>Contrato assinado com sucesso!</strong><br>
+        O documento foi registrado. Você pode fechar esta página.
+      </div>
+
+      <div id="conteudoContrato" style="display:none">
+        <div class="contrato-section">
+          <div class="contrato-header"><span id="nomeContrato"></span></div>
+          <div id="textoContrato" class="contrato-conteudo" style="display:block;max-height:320px;overflow-y:auto"></div>
+        </div>
+
+        <label class="label" style="margin-top:18px">Seu nome completo (assinatura) *</label>
+        <input id="nomeAssinante" class="field" placeholder="Digite seu nome como consta no documento" required>
+
+        <label class="label" style="margin-top:14px">Assinatura (desenhe no quadro abaixo)</label>
+        <canvas id="canvasAssinatura" class="assinatura-pad" width="400" height="180"></canvas>
+        <div class="assinatura-actions">
+          <button type="button" id="btnLimpar" class="btn-limpar">Limpar</button>
+          <span class="muted" style="align-self:center;font-size:12px">Ou digite seu nome acima</span>
+        </div>
+
+        <button id="btnEnviarAssinatura" class="btn-primary big" style="margin-top:20px">Confirmar e assinar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="config.local.js"></script>
+  <script src="assinatura-contrato.js"></script>
+</body>
+</html>

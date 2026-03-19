@@ -26,6 +26,12 @@
     return String(s || "").trim().toLowerCase();
   }
 
+  function linkAssinaturaUrl(token) {
+    if (!token) return "";
+    const base = (window.location.origin || "") + (window.location.pathname || "").replace(/\/[^/]*$/, "") + "/assinatura-contrato.html";
+    return base + "?t=" + encodeURIComponent(token);
+  }
+
   function panel(title, subtitle, body) {
     return `<div class="panel"><h2>${title}</h2>${subtitle ? `<div class="panel-sub">${subtitle}</div>` : ""}${body}</div>`;
   }
@@ -135,15 +141,21 @@
         c.sla_name ? `SLA: ${c.sla_name}` : "",
         `Valor: ${moeda(c.amount || 0)}`,
         c.start_date ? `Início: ${fmtData(c.start_date)}` : "",
-        c.next_billing_date ? `Próxima cobrança: ${fmtData(c.next_billing_date)}` : ""
+        c.next_billing_date ? `Próxima cobrança: ${fmtData(c.next_billing_date)}` : "",
+        c.signed_at ? `Assinado em ${fmtData(c.signed_at)}` : ""
       ].filter(Boolean);
       const linkChamado = c.ticket_id ? `<a href="#chamados" class="link-inline" data-action="ir-chamado" data-ticket-id="${c.ticket_id}" style="margin-left:6px;">Ver chamado</a>` : "";
+      const btnAssinatura = !c.signed_at && c.signature_token
+        ? `<button class="btn-secondary" data-action="link-assinatura" data-token="${(c.signature_token || "").replace(/"/g, "&quot;")}">Enviar para assinatura</button>`
+        : !c.signed_at
+        ? `<button class="btn-secondary" data-action="gerar-link-assinatura" data-id="${c.id}">Gerar link assinatura</button>`
+        : "";
       return linha(
         c.name || "Contrato",
         statusContratoPill(c.status),
         `${c.customer_name || "Cliente"}${c.customer_phone ? " — " + c.customer_phone : ""}${linkChamado}`,
         subParts.join(" • "),
-        `<button class="btn-secondary" data-action="editar-contrato" data-id="${c.id}">Editar</button><button class="btn-secondary" data-action="cancelar-contrato" data-id="${c.id}">Cancelar</button><button class="btn-secondary" data-action="reativar-contrato" data-id="${c.id}">Reativar</button>`
+        `${btnAssinatura}<button class="btn-secondary" data-action="editar-contrato" data-id="${c.id}">Editar</button><button class="btn-secondary" data-action="cancelar-contrato" data-id="${c.id}">Cancelar</button><button class="btn-secondary" data-action="reativar-contrato" data-id="${c.id}">Reativar</button>`
       );
     }).join("")}</div>`;
   }
@@ -206,7 +218,7 @@
       const [ticketsResp, customersResp, contractsResp, slaResp, receivablesResp] = await Promise.all([
         safeSelect(sb.db, "tickets", "id, client_name, client_phone, status, created_at", sb.companyId),
         safeSelect(sb.db, "customers", "id, name, phone, email, address, notes, created_at", sb.companyId),
-        safeSelect(sb.db, "contracts", "id, company_id, customer_id, sla_plan_id, ticket_id, start_date, next_billing_date, status, created_at, name, amount, contract_content, signed_at, signed_by", sb.companyId),
+        safeSelect(sb.db, "contracts", "id, company_id, customer_id, sla_plan_id, ticket_id, start_date, next_billing_date, status, created_at, name, amount, contract_content, signed_at, signed_by, signature_token", sb.companyId),
         safeSelect(sb.db, "sla_plans", "id, company_id, name, hours_to_expire, created_at", sb.companyId),
         safeSelect(sb.db, "receivables", "id, contract_id, due_date, amount, paid, paid_at, created_at, company_id, customer_id, nosso_numero, documento_ref", sb.companyId, (q) => q.order("due_date", { ascending: false }))
       ]);
@@ -326,11 +338,16 @@
         try {
           let contrato;
           if (rcContratoId.value) {
+            const existente = state.contratos.find((c) => String(c.id) === String(rcContratoId.value));
+            if (existente && !existente.signature_token && !existente.signed_at) {
+              payload.signature_token = "sig_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12);
+            }
             contrato = await safeUpdate(sb.db, "contracts", payload, [["id", rcContratoId.value], ["company_id", sb.companyId]]);
             setInfo("Contrato atualizado com sucesso.");
           } else {
+            payload.signature_token = "sig_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12);
             contrato = await safeInsert(sb.db, "contracts", payload);
-            setInfo("Contrato criado com sucesso.");
+            setInfo("Contrato criado com sucesso. Use 'Enviar para assinatura' para enviar o link ao cliente.");
           }
           if (contrato && normalizar(contrato.status) === "ativo") {
             await garantirPrimeiroRecebivel(contrato);
@@ -456,6 +473,31 @@
           return;
         }
         if (action === "marcar-pago" && id) return marcarRecebivelPago(id);
+        if (action === "link-assinatura") {
+          const tok = btn.getAttribute("data-token");
+          if (tok) {
+            const url = linkAssinaturaUrl(tok);
+            const backdrop = document.createElement("div");
+            backdrop.className = "modal-backdrop";
+            backdrop.innerHTML = `<div class="modal" style="max-width:480px;"><div class="modal-head"><div class="modal-title">Link para assinatura digital</div><button class="btn btn-ghost" id="fecharLinkAssinatura">Fechar</button></div><div class="panel" style="margin:16px 0;"><p class="muted" style="margin-bottom:10px;">Envie este link ao cliente por WhatsApp ou e-mail. O cliente abrirá, lerá o contrato e assinará digitalmente.</p><div class="link-box" style="word-break:break-all;padding:10px;background:rgba(0,0,0,.2);border-radius:8px;">${url}</div></div><div class="modal-actions"><button class="btn btn-secondary" id="copiarLinkAssinatura">Copiar link</button><a class="btn btn-primary" href="${url}" target="_blank" rel="noopener">Abrir</a></div></div>`;
+            document.body.appendChild(backdrop);
+            const fechar = () => document.body.removeChild(backdrop);
+            $("#fecharLinkAssinatura", backdrop).addEventListener("click", fechar);
+            $("#copiarLinkAssinatura", backdrop).addEventListener("click", async () => { try { await navigator.clipboard.writeText(url); alert("Link copiado."); } catch (_) { alert("Copie manualmente: " + url); } });
+          }
+          return;
+        }
+        if (action === "gerar-link-assinatura" && id) {
+          try {
+            const sigToken = "sig_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12);
+            await sb.db.from("contracts").update({ signature_token: sigToken }).eq("id", id).eq("company_id", sb.companyId);
+            setInfo("Link de assinatura gerado. Clique em 'Enviar para assinatura' para copiar.");
+            await renderizarRecorrencia(opts);
+          } catch (erro) {
+            setErro("Falha ao gerar link: " + (erro.message || erro));
+          }
+          return;
+        }
         if (action === "editar-contrato") {
           const contrato = state.contratos.find((c) => String(c.id) === String(id));
           if (contrato) preencherForm(contrato);
@@ -657,6 +699,7 @@
         return;
       }
 
+      const sigToken = "sig_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12);
       const payload = {
         company_id: companyId,
         customer_id: customerId,
@@ -669,7 +712,8 @@
         amount,
         contract_content: content || null,
         signed_by: signedBy,
-        signed_at: signedAtVal ? new Date(signedAtVal).toISOString() : null
+        signed_at: signedAtVal ? new Date(signedAtVal).toISOString() : null,
+        signature_token: sigToken
       };
 
       const ins = await sb.db.from("contracts").insert(payload).select().limit(1);
@@ -691,16 +735,20 @@
       }
       fechar();
       if (typeof onSalvo === "function") await onSalvo();
+      const linkAssinatura = linkAssinaturaUrl(sigToken);
       const backdropFeedback = document.createElement("div");
       backdropFeedback.className = "modal-backdrop";
       backdropFeedback.innerHTML = `
-        <div class="modal" style="max-width:420px;">
+        <div class="modal" style="max-width:480px;">
           <div class="modal-head"><div class="modal-title">Contrato criado com sucesso</div><button class="btn btn-ghost" id="fecharFeedbackContrato">Fechar</button></div>
           <div class="panel" style="margin:16px 0;">
-            <p style="margin:0;">O conteúdo pode ser editado e a assinatura digital registrada em Recorrência.</p>
+            <p style="margin:0 0 12px;">Envie o link abaixo ao cliente para assinatura digital. O cliente abrirá, lerá o contrato e assinará.</p>
+            <div class="link-box" style="word-break:break-all;padding:10px;background:rgba(0,0,0,.2);border-radius:8px;font-size:12px;margin-bottom:12px;">${linkAssinatura}</div>
+            <button class="btn btn-secondary" id="copiarLinkFeedback">Copiar link</button>
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary" id="fecharFeedbackContrato2">Fechar</button>
+            <a href="${linkAssinatura}" target="_blank" rel="noopener" class="btn btn-primary" id="abrirLinkAssinatura">Abrir página de assinatura</a>
             <a href="#recorrencia" class="btn btn-primary" id="irRecorrencia">Ir para Recorrência</a>
           </div>
         </div>`;
@@ -709,6 +757,7 @@
       $("#fecharFeedbackContrato", backdropFeedback).addEventListener("click", fecharFeedback);
       $("#fecharFeedbackContrato2", backdropFeedback).addEventListener("click", fecharFeedback);
       $("#irRecorrencia", backdropFeedback).addEventListener("click", fecharFeedback);
+      $("#copiarLinkFeedback", backdropFeedback).addEventListener("click", async () => { try { await navigator.clipboard.writeText(linkAssinatura); alert("Link copiado. Envie ao cliente por WhatsApp."); } catch (_) { alert("Copie manualmente."); } });
     });
   }
 
