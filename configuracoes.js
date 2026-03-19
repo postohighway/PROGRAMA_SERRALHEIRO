@@ -60,22 +60,88 @@
         .maybeSingle();
       if (!r2.error && r2.data) templateContrato = r2.data.setting_value || "";
     } catch (_) {}
-    const templatePadrao = `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE MANUTENÇÃO
-
-CONTRATANTE: {{NOME_CLIENTE}}
+    const templatePadrao = `CONTRATO DE PRESTAÇÃO DE SERVIÇOS
+Manutenção de Portões Eletrônicos — Plano Recorrente
+________________________________________
+CONTRATADA
+SGB SERRALHERIA LTDA
+CNPJ: {{CONTRATADA_CNPJ}}
+Endereço: {{CONTRATADA_ENDERECO}}
+________________________________________
+CONTRATANTE
+Nome/Razão Social: {{NOME_CLIENTE}}
+CPF/CNPJ: {{CPF_CNPJ}}
 Telefone: {{TELEFONE}}
 Endereço: {{ENDERECO}}
 E-mail: {{EMAIL}}
-
-Pelo presente instrumento, as partes celebram o contrato de prestação de serviços de manutenção.
-
-1. OBJETO: Manutenção conforme plano SLA {{PLANO_SLA}}.
-2. VALOR: R$ {{VALOR_MENSAL}} (mensal).
-3. VIGÊNCIA: Início em {{DATA_INICIO}}.
-4. ATENDIMENTO: {{DESCRICAO_ATENDIMENTO}}
-
+________________________________________
+CLÁUSULA 1 — OBJETO
+Prestação contínua de serviços de:
+• Manutenção preventiva
+• Manutenção corretiva
+• Atendimento emergencial (socorro imediato)
+• Diagnóstico e reparo definitivo de portões eletrônicos
+________________________________________
+CLÁUSULA 2 — MODELO DO SERVIÇO
+O serviço será prestado em regime de recorrência mensal, garantindo ao CONTRATANTE:
+• Suporte técnico contínuo
+• Atendimento emergencial prioritário
+• Manutenção do funcionamento do equipamento
+________________________________________
+CLÁUSULA 3 — ATENDIMENTO EMERGENCIAL
+Situações cobertas:
+• Cliente impedido de entrar
+• Cliente impedido de sair
+• Travamento total do portão
+SLA (tempo de resposta):
+• Emergência: até {{SLA_EMERGENCIA_HORAS}}
+• Manutenção definitiva: até {{SLA_MANUTENCAO_HORAS}}
+________________________________________
+CLÁUSULA 4 — MANUTENÇÃO PREVENTIVA
+Inclui: ajustes mecânicos, lubrificação, testes operacionais, inspeção elétrica.
+Periodicidade: {{PERIODICIDADE_PREVENTIVA}}
+________________________________________
+CLÁUSULA 5 — VALOR
+Mensalidade: R$ {{VALOR_MENSAL}}
+Forma de pagamento: PIX / boleto / recorrência
+________________________________________
+CLÁUSULA 6 — PRAZO E FIDELIDADE
+• Vigência: 12 meses
+• Permanência mínima: 3 meses
+• Cancelamento antes de 3 meses: multa equivalente a 3 mensalidades
+________________________________________
+CLÁUSULA 7 — CANCELAMENTO
+Após 3 meses: aviso prévio de 30 dias
+________________________________________
+CLÁUSULA 8 — PEÇAS
+Não inclusas na mensalidade. Cobrança mediante aprovação prévia.
+________________________________________
+CLÁUSULA 9 — LIMITES DO SERVIÇO
+Não cobre: mau uso, danos estruturais, intervenção de terceiros, problemas elétricos externos.
+________________________________________
+CLÁUSULA 10 — OBRIGAÇÕES DA CONTRATADA
+Cumprir SLA, executar serviços técnicos adequados, garantir funcionamento dentro do uso normal.
+________________________________________
+CLÁUSULA 11 — OBRIGAÇÕES DO CONTRATANTE
+Permitir acesso, não interferir no equipamento, comunicar falhas.
+________________________________________
+CLÁUSULA 12 — EQUILÍBRIO CONTRATUAL
+Descumprimento de SLA → desconto proporcional. Cancelamento antecipado → multa contratual.
+________________________________________
+CLÁUSULA 13 — REAJUSTE
+Anual por IPCA
+________________________________________
+CLÁUSULA 14 — ASSINATURA DIGITAL
+Este contrato poderá ser assinado digitalmente, válido conforme Lei nº 14.063/2020 e MP 2.200-2/2001.
+Assinatura via Clicksign, DocuSign ou sistema próprio com aceite eletrônico.
+________________________________________
+CLÁUSULA 15 — FORO
+Comarca de Uberlândia.
+________________________________________
+ATENDIMENTO REGISTRADO NO CHAMADO: {{DESCRICAO_ATENDIMENTO}}
 Data: {{DATA_HOJE}}
-
+Início da vigência: {{DATA_INICIO}}
+Plano SLA: {{PLANO_SLA}}
 _________________________________________
 Assinatura do Contratante`;
 
@@ -99,7 +165,7 @@ Assinatura do Contratante`;
 
       <div class="panel" style="margin-top:20px">
         <h2>Template padrão do contrato</h2>
-        <div class="panel-sub">Use os placeholders para preenchimento automático ao criar contrato a partir do chamado: {{NOME_CLIENTE}}, {{TELEFONE}}, {{ENDERECO}}, {{EMAIL}}, {{PLANO_SLA}}, {{VALOR_MENSAL}}, {{DATA_INICIO}}, {{DATA_HOJE}}, {{DESCRICAO_ATENDIMENTO}}</div>
+        <div class="panel-sub">Placeholders: {{NOME_CLIENTE}}, {{CPF_CNPJ}}, {{TELEFONE}}, {{ENDERECO}}, {{EMAIL}}, {{PLANO_SLA}}, {{VALOR_MENSAL}}, {{DATA_INICIO}}, {{DATA_HOJE}}, {{DESCRICAO_ATENDIMENTO}}, {{SLA_EMERGENCIA_HORAS}}, {{SLA_MANUTENCAO_HORAS}}, {{PERIODICIDADE_PREVENTIVA}}, {{CONTRATADA_CNPJ}}, {{CONTRATADA_ENDERECO}}</div>
         <div style="margin-top:16px">
           <label class="label">Conteúdo do contrato (editável)</label>
           <textarea id="templateContrato" class="textarea" rows="18" placeholder="Modelo de contrato..." style="font-family:monospace;font-size:13px">${escapeHtml(templateContrato || templatePadrao)}</textarea>
@@ -174,6 +240,18 @@ Assinatura do Contratante`;
     });
   }
 
+  const templateContratoFallback = `CONTRATO DE PRESTAÇÃO DE SERVIÇOS
+Manutenção de Portões Eletrônicos — Plano Recorrente
+________________________________________
+CONTRATADA: SGB SERRALHERIA LTDA | CNPJ: {{CONTRATADA_CNPJ}} | Endereço: {{CONTRATADA_ENDERECO}}
+CONTRATANTE: {{NOME_CLIENTE}} | CPF/CNPJ: {{CPF_CNPJ}} | Tel: {{TELEFONE}} | End: {{ENDERECO}} | E-mail: {{EMAIL}}
+________________________________________
+OBJETO: Manutenção preventiva, corretiva, emergencial. SLA Emergência: {{SLA_EMERGENCIA_HORAS}}. Manutenção: {{SLA_MANUTENCAO_HORAS}}. Periodicidade: {{PERIODICIDADE_PREVENTIVA}}.
+VALOR: R$ {{VALOR_MENSAL}}/mês. Vigência 12 meses, permanência mínima 3 meses. Foro: Uberlândia.
+ATENDIMENTO: {{DESCRICAO_ATENDIMENTO}}
+Data: {{DATA_HOJE}} | Início: {{DATA_INICIO}} | Plano: {{PLANO_SLA}}
+_________________________________________ Assinatura do Contratante`;
+
   async function obterTemplateContrato(sb) {
     if (!sb || !sb.db || !sb.companyId) return "";
     try {
@@ -184,24 +262,7 @@ Assinatura do Contratante`;
         .maybeSingle();
       if (!r.error && r.data && r.data.setting_value) return r.data.setting_value;
     } catch (_) {}
-    return `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE MANUTENÇÃO
-
-CONTRATANTE: {{NOME_CLIENTE}}
-Telefone: {{TELEFONE}}
-Endereço: {{ENDERECO}}
-E-mail: {{EMAIL}}
-
-Pelo presente instrumento, as partes celebram o contrato de prestação de serviços de manutenção.
-
-1. OBJETO: Manutenção conforme plano SLA {{PLANO_SLA}}.
-2. VALOR: R$ {{VALOR_MENSAL}} (mensal).
-3. VIGÊNCIA: Início em {{DATA_INICIO}}.
-4. ATENDIMENTO: {{DESCRICAO_ATENDIMENTO}}
-
-Data: {{DATA_HOJE}}
-
-_________________________________________
-Assinatura do Contratante`;
+    return templateContratoFallback;
   }
 
   window.ModuloConfiguracoes = {

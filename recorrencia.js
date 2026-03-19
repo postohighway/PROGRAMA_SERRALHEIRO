@@ -178,7 +178,7 @@
   function formHtml(customers, slaPlans) {
     const customerOptions = (customers || []).map((c) => `<option value="${c.id}">${c.name}${c.phone ? " — " + c.phone : ""}</option>`).join("");
     const slaOptions = (slaPlans || []).map((p) => `<option value="${p.id}">${slaDescricao(p)}</option>`).join("");
-    return `<form id="formRecorrencia" class="form-grid-2"><input type="hidden" id="rcContratoId" value="" /><div class="field"><label>Cliente</label><select id="rcCustomerId" required><option value="">Selecione</option>${customerOptions}</select></div><div class="field"><label>Nome do Contrato</label><input id="rcName" type="text" placeholder="Ex.: Plano mensal manutenção" /></div><div class="field"><label>Plano SLA</label><select id="rcSlaPlanId" required><option value="">Selecione</option>${slaOptions}</select></div><div class="field"><label>Valor Mensal</label><input id="rcAmount" type="number" min="0" step="0.01" placeholder="0,00" /></div><div class="field"><label>Início do Contrato</label><input id="rcStartDate" type="date" /></div><div class="field"><label>Próxima Cobrança</label><input id="rcNextBillingDate" type="date" /></div><div class="field"><label>Status</label><select id="rcStatus"><option value="ativo">ativo</option><option value="suspenso">suspenso</option><option value="cancelado">cancelado</option></select></div><div class="field" style="grid-column:1/-1"><label>Conteúdo do contrato</label><textarea id="rcContractContent" class="textarea" rows="12" placeholder="Preenchido automaticamente ao criar a partir do chamado. Edite conforme necessário." style="font-family:monospace;font-size:13px"></textarea><div class="muted" style="margin-top:6px">Placeholders: {{NOME_CLIENTE}}, {{TELEFONE}}, {{ENDERECO}}, {{EMAIL}}, {{PLANO_SLA}}, {{VALOR_MENSAL}}, {{DATA_INICIO}}, {{DATA_HOJE}}, {{DESCRICAO_ATENDIMENTO}}</div></div><div class="field"><label>Assinatura digital</label><input id="rcSignedBy" type="text" placeholder="Nome de quem assinou (cliente)" /></div><div class="field"><label>Data da assinatura</label><input id="rcSignedAt" type="datetime-local" placeholder="Quando o cliente assinou" /></div><div class="field"><label>Resumo</label><div class="muted">Marque a assinatura quando o cliente assinar digitalmente.</div></div><div style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;"><button type="submit" class="btn-primary">Salvar contrato</button><button type="button" id="btnNovoContrato" class="btn-secondary">Novo contrato</button><button type="button" id="btnProcessarRecorrencia" class="btn-secondary">Processar recorrências agora</button></div></form>`;
+    return `<form id="formRecorrencia" class="form-grid-2"><input type="hidden" id="rcContratoId" value="" /><div class="field"><label>Cliente</label><select id="rcCustomerId" required><option value="">Selecione</option>${customerOptions}</select></div><div class="field"><label>Nome do Contrato</label><input id="rcName" type="text" placeholder="Ex.: Plano mensal manutenção" /></div><div class="field"><label>Plano SLA</label><select id="rcSlaPlanId" required><option value="">Selecione</option>${slaOptions}</select></div><div class="field"><label>Valor Mensal</label><input id="rcAmount" type="number" min="0" step="0.01" placeholder="0,00" /></div><div class="field"><label>Início do Contrato</label><input id="rcStartDate" type="date" /></div><div class="field"><label>Próxima Cobrança</label><input id="rcNextBillingDate" type="date" /></div><div class="field"><label>Status</label><select id="rcStatus"><option value="ativo">ativo</option><option value="suspenso">suspenso</option><option value="cancelado">cancelado</option></select></div><div class="field" style="grid-column:1/-1"><label>Conteúdo do contrato</label><textarea id="rcContractContent" class="textarea" rows="12" placeholder="Preenchido automaticamente ao criar a partir do chamado. Edite conforme necessário." style="font-family:monospace;font-size:13px"></textarea><div class="muted" style="margin-top:6px">Placeholders: {{NOME_CLIENTE}}, {{TELEFONE}}, {{ENDERECO}}, {{EMAIL}}, {{PLANO_SLA}}, {{VALOR_MENSAL}}, {{DATA_INICIO}}, {{DATA_HOJE}}, {{DESCRICAO_ATENDIMENTO}}</div></div><div class="field"><label>Assinatura digital</label><input id="rcSignedBy" type="text" placeholder="Nome de quem assinou (cliente)" /></div><div class="field"><label>Data da assinatura</label><input id="rcSignedAt" type="datetime-local" placeholder="Quando o cliente assinou" /></div><div class="field"><label>Resumo</label><div class="muted">Marque a assinatura quando o cliente assinar digitalmente.</div></div><div style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;"><button type="submit" class="btn-primary">Salvar contrato</button><button type="button" id="btnNovoContrato" class="btn-secondary">Novo contrato</button><button type="button" id="btnProcessarRecorrencia" class="btn-secondary">Processar recorrências agora</button><button type="button" id="btnExportarBanco" class="btn-secondary">Exportar para banco</button></div></form>`;
   }
 
   async function renderizarRecorrencia(opts) {
@@ -208,7 +208,7 @@
         safeSelect(sb.db, "customers", "id, name, phone, email, address, notes, created_at", sb.companyId),
         safeSelect(sb.db, "contracts", "id, company_id, customer_id, sla_plan_id, ticket_id, start_date, next_billing_date, status, created_at, name, amount, contract_content, signed_at, signed_by", sb.companyId),
         safeSelect(sb.db, "sla_plans", "id, company_id, name, hours_to_expire, created_at", sb.companyId),
-        safeSelect(sb.db, "receivables", "id, contract_id, due_date, amount, paid, paid_at, created_at, company_id, customer_id", sb.companyId, (q) => q.order("due_date", { ascending: false }))
+        safeSelect(sb.db, "receivables", "id, contract_id, due_date, amount, paid, paid_at, created_at, company_id, customer_id, nosso_numero, documento_ref", sb.companyId, (q) => q.order("due_date", { ascending: false }))
       ]);
 
       const tickets = ticketsResp.ok ? ticketsResp.data : [];
@@ -246,6 +246,7 @@
       const rcSignedAt = $("#rcSignedAt", alvo);
       const btnNovoContrato = $("#btnNovoContrato", alvo);
       const btnProcessarRecorrencia = $("#btnProcessarRecorrencia", alvo);
+      const btnExportarBanco = $("#btnExportarBanco", alvo);
 
       rcStartDate.value = hojeISO();
       rcNextBillingDate.value = hojeISO();
@@ -378,6 +379,37 @@
       form.addEventListener("submit", salvarContrato);
       btnNovoContrato.addEventListener("click", resetForm);
       btnProcessarRecorrencia.addEventListener("click", processarRecorrencia);
+      if (btnExportarBanco) btnExportarBanco.addEventListener("click", exportarParaBanco);
+
+      function exportarParaBanco() {
+        const cobrancasAbertas = receivables.filter((r) => !r.paid && !!r.contract_id);
+        if (!cobrancasAbertas.length) {
+          setInfo("Nenhuma cobrança em aberto para exportar.");
+          return;
+        }
+        const sep = ";";
+        const enc = "utf-8";
+        const cabecalho = ["cliente", "cpf_cnpj", "telefone", "valor", "vencimento", "nosso_numero", "descricao"];
+        const linhas = cobrancasAbertas.map((r) => {
+          const c = customersMap[r.customer_id] || {};
+          const contrato = contratosMap[r.contract_id] || {};
+          const doc = (c.document || "").replace(/\D/g, "") || "";
+          const valor = String(Number(r.amount || 0).toFixed(2)).replace(".", ",");
+          const venc = r.due_date ? String(r.due_date).slice(0, 10) : "";
+          const nossoNum = r.nosso_numero || r.documento_ref || r.id || "";
+          const desc = `Recorrência ${contrato.name || "Contrato"} - ${venc}`;
+          return [c.name || "Cliente", doc, c.phone || "", valor, venc, nossoNum, desc].map((v) => `"${String(v || "").replace(/"/g, '""')}"`).join(sep);
+        });
+        const csv = "\uFEFF" + cabecalho.join(sep) + "\r\n" + linhas.join("\r\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=" + enc });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "cobrancas_recorrentes_" + hojeISO().replace(/-/g, "") + ".csv";
+        a.click();
+        URL.revokeObjectURL(url);
+        setInfo("Arquivo exportado. Envie ao banco para gerar boletos.");
+      }
 
       async function marcarRecebivelPago(receivableId) {
         const hoje = hojeISO();
@@ -525,16 +557,18 @@
       return;
     }
 
-    const [customerResp, slaResp, templateResp] = await Promise.all([
-      customer ? Promise.resolve({ data: customer }) : sb.db.from("customers").select("id, name, phone, email, address").eq("id", customerId).single(),
+    const [customerResp, slaResp, templateResp, companyResp] = await Promise.all([
+      customer ? Promise.resolve({ data: customer }) : sb.db.from("customers").select("id, name, phone, email, address, document").eq("id", customerId).single(),
       sb.db.from("sla_plans").select("id, name, hours_to_expire").eq("company_id", companyId).order("name"),
       window.ModuloConfiguracoes && typeof window.ModuloConfiguracoes.obterTemplateContrato === "function"
         ? window.ModuloConfiguracoes.obterTemplateContrato(sb)
-        : Promise.resolve("")
+        : Promise.resolve(""),
+      sb.db.from("companies").select("name, document, address").eq("id", companyId).maybeSingle()
     ]);
 
     const customerData = customerResp.data || {};
     const slaPlans = slaResp.data || [];
+    const companyData = companyResp?.data || {};
     let template = String(templateResp || "");
     if (!template) {
       template = "CONTRATO - CONTRATANTE: {{NOME_CLIENTE}}, Tel: {{TELEFONE}}, End: {{ENDERECO}}. Valor: {{VALOR_MENSAL}}. Data: {{DATA_HOJE}}. Atendimento: {{DESCRICAO_ATENDIMENTO}}";
@@ -549,8 +583,10 @@
       return;
     }
 
+    const slaHoras = slaPlans[0] ? (slaPlans[0].hours_to_expire || 0) + " horas" : "conforme plano";
     const dadosPlaceholder = {
       NOME_CLIENTE: customerData.name || ticket.client_name || "",
+      CPF_CNPJ: customerData.document || "",
       TELEFONE: customerData.phone || ticket.client_phone || "",
       ENDERECO: customerData.address || "",
       EMAIL: customerData.email || "",
@@ -558,7 +594,12 @@
       VALOR_MENSAL: "0,00",
       DATA_INICIO: hojeISO,
       DATA_HOJE: hojeStr,
-      DESCRICAO_ATENDIMENTO: (ticket.description || "").slice(0, 500) || "Conforme atendimento registrado no chamado."
+      DESCRICAO_ATENDIMENTO: (ticket.description || "").slice(0, 500) || "Conforme atendimento registrado no chamado.",
+      SLA_EMERGENCIA_HORAS: slaHoras,
+      SLA_MANUTENCAO_HORAS: slaHoras,
+      PERIODICIDADE_PREVENTIVA: "mensal",
+      CONTRATADA_CNPJ: companyData.document || "[PREENCHER]",
+      CONTRATADA_ENDERECO: companyData.address || "[PREENCHER]"
     };
     const conteudoPreenchido = substituirPlaceholders(template, dadosPlaceholder);
 

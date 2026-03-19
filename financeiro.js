@@ -221,7 +221,7 @@
         receivablesResp, paymentsResp, purchasesResp, quotesResp, budgetsResp,
         workordersResp, txsResp, customersResp, contractsResp
       ] = await Promise.all([
-        ctx.sb.db.from("receivables").select("id, due_date, amount, paid, paid_at, company_id, customer_id, quote_id, workorder_id, contract_id").eq("company_id", ctx.companyId),
+        ctx.sb.db.from("receivables").select("id, due_date, amount, paid, paid_at, company_id, customer_id, quote_id, workorder_id, contract_id, nosso_numero, documento_ref").eq("company_id", ctx.companyId),
         ctx.sb.db.from("payments").select("id, amount, paid_at, created_at, note, quote_id, ticket_id, company_id, receivable_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("purchases").select("id, workorder_id, description, total, status, created_at, paid_at, company_id").eq("company_id", ctx.companyId),
         ctx.sb.db.from("quotes").select("id, ticket_id, status, total, customer_id, created_at, approved_at, company_id").eq("company_id", ctx.companyId),
@@ -384,10 +384,18 @@
     async function renderReceber(box) {
       const base = await carregarBaseFinanceira();
       const itens = receivablesNoPeriodo(base).sort((a, b) => String(a.due_date || "").localeCompare(String(b.due_date || "")));
+      const itensAberto = itens.filter((r) => !r.paid);
       box.innerHTML = `
         <div class="fin-card">
-          <div class="fin-title">Contas a Receber do Período</div>
-          <div class="fin-meta">${escapeHtml(formatarData(state.inicio))} até ${escapeHtml(formatarData(state.fim))}</div>
+          <div class="fin-rec-top" style="margin-bottom:12px">
+            <div>
+              <div class="fin-title">Contas a Receber do Período</div>
+              <div class="fin-meta">${escapeHtml(formatarData(state.inicio))} até ${escapeHtml(formatarData(state.fim))}</div>
+            </div>
+            <div>
+              <button class="btn btn-secondary" id="finExportarBanco" ${itensAberto.length ? "" : "disabled"}>Exportar para banco</button>
+            </div>
+          </div>
           <div style="margin-top:12px">
             ${itens.length ? itens.map((r) => {
               const cliente = base.customerMap.get(r.customer_id);
@@ -395,6 +403,32 @@
             }).join("") : `<div class="fin-meta">Nenhuma conta a receber no período.</div>`}
           </div>
         </div>`;
+      const btnExport = $("#finExportarBanco", box);
+      if (btnExport && itensAberto.length) {
+        btnExport.addEventListener("click", () => exportarContasParaBanco(itensAberto, base));
+      }
+    }
+
+    function exportarContasParaBanco(itens, base) {
+      const sep = ";";
+      const cabecalho = ["cliente", "cpf_cnpj", "telefone", "valor", "vencimento", "nosso_numero", "descricao"];
+      const linhas = itens.map((r) => {
+        const c = base.customerMap.get(r.customer_id);
+        const doc = (c?.document || "").replace(/\D/g, "") || "";
+        const valor = String(Number(r.amount || 0).toFixed(2)).replace(".", ",");
+        const venc = r.due_date ? String(r.due_date).slice(0, 10) : "";
+        const nossoNum = r.nosso_numero || r.documento_ref || r.id || "";
+        const desc = `Conta a receber - ${venc}`;
+        return [c?.name || "Cliente", doc, c?.phone || "", valor, venc, nossoNum, desc].map((v) => `"${String(v || "").replace(/"/g, '""')}"`).join(sep);
+      });
+      const csv = "\uFEFF" + cabecalho.join(sep) + "\r\n" + linhas.join("\r\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "contas_receber_" + hojeISO().replace(/-/g, "") + ".csv";
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
     async function renderCaixa(box) {

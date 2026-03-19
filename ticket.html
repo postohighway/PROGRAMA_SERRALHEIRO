@@ -29,6 +29,18 @@
       <label class="label">Descrição do problema</label>
       <textarea id="description" class="textarea" placeholder="Descreva o problema, local e qualquer detalhe importante"></textarea>
 
+      <div id="contratoSection" class="contrato-section">
+        <div class="contrato-header">
+          <span>Contrato de Prestação de Serviços — Plano Recorrente</span>
+          <button type="button" id="btnExpandirContrato" class="btn-ghost-mini" aria-label="Expandir contrato">▼ Ler contrato</button>
+        </div>
+        <div id="contratoConteudo" class="contrato-conteudo" style="display:none"></div>
+        <label class="contrato-aceite">
+          <input type="checkbox" id="contratoAceito" required>
+          <span>Li e aceito o contrato de prestação de serviços. Sem a assinatura formal do contrato o cliente não será atendido em regime de recorrência.</span>
+        </label>
+      </div>
+
       <button id="btnEnviarPortal" class="btn-primary big">Continuar para anexos</button>
     </div>
   </div>
