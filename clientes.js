@@ -53,6 +53,16 @@
       .cli-meta{font-size:12px;color:#9db3d6;margin-top:4px}
       .cli-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
       @media (max-width: 1100px){.cli-grid,.cli-kpis{grid-template-columns:1fr}}
+      @media (max-width: 600px){
+        .cli-kpis{grid-template-columns:1fr 1fr;gap:8px}
+        .cli-kpi-value{font-size:16px}
+        .toolbar{grid-template-columns:1fr;gap:8px}
+        .toolbar .btn{padding:14px 18px;min-height:48px;font-size:15px}
+        #modalCliente .modal{max-width:100%;max-height:90vh;overflow-y:auto;padding:14px}
+        #modalCliente .form-grid input,#modalCliente .form-grid select,#modalCliente .form-grid textarea{min-height:48px;font-size:16px}
+        #modalCliente .form-grid .btn{padding:14px 20px;min-height:48px;font-size:15px}
+        #cliContratoCampos.form-grid{grid-template-columns:1fr!important}
+      }
     `;
     document.head.appendChild(st);
   }
@@ -241,9 +251,20 @@
         <form id="formCliente" class="form-grid">
           <input type="hidden" id="cliId" value="${cliente ? cliente.id : ""}">
           <div class="field" style="grid-column:1/-1;"><label>Nome *</label><input id="cliName" type="text" required placeholder="Nome do cliente" value="${escapeHtml(cliente ? cliente.name : "")}"></div>
+          <div class="field"><label>CPF/CNPJ</label><input id="cliDocument" type="text" placeholder="Apenas números - preenche automático" value="${escapeHtml(cliente ? cliente.document : "")}" maxlength="18"></div>
           <div class="field"><label>Telefone</label><input id="cliPhone" type="text" placeholder="(11) 99999-9999" value="${escapeHtml(cliente ? cliente.phone : "")}"></div>
           <div class="field"><label>E-mail</label><input id="cliEmail" type="email" placeholder="email@exemplo.com" value="${escapeHtml(cliente ? cliente.email : "")}"></div>
           <div class="field" style="grid-column:1/-1;"><label>Endereço</label><input id="cliAddress" type="text" placeholder="Endereço completo" value="${escapeHtml(cliente ? cliente.address : "")}"></div>
+          <div class="field" style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px;margin-top:8px;"><strong>Portão (consultor em campo)</strong></div>
+          <div class="field"><label>Tipo portão</label><select id="cliGateModel"><option value="">Selecione</option></select></div>
+          <div class="field"><label>Motorização</label><select id="cliMotorModel"><option value="">Selecione</option></select></div>
+          <div class="field"><label>Largura (cm)</label><input id="cliGateLargura" type="number" placeholder="Ex: 300" min="0" step="1"></div>
+          <div class="field"><label>Altura (cm)</label><input id="cliGateAltura" type="number" placeholder="Ex: 220" min="0" step="1"></div>
+          <div class="field" style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px;margin-top:8px;"><label><input type="checkbox" id="cliCriarContrato"> Criar contrato e enviar link de assinatura</label></div>
+          <div id="cliContratoCampos" style="grid-column:1/-1;display:none;grid-template-columns:1fr 1fr;gap:12px;" class="form-grid">
+            <div class="field"><label>Plano SLA *</label><select id="cliContratoSla"><option value="">Selecione</option></select></div>
+            <div class="field"><label>Valor mensal *</label><input id="cliContratoValor" type="number" min="0" step="0.01" placeholder="0,00"></div>
+          </div>
           <div class="field"><label>Origem cadastro</label><select id="cliOrigem"><option value="consultor" ${cliente && cliente.origem_cadastro === "consultor" ? "selected" : ""}>Consultor</option><option value="telefone" ${cliente && cliente.origem_cadastro === "telefone" ? "selected" : ""}>Telefone</option></select></div>
           <div class="field"><label>Status</label><select id="cliStatus"><option value="ativo" ${cliente && cliente.status_cliente === "ativo" ? "selected" : ""}>Ativo</option><option value="suspenso" ${cliente && cliente.status_cliente === "suspenso" ? "selected" : ""}>Suspenso</option><option value="inativo" ${cliente && cliente.status_cliente === "inativo" ? "selected" : ""}>Inativo</option></select></div>
           <div class="field"><label>Início relacionamento</label><input id="cliDataInicio" type="date" value="${cliente && cliente.data_inicio_relacionamento ? String(cliente.data_inicio_relacionamento).slice(0, 10) : hoje}"></div>
@@ -264,14 +285,58 @@
       $("#cliRecurringKey", backdrop).value = gerarRecurringKey();
     }
 
+    async function carregarGateMotorModels() {
+      try {
+        const [gates, motors, slas] = await Promise.all([
+          ctx.sb.db.from("gate_models").select("id, name, gate_type, default_width_cm, default_height_cm").eq("company_id", ctx.companyId).eq("is_active", true).order("name"),
+          ctx.sb.db.from("motorization_models").select("id, name").eq("company_id", ctx.companyId).eq("is_active", true).order("name"),
+          ctx.sb.db.from("sla_plans").select("id, name").eq("company_id", ctx.companyId).order("name")
+        ]);
+        const gateOpts = (gates.data || []).map((g) => `<option value="${g.id}" data-w="${g.default_width_cm || ""}" data-h="${g.default_height_cm || ""}">${escapeHtml(g.name)} (${g.gate_type})</option>`).join("");
+        const motorOpts = (motors.data || []).map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("");
+        const slaOpts = (slas.data || []).map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+        $("#cliGateModel", backdrop).innerHTML = "<option value="">Selecione</option>" + gateOpts;
+        $("#cliMotorModel", backdrop).innerHTML = "<option value="">Selecione</option>" + motorOpts;
+        $("#cliContratoSla", backdrop).innerHTML = "<option value="">Selecione</option>" + slaOpts;
+      } catch (_) {}
+    }
+    carregarGateMotorModels();
+
+    $("#cliGateModel", backdrop).addEventListener("change", function () {
+      const opt = this.options[this.selectedIndex];
+      if (opt && opt.value && opt.dataset.w) { $("#cliGateLargura", backdrop).value = opt.dataset.w || ""; $("#cliGateAltura", backdrop).value = opt.dataset.h || ""; }
+    });
+
+    $("#cliCriarContrato", backdrop).addEventListener("change", function () {
+      $("#cliContratoCampos", backdrop).style.display = this.checked ? "grid" : "none";
+      if (this.checked) $("#cliContratoCampos", backdrop).style.gridTemplateColumns = "1fr 1fr";
+    });
+
+    $("#cliDocument", backdrop).addEventListener("blur", async function () {
+      const doc = this.value.replace(/\D/g, "");
+      if (doc.length !== 14) return;
+      try {
+        const r = await fetch("https://brasilapi.com.br/api/cnpj/v1/" + doc);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d.razao_social && !$("#cliName", backdrop).value.trim()) $("#cliName", backdrop).value = d.razao_social || d.nome_fantasia || "";
+        if (d.logradouro && !$("#cliAddress", backdrop).value.trim()) {
+          const end = [d.logradouro, d.numero, d.complemento, d.bairro, d.municipio, d.uf, d.cep].filter(Boolean).join(", ");
+          $("#cliAddress", backdrop).value = end;
+        }
+      } catch (_) {}
+    });
+
     $("#formCliente", backdrop).addEventListener("submit", async (e) => {
       e.preventDefault();
       ctx.setErro("");
       ctx.setInfo("");
 
+      const doc = $("#cliDocument", backdrop).value.trim().replace(/\D/g, "");
       const payload = {
         company_id: ctx.companyId,
         name: $("#cliName", backdrop).value.trim(),
+        document: doc || null,
         phone: $("#cliPhone", backdrop).value.trim() || null,
         email: $("#cliEmail", backdrop).value.trim() || null,
         address: $("#cliAddress", backdrop).value.trim() || null,
@@ -287,17 +352,55 @@
 
       if (!payload.name) return ctx.setErro("Informe o nome do cliente.");
 
+      const criarContrato = $("#cliCriarContrato", backdrop).checked;
+      const slaId = criarContrato ? $("#cliContratoSla", backdrop).value : null;
+      const valorContrato = criarContrato ? Number($("#cliContratoValor", backdrop).value || 0) : 0;
+      if (criarContrato && (!slaId || valorContrato <= 0)) return ctx.setErro("Para criar contrato, selecione o SLA e informe o valor mensal.");
+
       try {
+        let customerId;
         if (isNovo) {
           const r = await ctx.sb.db.from("customers").insert(payload).select().limit(1);
           if (r.error) throw r.error;
+          customerId = r.data[0].id;
+          const gateModelId = $("#cliGateModel", backdrop).value || null;
+          const motorId = $("#cliMotorModel", backdrop).value || null;
+          const largura = $("#cliGateLargura", backdrop).value || null;
+          const altura = $("#cliGateAltura", backdrop).value || null;
+          if (gateModelId || motorId || largura || altura) {
+            try {
+              await ctx.sb.db.from("customer_gates").insert({ company_id: ctx.companyId, customer_id: customerId, gate_model_id: gateModelId || null, motorization_model_id: motorId || null, width_cm: largura || null, height_cm: altura || null });
+            } catch (_) {}
+          }
           ctx.setInfo("Cliente cadastrado com sucesso.");
         } else {
-          const id = $("#cliId", backdrop).value;
-          const r = await ctx.sb.db.from("customers").update(payload).eq("id", id).select().limit(1);
+          customerId = $("#cliId", backdrop).value;
+          const r = await ctx.sb.db.from("customers").update(payload).eq("id", customerId).select().limit(1);
           if (r.error) throw r.error;
           ctx.setInfo("Cliente atualizado com sucesso.");
         }
+
+        if (criarContrato && customerId) {
+          const hoje = new Date().toISOString().slice(0, 10);
+          const templateResp = window.ModuloConfiguracoes && typeof window.ModuloConfiguracoes.obterTemplateContrato === "function" ? await window.ModuloConfiguracoes.obterTemplateContrato(ctx.sb) : "";
+          const customerData = isNovo ? { ...payload, id: customerId } : (await ctx.sb.db.from("customers").select("*").eq("id", customerId).single()).data || {};
+          const slaPlans = (await ctx.sb.db.from("sla_plans").select("id, name, hours_to_expire").eq("company_id", ctx.companyId).order("name")).data || [];
+          const sla = slaPlans.find((p) => p.id === slaId) || slaPlans[0];
+          const slaHoras = sla ? (sla.hours_to_expire || 0) + " horas" : "conforme plano";
+          let content = String(templateResp || "").replace(/\{\{NOME_CLIENTE\}\}/gi, customerData.name || "").replace(/\{\{CPF_CNPJ\}\}/gi, customerData.document || "").replace(/\{\{TELEFONE\}\}/gi, customerData.phone || "").replace(/\{\{ENDERECO\}\}/gi, customerData.address || "").replace(/\{\{EMAIL\}\}/gi, customerData.email || "").replace(/\{\{VALOR_MENSAL\}\}/gi, valorContrato.toFixed(2)).replace(/\{\{PLANO_SLA\}\}/gi, sla ? sla.name : "").replace(/\{\{DATA_INICIO\}\}/gi, hoje).replace(/\{\{DATA_HOJE\}\}/gi, new Date().toLocaleDateString("pt-BR")).replace(/\{\{DESCRICAO_ATENDIMENTO\}\}/gi, "Cadastro em campo").replace(/\{\{SLA_EMERGENCIA_HORAS\}\}/gi, slaHoras).replace(/\{\{SLA_MANUTENCAO_HORAS\}\}/gi, slaHoras).replace(/\{\{PERIODICIDADE_PREVENTIVA\}\}/gi, "mensal");
+          const sigToken = "sig_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12);
+          const insContract = await ctx.sb.db.from("contracts").insert({ company_id: ctx.companyId, customer_id: customerId, sla_plan_id: slaId, start_date: hoje, next_billing_date: hoje, status: "ativo", name: "Contrato - " + (customerData.name || "Cliente"), amount: valorContrato, contract_content: content, signature_token: sigToken }).select().limit(1);
+          if (!insContract.error && insContract.data[0]) {
+            await ctx.sb.db.from("receivables").insert({ company_id: ctx.companyId, contract_id: insContract.data[0].id, customer_id: customerId, due_date: hoje, amount: valorContrato, paid: false });
+            const linkUrl = (window.location.origin || "") + (window.location.pathname || "").replace(/\/[^/]*$/, "") + "/assinatura-contrato.html?t=" + encodeURIComponent(sigToken);
+            document.body.removeChild(backdrop);
+            if (typeof onSalvo === "function") await onSalvo();
+            const msg = "Cliente e contrato criados. Envie o link ao cliente para assinatura:\n\n" + linkUrl;
+            if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(linkUrl); alert("Link copiado! " + msg.slice(0, 80) + "..."); } else { alert(msg); }
+            return;
+          }
+        }
+
         document.body.removeChild(backdrop);
         if (typeof onSalvo === "function") await onSalvo();
       } catch (err) {

@@ -164,6 +164,29 @@ Assinatura do Contratante`;
       </div>
 
       <div class="panel" style="margin-top:20px">
+        <h2>Modelos de portão</h2>
+        <div class="panel-sub">Cadastre os tipos de portão que a serralheria oferece. O consultor escolherá ao cadastrar o cliente.</div>
+        <div id="listaGateModels" style="margin-top:12px"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <input id="novoGateNome" class="field" placeholder="Ex.: Basculante" style="max-width:180px">
+          <select id="novoGateTipo" class="select" style="max-width:140px"><option value="basculante">Basculante</option><option value="correr">Correr</option><option value="pivotante">Pivotante</option><option value="outro">Outro</option></select>
+          <input id="novoGateLargura" class="field" type="number" placeholder="Largura cm" style="max-width:100px">
+          <input id="novoGateAltura" class="field" type="number" placeholder="Altura cm" style="max-width:100px">
+          <button id="btnAddGateModel" class="btn btn-primary">Adicionar</button>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h2>Modelos de motorização</h2>
+        <div class="panel-sub">Cadastre os tipos de motorização dos portões.</div>
+        <div id="listaMotorizationModels" style="margin-top:12px"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <input id="novoMotorNome" class="field" placeholder="Ex.: Linha automática" style="max-width:220px">
+          <button id="btnAddMotorModel" class="btn btn-primary">Adicionar</button>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
         <h2>Template padrão do contrato</h2>
         <div class="panel-sub">Placeholders: {{NOME_CLIENTE}}, {{CPF_CNPJ}}, {{TELEFONE}}, {{ENDERECO}}, {{EMAIL}}, {{PLANO_SLA}}, {{VALOR_MENSAL}}, {{DATA_INICIO}}, {{DATA_HOJE}}, {{DESCRICAO_ATENDIMENTO}}, {{SLA_EMERGENCIA_HORAS}}, {{SLA_MANUTENCAO_HORAS}}, {{PERIODICIDADE_PREVENTIVA}}, {{CONTRATADA_CNPJ}}, {{CONTRATADA_ENDERECO}}</div>
         <div style="margin-top:16px">
@@ -192,6 +215,48 @@ Assinatura do Contratante`;
 
     $("#whatsappPlantao", alvo).addEventListener("input", atualizarPreview);
     atualizarPreview();
+
+    async function carregarGateModels() {
+      const box = $("#listaGateModels", alvo);
+      if (!box) return;
+      try {
+        const r = await sb.db.from("gate_models").select("id, name, gate_type, default_width_cm, default_height_cm").eq("company_id", sb.companyId).eq("is_active", true).order("name");
+        const list = (r.data || []).map((g) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>${escapeHtml(g.name)}</span><span class="muted">(${g.gate_type})</span>${g.default_width_cm ? ` ${g.default_width_cm}x${g.default_height_cm}cm` : ""}</div>`).join("");
+        box.innerHTML = list || '<div class="muted">Nenhum modelo. Adicione acima.</div>';
+      } catch (_) { box.innerHTML = '<div class="muted">Tabela gate_models não existe. Rode sql_modelos_portao_motorizacao.sql</div>'; }
+    }
+    async function carregarMotorModels() {
+      const box = $("#listaMotorizationModels", alvo);
+      if (!box) return;
+      try {
+        const r = await sb.db.from("motorization_models").select("id, name").eq("company_id", sb.companyId).eq("is_active", true).order("name");
+        const list = (r.data || []).map((m) => `<div style="margin-bottom:6px">${escapeHtml(m.name)}</div>`).join("");
+        box.innerHTML = list || '<div class="muted">Nenhum modelo. Adicione acima.</div>';
+      } catch (_) { box.innerHTML = '<div class="muted">Tabela motorization_models não existe.</div>'; }
+    }
+    carregarGateModels();
+    carregarMotorModels();
+
+    $("#btnAddGateModel", alvo).addEventListener("click", async () => {
+      const nome = $("#novoGateNome", alvo).value.trim();
+      if (!nome) return setErro("Informe o nome do modelo de portão.");
+      try {
+        await sb.db.from("gate_models").insert({ company_id: sb.companyId, name: nome, gate_type: $("#novoGateTipo", alvo).value, default_width_cm: $("#novoGateLargura", alvo).value || null, default_height_cm: $("#novoGateAltura", alvo).value || null });
+        $("#novoGateNome", alvo).value = ""; $("#novoGateLargura", alvo).value = ""; $("#novoGateAltura", alvo).value = "";
+        await carregarGateModels();
+        setInfo("Modelo de portão adicionado.");
+      } catch (e) { setErro("Erro: " + (e.message || e)); }
+    });
+    $("#btnAddMotorModel", alvo).addEventListener("click", async () => {
+      const nome = $("#novoMotorNome", alvo).value.trim();
+      if (!nome) return setErro("Informe o nome do modelo de motorização.");
+      try {
+        await sb.db.from("motorization_models").insert({ company_id: sb.companyId, name: nome });
+        $("#novoMotorNome", alvo).value = "";
+        await carregarMotorModels();
+        setInfo("Modelo de motorização adicionado.");
+      } catch (e) { setErro("Erro: " + (e.message || e)); }
+    });
 
     $("#btnSalvarPlantao", alvo).addEventListener("click", async () => {
       const v = $("#whatsappPlantao", alvo).value.trim();
