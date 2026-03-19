@@ -277,10 +277,10 @@
       if (btnHub && window.ModuloClientesRecorrentes && typeof window.ModuloClientesRecorrentes.abrirHubCliente === "function") {
         btnHub.addEventListener("click", () => window.ModuloClientesRecorrentes.abrirHubCliente({ sb: ctx.sb, companyId: ctx.companyId }, c));
       }
-      const btnAssinatura = $("#btnEnviarContratoAssinatura", wrap);
-      if (btnAssinatura) {
-        const link = btnAssinatura.getAttribute("data-link") || "";
-        btnAssinatura.addEventListener("click", () => mostrarModalLinkAssinatura(link, c.name || "Cliente"));
+      const elEnviarAssinatura = $("#btnEnviarContratoAssinatura", wrap);
+      if (elEnviarAssinatura) {
+        const link = elEnviarAssinatura.getAttribute("data-link") || "";
+        elEnviarAssinatura.addEventListener("click", () => mostrarModalLinkAssinatura(link, c.name || "Cliente"));
       }
     }
   }
