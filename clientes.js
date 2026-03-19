@@ -248,14 +248,14 @@
       const path = (window.location.pathname || "").replace(/\/[^/]*$/, "") || "";
       const base = path ? (path.endsWith("/") ? path : path + "/") : "/";
       const linkAssinatura = contratoPendente ? (window.location.origin || "") + base + "assinatura-contrato.html?t=" + encodeURIComponent(contratoPendente.signature_token || "") : "";
-      const btnAssinatura = contratoPendente ? `<button id="btnEnviarContratoAssinatura" class="btn btn-primary" data-link="${escapeHtml(linkAssinatura)}">Enviar contrato para assinatura</button>` : "";
+      const htmlBtnAssinatura = contratoPendente ? `<button id="btnEnviarContratoAssinatura" class="btn btn-primary" data-link="${escapeHtml(linkAssinatura)}">Enviar contrato para assinatura</button>` : "";
       wrap.innerHTML = `
         <div class="cli-actions">
           <button id="btnEditarCliente" class="btn btn-secondary">Editar</button>
           <button id="btnHubCliente" class="btn btn-primary">Ver hub do cliente</button>
           <a href="#chamados" class="btn btn-secondary">Ver chamados</a>
           <a href="#recorrencia" class="btn btn-secondary">Recorrência</a>
-          ${btnAssinatura}
+          ${htmlBtnAssinatura}
         </div>
 
         <div class="quote-info-box">
