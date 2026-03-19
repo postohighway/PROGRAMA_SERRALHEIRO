@@ -13,6 +13,20 @@
     return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleDateString("pt-BR");
   }
 
+  function formatarDataLonga(v) {
+    if (!v) return "";
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
+  }
+
+  function vigenciaAte(startDate) {
+    if (!startDate) return "";
+    const d = new Date(startDate + "T12:00:00");
+    if (Number.isNaN(d.getTime())) return "";
+    d.setMonth(d.getMonth() + 12);
+    return d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  }
+
   function moeda(v) {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v || 0));
   }
@@ -57,7 +71,7 @@
 
     try {
       const [contratosRes, ticketsRes, workordersRes, receivablesRes, timelineRes] = await Promise.all([
-        ctx.sb.db.from("contracts").select("id, name, amount, status, start_date, next_billing_date").eq("company_id", ctx.companyId).eq("customer_id", customer.id).order("created_at", { ascending: false }),
+        ctx.sb.db.from("contracts").select("id, name, amount, status, start_date, next_billing_date, signed_at, signed_by").eq("company_id", ctx.companyId).eq("customer_id", customer.id).order("created_at", { ascending: false }),
         ctx.sb.db.from("tickets").select("id, client_name, description, status, created_at, due_date").eq("company_id", ctx.companyId).eq("customer_id", customer.id).order("created_at", { ascending: false }).limit(10),
         ctx.sb.db.from("workorders").select("id, os_number, desc, status, created_at, due_date").eq("company_id", ctx.companyId).eq("client_id", customer.id).order("created_at", { ascending: false }).limit(10),
         ctx.sb.db.from("receivables").select("id, due_date, amount, paid, paid_at").eq("company_id", ctx.companyId).eq("customer_id", customer.id).order("due_date", { ascending: false }).limit(12),
@@ -75,7 +89,13 @@
       const totalAberto = receivables.filter((r) => !r.paid).reduce((a, r) => a + Number(r.amount || 0), 0);
 
       const htmlContratos = contratos.length
-        ? contratos.map((c) => `<div class="line-item"><div class="line-top"><div>${escapeHtml(c.name || "Contrato")}</div><div>${statusPill(c.status, "contrato")}</div></div><div>${moeda(c.amount)} • Próxima: ${formatarData(c.next_billing_date)}</div></div>`).join("")
+        ? contratos.map((c) => {
+            const vig = vigenciaAte(c.start_date || c.signed_at);
+            const assinadoVig = c.signed_at
+              ? `<div class="muted" style="font-size:12px;margin-top:4px;">Assinado em ${formatarDataLonga(c.signed_at)}${vig ? " • Vigente até " + vig : ""}</div>`
+              : vig ? `<div class="muted" style="font-size:12px;margin-top:4px;">Vigente até ${vig}</div>` : "";
+            return `<div class="line-item"><div class="line-top"><div>${escapeHtml(c.name || "Contrato")}</div><div>${statusPill(c.status, "contrato")}</div></div><div>${moeda(c.amount)} • Próxima: ${formatarData(c.next_billing_date)}</div>${assinadoVig}</div>`;
+          }).join("")
         : `<div class="empty">Nenhum contrato.</div>`;
 
       const htmlTickets = tickets.length
